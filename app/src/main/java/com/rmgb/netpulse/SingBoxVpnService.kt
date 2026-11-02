@@ -50,6 +50,7 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
                 server.start()
                 server.startOrReloadService(profile, OverrideOptions())
                 started = true
+                isRunning = true
                 updateNotification("sing-box active")
                 sendBroadcast(Intent(ACTION_STATE).setPackage(packageName).putExtra(EXTRA_CONNECTED, true))
             } catch (error: Exception) {
@@ -232,6 +233,7 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
             tunDescriptor = null
         }
         started = false
+        isRunning = false
         VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.SING_BOX)
         sendBroadcast(Intent(ACTION_STATE).setPackage(packageName).putExtra(EXTRA_CONNECTED, false))
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) stopForeground(STOP_FOREGROUND_REMOVE)
@@ -267,6 +269,8 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
     }
 
     companion object {
+        @Volatile var isRunning: Boolean = false
+            private set
         const val EXTRA_PROFILE = "com.rmgb.netpulse.extra.SINGBOX_PROFILE"
         const val ACTION_STATE = "com.rmgb.netpulse.action.SINGBOX_STATE"
         const val EXTRA_CONNECTED = "com.rmgb.netpulse.extra.CONNECTED"
