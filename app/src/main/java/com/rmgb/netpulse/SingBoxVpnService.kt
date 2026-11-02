@@ -5,6 +5,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Intent
 import android.net.VpnService
+import android.net.IpPrefix
+import java.net.InetAddress
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.util.Log
@@ -84,9 +86,7 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
                 else if (options.inet4Address.hasNext()) builder.addRoute("0.0.0.0", 0)
                 if (v6.hasNext()) addPrefixes(v6, true)
                 else if (options.inet6Address.hasNext()) builder.addRoute("::", 0)
-                addPrefixes(options.inet4RouteExcludeAddress, false)
-                addPrefixes(options.inet6RouteExcludeAddress, false)
-            } else {
+                fun excludePrefixes(iterator: RoutePrefixIterator) {\n                    while (iterator.hasNext()) {\n                        val prefix = iterator.next()\n                        builder.excludeRoute(IpPrefix(InetAddress.getByName(prefix.address()), prefix.prefix()))\n                    }\n                }\n                excludePrefixes(options.inet4RouteExcludeAddress)\n                excludePrefixes(options.inet6RouteExcludeAddress)\n            } else {
                 addPrefixes(options.inet4RouteRange, true)
                 addPrefixes(options.inet6RouteRange, true)
             }
