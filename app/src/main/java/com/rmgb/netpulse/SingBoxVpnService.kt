@@ -196,49 +196,54 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
         listener.updateDefaultInterface(name, index, metered, false)
     }
     override fun getInterfaces(): NetworkInterfaceIterator {
-        val active = connectivity.activeNetwork
-        val activeProperties = active?.let { connectivity.getLinkProperties(it) }
-        val activeName = activeProperties?.interfaceName
-        val capabilities = active?.let { connectivity.getNetworkCapabilities(it) }
-        val dnsServers = activeProperties?.dnsServers.orEmpty().map { it.hostAddress ?: "" }.filter { it.isNotBlank() }
-        val gateways = activeProperties?.routes.orEmpty()
-            .filter { it.isDefaultRoute && it.gateway != null }
-            .mapNotNull { it.gateway?.hostAddress }
-            .distinct()
+        val snapshot = connectivity.allNetworks.mapNotNull { network ->
+            runCatching {
+                val properties = connectivity.getLinkProperties(network) ?: return@runCatching null
+                val capabilities = connectivity.getNetworkCapabilities(network) ?: return@runCatching null
+                val name = properties.interfaceName ?: return@runCatching null
+                val networkInterface = NetworkInterface.getByName(name) ?: return@runCatching null
 
-        val snapshot = java.net.NetworkInterface.getNetworkInterfaces()?.toList().orEmpty()
-            .filter { networkInterface ->
-                runCatching { networkInterface.isUp && !networkInterface.isLoopback }.getOrDefault(false)
-            }
-            .mapNotNull { networkInterface ->
-                runCatching {
-                    val item = io.nekohasekai.libbox.NetworkInterface()
-                    item.index = networkInterface.index
-                    item.name = networkInterface.name
-                    item.mtu = networkInterface.mtu
-                    item.flags = 0
-                    item.type = when {
-                        networkInterface.name == activeName && capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true ->
-                            Libbox.InterfaceTypeWIFI
-                        networkInterface.name == activeName && capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true ->
-                            Libbox.InterfaceTypeCellular
-                        networkInterface.name == activeName && capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) == true ->
-                            Libbox.InterfaceTypeEthernet
-                        else -> Libbox.InterfaceTypeOther
-                    }
-                    val addresses = networkInterface.interfaceAddresses.mapNotNull { entry ->
-                        val address = entry.address ?: return@mapNotNull null
-                        if (address.isAnyLocalAddress || address.isLoopbackAddress) return@mapNotNull null
-                        "${address.hostAddress.substringBefore('%')}/${entry.networkPrefixLength}"
-                    }
-                    item.addresses = stringIterator(addresses)
-                    item.dnsServer = stringIterator(if (networkInterface.name == activeName) dnsServers else emptyList())
-                    item.gateway = stringIterator(if (networkInterface.name == activeName) gateways else emptyList())
-                    item.metered = networkInterface.name == activeName &&
-                        capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) != true
-                    item
-                }.getOrNull()
-            }
+                val item = io.nekohasekai.libbox.NetworkInterface()
+                item.index = networkInterface.index
+                item.name = name
+                item.mtu = networkInterface.mtu
+                item.type = when {
+                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> Libbox.InterfaceTypeWIFI
+                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> Libbox.InterfaceTypeCellular
+                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> Libbox.InterfaceTypeEthernet
+                    else -> Libbox.InterfaceTypeOther
+                }
+
+                val addresses = networkInterface.interfaceAddresses.mapNotNull { entry ->
+                    val address = entry.address ?: return@mapNotNull null
+                    if (address.isAnyLocalAddress || address.isLoopbackAddress) return@mapNotNull null
+                    "${address.hostAddress.substringBefore('%')}/${entry.networkPrefixLength}"
+                }
+                item.addresses = stringIterator(addresses)
+                item.dnsServer = stringIterator(
+                    properties.dnsServers.mapNotNull { it.hostAddress }.filter { it.isNotBlank() }
+                )
+                item.gateway = stringIterator(
+                    properties.routes
+                        .filter { it.isDefaultRoute }
+                        .mapNotNull { it.gateway?.takeUnless(InetAddress::isAnyLocalAddress)?.hostAddress }
+                        .filter { it.isNotBlank() }
+                        .distinct()
+                )
+
+                var flags = 0
+                if (capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
+                    flags = flags or android.system.OsConstants.IFF_UP or android.system.OsConstants.IFF_RUNNING
+                }
+                if (networkInterface.isLoopback) flags = flags or android.system.OsConstants.IFF_LOOPBACK
+                if (networkInterface.isPointToPoint) flags = flags or android.system.OsConstants.IFF_POINTOPOINT
+                if (networkInterface.supportsMulticast()) flags = flags or android.system.OsConstants.IFF_MULTICAST
+                item.flags = flags
+                item.metered = !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+                item
+            }.getOrNull()
+        }.distinctBy { it.name to it.index }
+
         return object : NetworkInterfaceIterator {
             private var position = 0
             override fun hasNext() = position < snapshot.size
