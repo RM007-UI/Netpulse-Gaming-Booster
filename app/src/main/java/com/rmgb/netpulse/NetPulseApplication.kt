@@ -15,6 +15,7 @@ class NetPulseApplication : Application() {
     // Keep imported profiles only in process memory so Activity recreation does not discard them.
     @Volatile var loadedWireGuardConfig: Config? = null
     @Volatile var pendingWireGuardConfig: Config? = null
+    @Volatile var loadedSingBoxProfile: String? = null
     val wireGuardTunnel: Tunnel = object : Tunnel {
         override fun getName(): String = "NetPulse-WireGuard"
         override fun onStateChange(newState: Tunnel.State) { wireGuardStateListener?.invoke(newState) }
