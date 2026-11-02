@@ -31,6 +31,8 @@ class MainActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var connectButton: Button
     private lateinit var singBoxStatus: TextView
+    private lateinit var singBoxButton: Button
+    private var singBoxConnected = false
     private var loadedConfig: Config? = null
     private var connected = false
 
@@ -89,8 +91,14 @@ class MainActivity : Activity() {
             text = "Import sing-box JSON"
             setOnClickListener { openSingBoxPicker() }
         })
-        singBoxStatus = label("No sing-box configuration loaded", 13f, muted).apply { setPadding(0, 12, 0, 12) }
+        singBoxStatus = label(if (app.loadedSingBoxProfile != null) "Configuration validated · ready to connect" else "No sing-box configuration loaded", 13f, muted).apply { setPadding(0, 12, 0, 12) }
         body.addView(singBoxStatus)
+        singBoxButton = Button(this).apply {
+            text = "Connect sing-box"
+            isEnabled = app.loadedSingBoxProfile != null
+            setOnClickListener { toggleSingBox() }
+        }
+        body.addView(singBoxButton)
 
         body.addView(label("Protocol catalog", 20f, Color.WHITE, true).apply { setPadding(0, 28, 0, 8) })
         body.addView(label("Only integrated engines are marked as available. Other entries remain inactive until their engines are implemented and tested.", 13f, muted))
@@ -126,6 +134,44 @@ class MainActivity : Activity() {
 
     private fun updateSingBoxStatus(message: String) { singBoxStatus.text = message }
 
+    private fun toggleSingBox() {
+        if (singBoxConnected) {
+            stopService(Intent(this, SingBoxVpnService::class.java))
+            singBoxConnected = false
+            singBoxButton.text = "Connect sing-box"
+            singBoxStatus.text = "sing-box disconnected"
+            return
+        }
+        val profile = (application as NetPulseApplication).loadedSingBoxProfile ?: return
+        val permissionIntent = VpnService.prepare(this)
+        if (permissionIntent != null) {
+            startActivityForResult(permissionIntent, REQUEST_SINGBOX_VPN_PERMISSION)
+        } else {
+            startSingBoxService(profile)
+        }
+    }
+
+    private fun startSingBoxService(profile: String? = (application as NetPulseApplication).loadedSingBoxProfile) {
+        if (profile.isNullOrBlank()) return
+        if (!VpnEngineCoordinator.acquire(VpnEngineCoordinator.Engine.SING_BOX)) {
+            singBoxStatus.text = "Another VPN engine is active. Disconnect it first."
+            Toast.makeText(this, "Another VPN engine is active", Toast.LENGTH_LONG).show()
+            return
+        }
+        val intent = Intent(this, SingBoxVpnService::class.java).putExtra(SingBoxVpnService.EXTRA_PROFILE, profile)
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 26) startForegroundService(intent) else startService(intent)
+            singBoxConnected = true
+            singBoxButton.text = "Disconnect sing-box"
+            singBoxStatus.text = "Starting sing-box…"
+        } catch (error: Exception) {
+            VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.SING_BOX)
+            singBoxConnected = false
+            singBoxStatus.text = "sing-box failed to start"
+            Toast.makeText(this, "sing-box could not start", Toast.LENGTH_LONG).show()
+        }
+    }
+
     private fun openProfilePicker() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
@@ -138,6 +184,10 @@ class MainActivity : Activity() {
     @Deprecated("Handled for compatibility with the current minimal Activity scaffold")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_SINGBOX_VPN_PERMISSION) {
+            if (resultCode == RESULT_OK) startSingBoxService()
+            return
+        }
         if (requestCode == REQUEST_VPN_PERMISSION) {
             val app = application as NetPulseApplication
             val config = app.pendingWireGuardConfig
@@ -156,7 +206,9 @@ class MainActivity : Activity() {
                     if (content.isBlank()) throw IllegalArgumentException("Configuration is empty")
                     Libbox.checkConfig(content)
                     runOnUiThread {
-                        updateSingBoxStatus("Configuration validated · sing-box tunnel not connected")
+                        (application as NetPulseApplication).loadedSingBoxProfile = content
+                        updateSingBoxStatus("Configuration validated · ready to connect")
+                        singBoxButton.isEnabled = true
                         Toast.makeText(this, "sing-box configuration validated", Toast.LENGTH_SHORT).show()
                     }
                 } catch (error: Exception) {
@@ -301,6 +353,7 @@ class MainActivity : Activity() {
         private const val REQUEST_PROFILE = 711
         private const val REQUEST_VPN_PERMISSION = 710
         private const val REQUEST_SINGBOX_PROFILE = 712
+        private const val REQUEST_SINGBOX_VPN_PERMISSION = 713
         private const val MAX_PROFILE_BYTES = 2 * 1024 * 1024
     }
 }
