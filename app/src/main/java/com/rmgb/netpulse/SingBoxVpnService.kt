@@ -170,10 +170,68 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
         val metered = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) != true
         listener.updateDefaultInterface(name, index, metered, false)
     }
-    override fun getInterfaces(): NetworkInterfaceIterator = object : NetworkInterfaceIterator {
-        override fun hasNext() = false
-        override fun next(): io.nekohasekai.libbox.NetworkInterface =
-            throw NoSuchElementException("No interface snapshot available")
+    override fun getInterfaces(): NetworkInterfaceIterator {
+        val active = connectivity.activeNetwork
+        val activeProperties = active?.let { connectivity.getLinkProperties(it) }
+        val activeName = activeProperties?.interfaceName
+        val capabilities = active?.let { connectivity.getNetworkCapabilities(it) }
+        val dnsServers = activeProperties?.dnsServers.orEmpty().map { it.hostAddress ?: "" }.filter { it.isNotBlank() }
+        val gateways = activeProperties?.routes.orEmpty()
+            .filter { it.isDefaultRoute && it.gateway != null }
+            .mapNotNull { it.gateway.hostAddress }
+            .distinct()
+
+        val snapshot = java.net.NetworkInterface.getNetworkInterfaces()?.toList().orEmpty()
+            .filter { networkInterface ->
+                runCatching { networkInterface.isUp && !networkInterface.isLoopback }.getOrDefault(false)
+            }
+            .mapNotNull { networkInterface ->
+                runCatching {
+                    val item = io.nekohasekai.libbox.NetworkInterface()
+                    item.index = networkInterface.index
+                    item.name = networkInterface.name
+                    item.mtu = networkInterface.mtu
+                    item.flags = 0
+                    item.type = when {
+                        networkInterface.name == activeName && capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true ->
+                            Libbox.InterfaceTypeWIFI
+                        networkInterface.name == activeName && capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true ->
+                            Libbox.InterfaceTypeCellular
+                        networkInterface.name == activeName && capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) == true ->
+                            Libbox.InterfaceTypeEthernet
+                        else -> Libbox.InterfaceTypeOther
+                    }
+                    val addresses = networkInterface.interfaceAddresses.mapNotNull { entry ->
+                        val address = entry.address ?: return@mapNotNull null
+                        if (address.isAnyLocalAddress || address.isLoopbackAddress) return@mapNotNull null
+                        "${address.hostAddress.substringBefore('%')}/${entry.networkPrefixLength}"
+                    }
+                    item.addresses = stringIterator(addresses)
+                    item.dnsServer = stringIterator(if (networkInterface.name == activeName) dnsServers else emptyList())
+                    item.gateway = stringIterator(if (networkInterface.name == activeName) gateways else emptyList())
+                    item.metered = networkInterface.name == activeName &&
+                        capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) != true
+                    item
+                }.getOrNull()
+            }
+        return object : NetworkInterfaceIterator {
+            private var position = 0
+            override fun hasNext() = position < snapshot.size
+            override fun next(): io.nekohasekai.libbox.NetworkInterface {
+                if (!hasNext()) throw NoSuchElementException()
+                return snapshot[position++]
+            }
+        }
+    }
+
+    private fun stringIterator(values: List<String>): StringIterator = object : StringIterator {
+        private var position = 0
+        override fun hasNext() = position < values.size
+        override fun len() = values.size
+        override fun next(): String {
+            if (!hasNext()) throw NoSuchElementException()
+            return values[position++]
+        }
     }
     override fun findConnectionOwner(ipProtocol: Int, sourceAddress: String, sourcePort: Int,
         destinationAddress: String, destinationPort: Int): ConnectionOwner = ConnectionOwner()
