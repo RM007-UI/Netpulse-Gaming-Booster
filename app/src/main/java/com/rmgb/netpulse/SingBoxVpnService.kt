@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Intent
 import android.net.VpnService
+import android.net.ProxyInfo
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
@@ -85,6 +86,19 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
         val hasV6Address = options.inet6Address.hasNext()
         addPrefixes(options.inet4Address, false)
         addPrefixes(options.inet6Address, false)
+        if (options.isHTTPProxyEnabled) {
+            check(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                "HTTP proxy integration requires Android 10 or newer"
+            }
+            val bypassDomains = mutableListOf<String>()
+            val bypass = options.httpProxyBypassDomain
+            while (bypass.hasNext()) bypassDomains += bypass.next()
+            val host = options.httpProxyServer
+            val port = options.httpProxyServerPort
+            require(host.isNotBlank() && port in 1..65535) { "Invalid HTTP proxy endpoint" }
+            builder.setHttpProxy(ProxyInfo.buildDirectProxy(host, port, bypassDomains))
+        }
+
         if (options.autoRoute) {
             val dns = options.dnsServerAddress
             if (options.dnsMode.value != Libbox.DNSModeDisabled) {
