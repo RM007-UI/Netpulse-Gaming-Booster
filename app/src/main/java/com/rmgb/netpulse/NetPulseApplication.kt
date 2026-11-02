@@ -6,11 +6,15 @@ import io.nekohasekai.libbox.Libbox
 import io.nekohasekai.libbox.SetupOptions
 import com.wireguard.android.backend.GoBackend
 import com.wireguard.android.backend.Tunnel
+import com.wireguard.config.Config
 import java.util.Locale
 
 class NetPulseApplication : Application() {
     val wireGuardBackend: GoBackend by lazy(LazyThreadSafetyMode.SYNCHRONIZED) { GoBackend(applicationContext) }
     @Volatile var wireGuardStateListener: ((Tunnel.State) -> Unit)? = null
+    // Keep imported profiles only in process memory so Activity recreation does not discard them.
+    @Volatile var loadedWireGuardConfig: Config? = null
+    @Volatile var pendingWireGuardConfig: Config? = null
     val wireGuardTunnel: Tunnel = object : Tunnel {
         override fun getName(): String = "NetPulse-WireGuard"
         override fun onStateChange(newState: Tunnel.State) { wireGuardStateListener?.invoke(newState) }
