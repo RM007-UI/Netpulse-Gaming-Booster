@@ -49,7 +49,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        backend = GoBackend(applicationContext)
+        backend = (application as NetPulseApplication).wireGuardBackend
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -165,9 +165,8 @@ class MainActivity : Activity() {
         val uri = data?.data ?: return
         worker.execute {
             try {
-                val bytes = contentResolver.openInputStream(uri)?.use { it.readNBytes(MAX_PROFILE_BYTES + 1) }
+                val bytes = contentResolver.openInputStream(uri)?.use { readLimited(it) }
                     ?: throw IllegalArgumentException("Unable to open the selected profile")
-                if (bytes.size > MAX_PROFILE_BYTES) throw IllegalArgumentException("Profile exceeds the 2 MiB import limit")
                 val parsed = bytes.inputStream().use { Config.parse(it) }
                 runOnUiThread {
                     loadedConfig = parsed
@@ -251,6 +250,23 @@ class MainActivity : Activity() {
             setTextColor(color)
             if (bold) setTypeface(typeface, android.graphics.Typeface.BOLD)
         }
+
+    override fun onResume() {
+        super.onResume()
+        if (::backend.isInitialized && ::connectButton.isInitialized) {
+            worker.execute {
+                runCatching { backend.getState(wireGuardTunnel) == Tunnel.State.UP }
+                    .onSuccess { isUp ->
+                        runOnUiThread {
+                            connected = isUp
+                            connectButton.text = if (isUp) "Disconnect" else "Connect"
+                            connectButton.isEnabled = isUp || loadedConfig != null
+                            if (isUp) status.text = "WireGuard connected"
+                        }
+                    }
+            }
+        }
+    }
 
     override fun onDestroy() {
         super.onDestroy()
