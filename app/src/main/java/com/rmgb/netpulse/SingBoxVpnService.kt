@@ -79,7 +79,12 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
         check(!stopping.get()) { "VPN service is stopping" }
         check(prepare(this) == null) { "VPN permission is missing" }
         val builder = Builder().setSession("NetPulse sing-box").setMtu(options.mtu)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setMetered(false)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val underlyingCapabilities = connectivity.activeNetwork?.let(connectivity::getNetworkCapabilities)
+            val underlyingIsMetered =
+                underlyingCapabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) != true
+            builder.setMetered(underlyingIsMetered)
+        }
 
         fun addPrefixes(iterator: RoutePrefixIterator, route: Boolean) {
             while (iterator.hasNext()) {
@@ -101,6 +106,10 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
         if (options.isHTTPProxyEnabled) {
             check(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 "HTTP proxy integration requires Android 10 or newer"
+            }
+            val matchDomains = options.httpProxyMatchDomain
+            check(!matchDomains.hasNext()) {
+                "Android VPN HTTP proxy cannot enforce sing-box HTTP proxy match-domain rules"
             }
             val bypassDomains = mutableListOf<String>()
             val bypass = options.httpProxyBypassDomain
