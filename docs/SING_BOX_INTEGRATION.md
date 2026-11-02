@@ -82,3 +82,37 @@ For the currently selected release:
 - Source repository: https://github.com/singbox-android/libbox
 
 This verifies the published asset identity and the repository's declared Maven coordinates. The Android CI now compares the resolved Gradle-cache AAR against this SHA-256 after the build and fails if the bytes differ, preventing an unexpected artifact from silently entering the APK.
+
+### Confirmed libbox Android callback contract (upstream SFA reference)
+
+The upstream Android implementation confirms the following API shapes for the 1.14.x binding:
+
+- `PlatformInterface` is implemented by a platform wrapper; the VPN service separately overrides `openTun(options: TunOptions): Int`.
+- `openTun` reads address iterators (`inet4Address`, `inet6Address`), DNS server iterators, route iterators, excluded routes, and include/exclude package iterators from `TunOptions`.
+- The service creates the Android TUN with `VpnService.Builder.establish()`, retains the resulting `ParcelFileDescriptor`, and returns its file descriptor to libbox.
+- `autoDetectInterfaceControl(fd)` in the VPN service calls `protect(fd)` so the core's outbound control socket does not loop back into its own TUN.
+- The command lifecycle is based on `CommandServer(handler, platformInterface)`, `start()`, then `startOrReloadService(profileJson, OverrideOptions())`. A production implementation also needs the matching stop/close lifecycle; starting the command server alone is not a connected tunnel.
+- The upstream platform wrapper exposes default-network monitoring, interface enumeration, connection-owner lookup, Wi-Fi state, local DNS transport, and optional neighbor/shell/bridge/auto-redirect callbacks.
+
+### No-root implementation boundary (confirmed from upstream source)
+
+NetPulse must not port root-dependent behavior from the reference client. The following capabilities are explicitly excluded from the first no-root implementation:
+
+- Platform shell and SFTP server lookup
+- Root bridge creation
+- Platform auto-redirect
+- Neighbor-table monitoring backed by privileged/root services
+
+For the initial implementation, report platform bridge and auto-redirect as unsupported, and do not request root access. Implement public Android networking callbacks only where required by the selected libbox configuration. `findConnectionOwner` may use Android's public `ConnectivityManager.getConnectionOwnerUid` on API 29+, with a documented fallback or unsupported behavior on older API levels.
+
+### TUN correctness requirements
+
+- Preserve the TUN descriptor as a service-owned resource and close it exactly once on stop, revoke, startup failure, and service destruction.
+- Translate IPv4 and IPv6 addresses, DNS servers, routes, route exclusions, and per-app allow/deny lists from `TunOptions`; do not silently drop options.
+- Use `protect(fd)` for the engine's own sockets before network traffic starts.
+- Handle `establish()` returning null as a hard startup failure.
+- Do not claim connection success until `startOrReloadService` completes and the command server reports a started state.
+- Serialize startup and teardown with WireGuard: never establish a sing-box TUN while WireGuard is UP, and never start WireGuard until sing-box is confirmed stopped.
+- Keep profile JSON and secrets out of logs and notifications.
+
+Reference implementation reviewed: `SagerNet/sing-box-for-android`, `VPNService.kt`, `PlatformInterfaceWrapper.kt`, and `BoxService.kt`. This is implementation guidance from upstream source, not a claim that NetPulse has already integrated those components.
