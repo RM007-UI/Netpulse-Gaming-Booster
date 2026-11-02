@@ -45,7 +45,7 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
                 updateNotification("sing-box active")
                 sendBroadcast(Intent(ACTION_STATE).setPackage(packageName).putExtra(EXTRA_CONNECTED, true))
             } catch (error: Exception) {
-                Log.e(TAG, "sing-box startup failed", error.javaClass)
+                Log.e(TAG, "sing-box startup failed (${error.javaClass.simpleName})")
                 stopEngine()
                 stopSelf(startId)
             }
@@ -72,6 +72,8 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
             }
         }
 
+        val hasV4Address = options.inet4Address.hasNext()
+        val hasV6Address = options.inet6Address.hasNext()
         addPrefixes(options.inet4Address, false)
         addPrefixes(options.inet6Address, false)
         if (options.autoRoute) {
@@ -83,9 +85,9 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
                 val v4 = options.inet4RouteAddress
                 val v6 = options.inet6RouteAddress
                 if (v4.hasNext()) addPrefixes(v4, true)
-                else if (options.inet4Address.hasNext()) builder.addRoute("0.0.0.0", 0)
+                else if (hasV4Address) builder.addRoute("0.0.0.0", 0)
                 if (v6.hasNext()) addPrefixes(v6, true)
-                else if (options.inet6Address.hasNext()) builder.addRoute("::", 0)
+                else if (hasV6Address) builder.addRoute("::", 0)
                 fun excludePrefixes(iterator: RoutePrefixIterator) {\n                    while (iterator.hasNext()) {\n                        val prefix = iterator.next()\n                        builder.excludeRoute(IpPrefix(InetAddress.getByName(prefix.address()), prefix.prefix()))\n                    }\n                }\n                excludePrefixes(options.inet4RouteExcludeAddress)\n                excludePrefixes(options.inet6RouteExcludeAddress)\n            } else {
                 addPrefixes(options.inet4RouteRange, true)
                 addPrefixes(options.inet6RouteRange, true)
