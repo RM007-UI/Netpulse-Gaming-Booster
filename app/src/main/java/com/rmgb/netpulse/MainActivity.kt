@@ -152,7 +152,7 @@ class MainActivity : Activity() {
                     if (content.isBlank()) throw IllegalArgumentException("Configuration is empty")
                     Libbox.checkConfig(content)
                     runOnUiThread {
-                        updateSingBoxStatus("sing-box configuration validated")
+                        updateSingBoxStatus("Configuration validated · sing-box tunnel not connected")
                         Toast.makeText(this, "sing-box configuration validated", Toast.LENGTH_SHORT).show()
                     }
                 } catch (error: Exception) {
