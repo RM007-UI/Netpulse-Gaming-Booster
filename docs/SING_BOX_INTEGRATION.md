@@ -134,3 +134,36 @@ The current NetPulse manifest intentionally does not declare a sing-box service 
 - Wi-Fi to cellular handoff, cellular to Wi-Fi handoff, airplane mode, IPv6-only/dual-stack networks, app process recreation, force-stop, VPN permission revoke, and simultaneous-start attempts against WireGuard.
 
 CI can validate compilation and unit tests, but only real-device runs can validate the Android VPN prompt, foreground-service policy, route installation, DNS behavior, and traffic flow.
+
+
+### Verified no-root PlatformInterface surface
+
+The upstream wrapper's current interface implementation was inspected directly. The Android-facing methods that matter to the first no-root TUN adapter are:
+
+| Callback | First implementation |
+| --- | --- |
+| `usePlatformAutoDetectInterfaceControl` / `autoDetectInterfaceControl(fd)` | Return platform control enabled and call `VpnService.protect(fd)` for core sockets. |
+| `openTun(TunOptions)` | Implement in the VPN service; map addresses, MTU, DNS, routes, exclusions and app allow/deny lists into `VpnService.Builder`; retain the resulting `ParcelFileDescriptor`. |
+| `findConnectionOwner(...)` | API 29+ via `ConnectivityManager.getConnectionOwnerUid`; earlier versions may use libbox fallback only if its behavior is verified. |
+| `startDefaultInterfaceMonitor(listener)` / `closeDefaultInterfaceMonitor(listener)` | Provide a lifecycle-bound connectivity callback and update the default interface without reporting the VPN interface as its own upstream. |
+| `getInterfaces()` | Enumerate Android networks and their link properties/capabilities; return libbox interface iterator objects. |
+| `underNetworkExtension()` / `includeAllNetworks()` | Return false for Android VpnService. |
+| `clearDNSCache()` | Safe no-op unless a real resolver cache is introduced. |
+| `readWIFIState()` | Return null or an empty state when platform permission/privacy constraints prevent reading identifiers; do not request location merely for optional metadata. |
+| `localDNSTransport()` | Return null initially; add a resolver bridge only after its callback and cancellation behavior are tested. |
+| `startNeighborMonitor` / `closeNeighborMonitor` | No-op: upstream implementation uses a privileged root service and is outside the no-root scope. |
+| `usePlatformShell`, `checkPlatformShell`, `openShellSession`, `lookupSFTPServer` | Explicitly unsupported; never invoke shell or root APIs. |
+| `readSystemSSHHostKey()` | Unsupported. |
+| `tailscaleHostname()` | Return a non-sensitive local device label only if the API requires it. |
+| `usePlatformBridge`, `createBridge` | Unsupported; upstream bridge is root-backed. |
+| `usePlatformAutoRedirect`, `createAutoRedirect` | Unsupported; upstream auto-redirect is root-backed. |
+| `lookupUser` | Unsupported unless a concrete no-root use case and Android-safe mapping are established. |
+| `registerMyInterface(name)` | No-op for the initial adapter. |
+
+The upstream source also confirms the TUN builder's current option names: `inet4Address`, `inet6Address`, `dnsMode`, `dnsServerAddress`, `autoRoute`, `inet4RouteAddress`, `inet6RouteAddress`, `inet4RouteExcludeAddress`, `inet6RouteExcludeAddress`, `inet4RouteRange`, `inet6RouteRange`, `includePackage`, `excludePackage`, `mtu`, and optional HTTP proxy fields. These names are source-verified for the inspected upstream revision; the actual AAR's generated API must still be compiled against before implementation.
+
+### CommandServer lifecycle verified from upstream
+
+The upstream controller constructs `CommandServer(handler, platformInterface)`, calls `start()`, then invokes `startOrReloadService(profileJson, OverrideOptions())`. Shutdown closes the TUN descriptor, closes the service, then closes the command server. NetPulse must preserve this ordering while also handling startup exceptions, Android VPN revocation, service destruction, and repeated start/stop requests. A successful `CommandServer.start()` alone is not evidence that the tunnel is connected.
+
+The upstream app's full wrapper contains substantial root-specific and app-specific code. It is a reference for the API contract, not code to copy wholesale. The initial adapter must remain small, explicitly no-root, and fail closed for unsupported methods.
