@@ -158,7 +158,7 @@ class MainActivity : Activity() {
                 } catch (error: Exception) {
                     runOnUiThread {
                         updateSingBoxStatus("sing-box configuration rejected")
-                        Toast.makeText(this, "Invalid sing-box configuration: " + (error.message ?: "unknown error"), Toast.LENGTH_LONG).show()
+                        Toast.makeText(this, "Configuration rejected. Check the profile locally and try again.", Toast.LENGTH_LONG).show()
                     }
                 }
             }
@@ -182,7 +182,7 @@ class MainActivity : Activity() {
                     loadedConfig = null
                     connectButton.isEnabled = false
                     status.text = "Profile could not be parsed"
-                    Toast.makeText(this, "Invalid WireGuard profile: ${error.message ?: "unknown error"}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "WireGuard profile rejected. Check the file and try again.", Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -227,7 +227,7 @@ class MainActivity : Activity() {
         runOnUiThread {
             status.text = "$prefix · ${error.javaClass.simpleName}"
             connectButton.isEnabled = loadedConfig != null
-            Toast.makeText(this, "$prefix: ${error.message ?: "unknown error"}", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "$prefix (${error.javaClass.simpleName})", Toast.LENGTH_LONG).show()
         }
     }
 
