@@ -2,6 +2,9 @@ package com.rmgb.netpulse
 
 import android.app.Activity
 import android.content.Intent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
 import android.net.VpnService
 import android.os.Bundle
 import android.widget.Button
@@ -33,6 +36,19 @@ class MainActivity : Activity() {
     private lateinit var singBoxStatus: TextView
     private lateinit var singBoxButton: Button
     private var singBoxConnected = false
+    private var singBoxStarting = false
+    private var singBoxReceiverRegistered = false
+    private val singBoxStateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action != SingBoxVpnService.ACTION_STATE) return
+            singBoxConnected = intent.getBooleanExtra(SingBoxVpnService.EXTRA_CONNECTED, false)
+            singBoxStarting = false
+            if (!::singBoxButton.isInitialized || !::singBoxStatus.isInitialized) return
+            singBoxButton.isEnabled = true
+            singBoxButton.text = if (singBoxConnected) "Disconnect sing-box" else "Connect sing-box"
+            singBoxStatus.text = if (singBoxConnected) "sing-box connected" else "sing-box disconnected"
+        }
+    }
     private var loadedConfig: Config? = null
     private var connected = false
 
@@ -135,11 +151,10 @@ class MainActivity : Activity() {
     private fun updateSingBoxStatus(message: String) { singBoxStatus.text = message }
 
     private fun toggleSingBox() {
-        if (singBoxConnected) {
+        if (singBoxConnected || singBoxStarting) {
+            singBoxButton.isEnabled = false
+            singBoxStatus.text = "Stopping sing-box…"
             stopService(Intent(this, SingBoxVpnService::class.java))
-            singBoxConnected = false
-            singBoxButton.text = "Connect sing-box"
-            singBoxStatus.text = "sing-box disconnected"
             return
         }
         val profile = (application as NetPulseApplication).loadedSingBoxProfile ?: return
@@ -161,12 +176,16 @@ class MainActivity : Activity() {
         val intent = Intent(this, SingBoxVpnService::class.java).putExtra(SingBoxVpnService.EXTRA_PROFILE, profile)
         try {
             if (android.os.Build.VERSION.SDK_INT >= 26) startForegroundService(intent) else startService(intent)
-            singBoxConnected = true
-            singBoxButton.text = "Disconnect sing-box"
+            singBoxStarting = true
+            singBoxButton.isEnabled = false
+            singBoxButton.text = "Starting…"
             singBoxStatus.text = "Starting sing-box…"
         } catch (error: Exception) {
             VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.SING_BOX)
             singBoxConnected = false
+            singBoxStarting = false
+            singBoxButton.isEnabled = true
+            singBoxButton.text = "Connect sing-box"
             singBoxStatus.text = "sing-box failed to start"
             Toast.makeText(this, "sing-box could not start", Toast.LENGTH_LONG).show()
         }
@@ -317,6 +336,28 @@ class MainActivity : Activity() {
             setTextColor(color)
             if (bold) setTypeface(typeface, android.graphics.Typeface.BOLD)
         }
+
+    override fun onStart() {
+        super.onStart()
+        if (!singBoxReceiverRegistered) {
+            val filter = IntentFilter(SingBoxVpnService.ACTION_STATE)
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                registerReceiver(singBoxStateReceiver, filter, RECEIVER_NOT_EXPORTED)
+            } else {
+                @Suppress("DEPRECATION")
+                registerReceiver(singBoxStateReceiver, filter)
+            }
+            singBoxReceiverRegistered = true
+        }
+    }
+
+    override fun onStop() {
+        if (singBoxReceiverRegistered) {
+            unregisterReceiver(singBoxStateReceiver)
+            singBoxReceiverRegistered = false
+        }
+        super.onStop()
+    }
 
     override fun onResume() {
         super.onResume()
