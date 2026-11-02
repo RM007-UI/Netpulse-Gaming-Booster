@@ -35,21 +35,20 @@ class MainActivity : Activity() {
     private var pendingConfig: Config? = null
     private var connected = false
 
-    private val wireGuardTunnel = object : Tunnel {
-        override fun getName(): String = "NetPulse-WireGuard"
-        override fun onStateChange(newState: Tunnel.State) {
-            runOnUiThread {
-                connected = newState == Tunnel.State.UP
-                status.text = if (connected) "WireGuard connected" else "WireGuard disconnected"
-                connectButton.text = if (connected) "Disconnect" else "Connect"
-                connectButton.isEnabled = loadedConfig != null
-            }
+    private val wireGuardTunnel: Tunnel get() = (application as NetPulseApplication).wireGuardTunnel
+    private val stateListener: (Tunnel.State) -> Unit = { newState ->
+        runOnUiThread {
+            connected = newState == Tunnel.State.UP
+            status.text = if (connected) "WireGuard connected" else "WireGuard disconnected"
+            connectButton.text = if (connected) "Disconnect" else "Connect"
+            connectButton.isEnabled = connected || loadedConfig != null
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         backend = (application as NetPulseApplication).wireGuardBackend
+        (application as NetPulseApplication).wireGuardStateListener = stateListener
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -270,6 +269,9 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        if ((application as NetPulseApplication).wireGuardStateListener === stateListener) {
+            (application as NetPulseApplication).wireGuardStateListener = null
+        }
         worker.shutdown()
     }
 
