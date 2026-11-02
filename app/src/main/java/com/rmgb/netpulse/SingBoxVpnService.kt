@@ -27,7 +27,7 @@ import java.net.NetworkInterface
  */
 class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler {
     private var commandServer: CommandServer? = null
-    private var tunDescriptor: ParcelFileDescriptor? = null
+    private val tunDescriptors = mutableListOf<ParcelFileDescriptor>()
     private val stopping = AtomicBoolean(false)
     private var started = false
     private val networkCallbacks = ConcurrentHashMap<InterfaceUpdateListener, ConnectivityManager.NetworkCallback>()
@@ -129,9 +129,8 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
             while (exclude.hasNext()) builder.addDisallowedApplication(exclude.next())
         }
         val descriptor = builder.establish() ?: error("Android did not establish the VPN interface")
-        synchronized(this) {
-            tunDescriptor?.close()
-            tunDescriptor = descriptor
+        synchronized(tunDescriptors) {
+            tunDescriptors += descriptor
         }
         return descriptor.fd
     }
@@ -300,9 +299,9 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
         runCatching { commandServer?.closeService() }
         runCatching { commandServer?.close() }
         commandServer = null
-        synchronized(this) {
-            runCatching { tunDescriptor?.close() }
-            tunDescriptor = null
+        synchronized(tunDescriptors) {
+            tunDescriptors.forEach { descriptor -> runCatching { descriptor.close() } }
+            tunDescriptors.clear()
         }
         started = false
         isRunning = false
