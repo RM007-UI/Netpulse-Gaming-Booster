@@ -28,6 +28,7 @@ class MainActivity : Activity() {
     private lateinit var backend: GoBackend
     private lateinit var status: TextView
     private lateinit var connectButton: Button
+    private lateinit var singBoxStatus: TextView
     private var loadedConfig: Config? = null
     private var pendingConfig: Config? = null
     private var connected = false
@@ -81,10 +82,8 @@ class MainActivity : Activity() {
             text = "Import sing-box JSON"
             setOnClickListener { openSingBoxPicker() }
         })
-        body.addView(label("No sing-box configuration loaded", 13f, muted).apply {
-            tag = "singbox_status"
-            setPadding(0, 12, 0, 12)
-        })
+        singBoxStatus = label("No sing-box configuration loaded", 13f, muted).apply { setPadding(0, 12, 0, 12) }
+        body.addView(singBoxStatus)
 
         body.addView(label("Protocol catalog", 20f, Color.WHITE, true).apply { setPadding(0, 28, 0, 8) })
         body.addView(label("Only integrated engines are marked as available. Other entries remain inactive until their engines are implemented and tested.", 13f, muted))
@@ -103,19 +102,7 @@ class MainActivity : Activity() {
         startActivityForResult(intent, REQUEST_SINGBOX_PROFILE)
     }
 
-    private fun updateSingBoxStatus(message: String) {
-        fun search(view: android.view.View): TextView? {
-            if (view is TextView && view.tag == "singbox_status") return view
-            if (view is android.view.ViewGroup) {
-                for (index in 0 until view.childCount) {
-                    val found = search(view.getChildAt(index))
-                    if (found != null) return found
-                }
-            }
-            return null
-        }
-        search(findViewById(android.R.id.content))?.text = message
-    }
+    private fun updateSingBoxStatus(message: String) { singBoxStatus.text = message }
 
     private fun openProfilePicker() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
@@ -139,8 +126,10 @@ class MainActivity : Activity() {
             val uri = data?.data ?: return
             worker.execute {
                 try {
-                    val content = contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                    val bytes = contentResolver.openInputStream(uri)?.use { it.readNBytes(MAX_PROFILE_BYTES + 1) }
                         ?: throw IllegalArgumentException("Unable to open selected JSON profile")
+                    if (bytes.size > MAX_PROFILE_BYTES) throw IllegalArgumentException("Profile exceeds the 2 MiB import limit")
+                    val content = bytes.toString(Charsets.UTF_8)
                     if (content.isBlank()) throw IllegalArgumentException("Configuration is empty")
                     Libbox.checkConfig(content)
                     runOnUiThread {
@@ -160,8 +149,10 @@ class MainActivity : Activity() {
         val uri = data?.data ?: return
         worker.execute {
             try {
-                val parsed = contentResolver.openInputStream(uri)?.use { Config.parse(it) }
+                val bytes = contentResolver.openInputStream(uri)?.use { it.readNBytes(MAX_PROFILE_BYTES + 1) }
                     ?: throw IllegalArgumentException("Unable to open the selected profile")
+                if (bytes.size > MAX_PROFILE_BYTES) throw IllegalArgumentException("Profile exceeds the 2 MiB import limit")
+                val parsed = bytes.inputStream().use { Config.parse(it) }
                 runOnUiThread {
                     loadedConfig = parsed
                     status.text = "Profile validated · ${parsed.peers.size} peer(s)"
@@ -254,5 +245,6 @@ class MainActivity : Activity() {
         private const val REQUEST_PROFILE = 711
         private const val REQUEST_VPN_PERMISSION = 710
         private const val REQUEST_SINGBOX_PROFILE = 712
+        private const val MAX_PROFILE_BYTES = 2 * 1024 * 1024
     }
 }
