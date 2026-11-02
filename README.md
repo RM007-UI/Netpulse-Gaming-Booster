@@ -18,7 +18,7 @@ A successful build verifies compilation and packaging only. A real tunnel still 
 
 - WireGuard: integrated; device-level connection testing remains required.
 - OpenVPN UDP/TCP: integrate a maintained OpenVPN 3-compatible Android engine.
-- VLESS, VMess, Trojan, Shadowsocks: evaluate and integrate a maintained compatible core with strict profile validation.
+- VLESS, VMess, Trojan, Shadowsocks: planned through one embedded sing-box engine; see [the integration plan](docs/SING_BOX_INTEGRATION.md).
 - SOCKS5: proxy mode; full-device routing requires a TUN adapter.
 - IKEv2/IPsec: evaluate a maintained implementation before advertising support.
 - DNS: classic DNS, DoH, DoT and DoQ with leak and fallback tests.
