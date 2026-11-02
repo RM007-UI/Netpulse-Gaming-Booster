@@ -88,7 +88,15 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
                 else if (hasV4Address) builder.addRoute("0.0.0.0", 0)
                 if (v6.hasNext()) addPrefixes(v6, true)
                 else if (hasV6Address) builder.addRoute("::", 0)
-                fun excludePrefixes(iterator: RoutePrefixIterator) {\n                    while (iterator.hasNext()) {\n                        val prefix = iterator.next()\n                        builder.excludeRoute(IpPrefix(InetAddress.getByName(prefix.address()), prefix.prefix()))\n                    }\n                }\n                excludePrefixes(options.inet4RouteExcludeAddress)\n                excludePrefixes(options.inet6RouteExcludeAddress)\n            } else {
+                fun excludePrefixes(iterator: RoutePrefixIterator) {
+                    while (iterator.hasNext()) {
+                        val prefix = iterator.next()
+                        builder.excludeRoute(IpPrefix(InetAddress.getByName(prefix.address()), prefix.prefix()))
+                    }
+                }
+                excludePrefixes(options.inet4RouteExcludeAddress)
+                excludePrefixes(options.inet6RouteExcludeAddress)
+            } else {
                 addPrefixes(options.inet4RouteRange, true)
                 addPrefixes(options.inet6RouteRange, true)
             }
