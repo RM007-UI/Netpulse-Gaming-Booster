@@ -21,6 +21,18 @@ jobs:
           gradle-version: "8.9"
       - name: Build debug APK
         run: gradle testDebugUnitTest assembleDebug
+      - name: Verify pinned sing-box AAR checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="d2685924a657705beda44e94c6dc499e781df1ad20d65474e3591ec2f8b96465"
+          aar="$(find "$HOME/.gradle/caches/modules-2/files-2.1/com.github.singbox-android/libbox/1.14.4" -type f -name '*.aar' -print -quit)"
+          test -n "$aar"
+          actual="$(sha256sum "$aar" | awk '{print $1}')"
+          echo "Resolved libbox AAR: $aar"
+          echo "Expected SHA-256: $expected"
+          echo "Actual SHA-256:   $actual"
+          test "$actual" = "$expected"
       - uses: actions/upload-artifact@v4
         with:
           name: netpulse-debug
