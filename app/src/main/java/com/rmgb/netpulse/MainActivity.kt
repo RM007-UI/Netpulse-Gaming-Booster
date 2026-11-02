@@ -17,6 +17,8 @@ import com.wireguard.android.backend.GoBackend
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.config.Config
 import io.nekohasekai.libbox.Libbox
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -94,6 +96,20 @@ class MainActivity : Activity() {
         setContentView(root)
     }
 
+    private fun readLimited(input: InputStream): ByteArray {
+        val output = ByteArrayOutputStream()
+        val buffer = ByteArray(8192)
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            if (output.size() + count > MAX_PROFILE_BYTES) {
+                throw IllegalArgumentException("Profile exceeds the 2 MiB import limit")
+            }
+            output.write(buffer, 0, count)
+        }
+        return output.toByteArray()
+    }
+
     private fun openSingBoxPicker() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
@@ -126,7 +142,7 @@ class MainActivity : Activity() {
             val uri = data?.data ?: return
             worker.execute {
                 try {
-                    val bytes = contentResolver.openInputStream(uri)?.use { it.readNBytes(MAX_PROFILE_BYTES + 1) }
+                    val bytes = contentResolver.openInputStream(uri)?.use { readLimited(it) }
                         ?: throw IllegalArgumentException("Unable to open selected JSON profile")
                     if (bytes.size > MAX_PROFILE_BYTES) throw IllegalArgumentException("Profile exceeds the 2 MiB import limit")
                     val content = bytes.toString(Charsets.UTF_8)
