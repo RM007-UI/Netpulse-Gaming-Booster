@@ -39,3 +39,30 @@ The Android integration must use the upstream libbox Android binding (AAR) and a
 - https://sing-box.sagernet.org/clients/android/
 - https://sing-box.sagernet.org/clients/android/features/
 - https://github.com/SagerNet/sing-box-for-android
+
+
+## Android adapter implementation notes (reviewed upstream reference)
+
+The upstream Android client separates the libbox platform adapter from its VPN service. NetPulse should preserve that separation, but must not copy the complete upstream application service because it depends on app-specific profile storage, notification, settings, and root integration.
+
+### Minimal no-root scope
+
+- Implement only the platform callbacks required by the selected libbox version. Do not enable platform shell, root bridge, auto-redirect, neighbor-table monitoring, or root-dependent features.
+- Implement interface discovery and default-network change monitoring using public Android APIs. If a callback is not required by the chosen core/configuration, return a documented unsupported result rather than inventing behavior.
+- The VPN service owns one `ParcelFileDescriptor`. Its TUN callback must translate the supported `TunOptions` addresses, DNS servers, routes, and package allow/deny lists into an Android `VpnService.Builder`, call `establish()`, retain the descriptor for deterministic cleanup, and return the descriptor expected by libbox.
+- Protect the core's own outbound sockets through the service's `protect(fd)` callback to prevent routing loops.
+- Service startup must be foreground and notification-backed before long-running engine work. Stop must close the libbox command server and TUN descriptor, unregister network callbacks, and stop foreground state even when startup fails.
+- Request Android VPN consent in the Activity, then start the service. Do not attempt to show consent from a background service.
+- A single app-level connection coordinator must serialize WireGuard and sing-box transitions. Disconnect the active engine and confirm it is down before starting the other one.
+
+### Artifact provenance gate
+
+The current app resolves `com.github.singbox-android:libbox:1.14.4` and compiles calls to `Libbox.setup` and `Libbox.checkConfig`. This proves those symbols are available to the current build, but does not by itself prove that the artifact is byte-for-byte the upstream Android AAR or that its full Android platform API matches the reviewed upstream source revision. Before implementing the adapter, record the resolved artifact checksum and source/release provenance, inspect its generated `PlatformInterface` and `TunOptions` signatures, and pin the verified artifact. Do not implement against guessed method signatures.
+
+### Android service declaration
+
+The VPN service must declare `android.permission.BIND_VPN_SERVICE` and the `android.net.VpnService` intent filter. On Android versions requiring foreground-service declarations, use only the service type and permissions justified by the target SDK and the platform's VPN-service exemption rules. Do not blindly copy the upstream app's entire permission list or its root-related components.
+
+### Current implementation boundary
+
+NetPulse currently validates sing-box JSON only. It does not yet create a sing-box command server, implement `PlatformInterface`, establish a sing-box TUN, or route device traffic through sing-box. The protocol catalog must continue to show sing-box-based protocols as integration-required until those behaviors and device-level traffic tests pass.
