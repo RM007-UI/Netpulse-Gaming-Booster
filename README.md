@@ -6,6 +6,8 @@ Native Android network diagnostics and game-oriented routing toolkit.
 
 - WireGuard userspace tunnel integration using the official embeddable Android tunnel library.
 - Imports a user-provided WireGuard `.conf` profile through Android's document picker.
+- Imports and validates sing-box JSON profiles with libbox; validation only, not yet an active sing-box VPN service.
+- Limits imported profile files to 2 MiB before parsing.
 - Validates the profile before enabling the connection control.
 - Requests Android VPN consent only when the user taps Connect.
 - Keeps the parsed profile in memory; it is not written to app storage.
