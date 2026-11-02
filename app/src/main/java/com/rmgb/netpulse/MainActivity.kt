@@ -361,6 +361,13 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        singBoxConnected = SingBoxVpnService.isRunning
+        singBoxStarting = false
+        if (::singBoxButton.isInitialized && ::singBoxStatus.isInitialized) {
+            singBoxButton.text = if (singBoxConnected) "Disconnect sing-box" else "Connect sing-box"
+            singBoxButton.isEnabled = true
+            singBoxStatus.text = if (singBoxConnected) "sing-box connected" else if ((application as NetPulseApplication).loadedSingBoxProfile != null) "Configuration validated · ready to connect" else "No sing-box configuration loaded"
+        }
         if (::backend.isInitialized && ::connectButton.isInitialized) {
             worker.execute {
                 runCatching { backend.getState(wireGuardTunnel) == Tunnel.State.UP }
