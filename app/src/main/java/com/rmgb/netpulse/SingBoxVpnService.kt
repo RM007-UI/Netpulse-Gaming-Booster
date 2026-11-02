@@ -134,6 +134,7 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
     override fun openShellSession(user: PlatformUser?, command: String?, environ: StringIterator?,
         term: String?, rows: Int, cols: Int): ShellSession =
         throw UnsupportedOperationException("Platform shell is unavailable")
+    override fun lookupUser(username: String?): PlatformUser = throw UnsupportedOperationException("Platform user lookup is unavailable")
     override fun readSystemSSHHostKey(): String = throw UnsupportedOperationException("SSH host key is unavailable")
     override fun lookupSFTPServer(): String = throw UnsupportedOperationException("SFTP is unavailable")
     override fun usePlatformBridge() = false
