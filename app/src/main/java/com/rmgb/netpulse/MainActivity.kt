@@ -31,7 +31,7 @@ class MainActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var connectButton: Button
     private lateinit var singBoxStatus: TextView
-    private var loadedConfig: Config? = (application as NetPulseApplication).loadedWireGuardConfig
+    private var loadedConfig: Config? = null
     private var connected = false
 
     private val wireGuardTunnel: Tunnel get() = (application as NetPulseApplication).wireGuardTunnel
@@ -50,8 +50,10 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        backend = (application as NetPulseApplication).wireGuardBackend
-        (application as NetPulseApplication).wireGuardStateListener = stateListener
+        val app = application as NetPulseApplication
+        loadedConfig = app.loadedWireGuardConfig
+        backend = app.wireGuardBackend
+        app.wireGuardStateListener = stateListener
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
