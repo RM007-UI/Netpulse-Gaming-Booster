@@ -39,6 +39,7 @@ class MainActivity : Activity() {
         runOnUiThread {
             if (!isDestroyed && ::status.isInitialized && ::connectButton.isInitialized) {
                 connected = newState == Tunnel.State.UP
+                if (newState == Tunnel.State.DOWN) VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.WIREGUARD)
                 status.text = if (connected) "WireGuard connected"
                     else if (loadedConfig != null) "Profile validated · ready to connect"
                     else "No profile loaded"
@@ -216,6 +217,11 @@ class MainActivity : Activity() {
     }
 
     private fun connect(config: Config) {
+        if (!VpnEngineCoordinator.acquire(VpnEngineCoordinator.Engine.WIREGUARD)) {
+            status.text = "Another VPN engine is active. Disconnect it first."
+            Toast.makeText(this, "Another VPN engine is active", Toast.LENGTH_LONG).show()
+            return
+        }
         connectButton.isEnabled = false
         status.text = "Starting WireGuard…"
         worker.execute {
@@ -223,6 +229,7 @@ class MainActivity : Activity() {
                 backend.setState(wireGuardTunnel, Tunnel.State.UP, config)
                 runOnUiThread { connectButton.isEnabled = true }
             } catch (error: Exception) {
+                VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.WIREGUARD)
                 showError("Connection failed", error)
             }
         }
@@ -265,6 +272,8 @@ class MainActivity : Activity() {
             worker.execute {
                 runCatching { backend.getState(wireGuardTunnel) == Tunnel.State.UP }
                     .onSuccess { isUp ->
+                        if (isUp) VpnEngineCoordinator.acquire(VpnEngineCoordinator.Engine.WIREGUARD)
+                        else VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.WIREGUARD)
                         runOnUiThread {
                             connected = isUp
                             connectButton.text = if (isUp) "Disconnect" else "Connect"
