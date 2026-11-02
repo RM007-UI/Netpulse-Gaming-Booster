@@ -29,6 +29,8 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
     private var commandServer: CommandServer? = null
     private val tunDescriptors = mutableListOf<ParcelFileDescriptor>()
     private val stopping = AtomicBoolean(false)
+    private val lifecycleLock = Any()
+    private var starting = false
     private var started = false
     private val networkCallbacks = ConcurrentHashMap<InterfaceUpdateListener, ConnectivityManager.NetworkCallback>()
     private val connectivity by lazy { getSystemService(ConnectivityManager::class.java) }
@@ -39,25 +41,35 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
             stopSelf(startId)
             return START_NOT_STICKY
         }
-        if (started) return START_NOT_STICKY
+        synchronized(lifecycleLock) {
+            if (started || starting || stopping.get()) return START_NOT_STICKY
+            starting = true
+        }
         startForeground(NOTIFICATION_ID, buildNotification("Starting sing-box…"))
         Thread({
-            try {
-                if (!VpnEngineCoordinator.acquire(VpnEngineCoordinator.Engine.SING_BOX)) {
-                    throw IllegalStateException("Another VPN engine owns Android VPN")
+            synchronized(lifecycleLock) {
+                try {
+                    check(!stopping.get()) { "VPN service is stopping" }
+                    if (!VpnEngineCoordinator.acquire(VpnEngineCoordinator.Engine.SING_BOX)) {
+                        throw IllegalStateException("Another VPN engine owns Android VPN")
+                    }
+                    val server = CommandServer(this, this)
+                    commandServer = server
+                    server.start()
+                    check(!stopping.get()) { "VPN service is stopping" }
+                    server.startOrReloadService(profile, OverrideOptions())
+                    check(!stopping.get()) { "VPN service is stopping" }
+                    started = true
+                    isRunning = true
+                    updateNotification("sing-box active")
+                    sendBroadcast(Intent(ACTION_STATE).setPackage(packageName).putExtra(EXTRA_CONNECTED, true))
+                } catch (error: Exception) {
+                    Log.e(TAG, "sing-box startup failed (${error.javaClass.simpleName})")
+                    stopEngine()
+                    stopSelf(startId)
+                } finally {
+                    starting = false
                 }
-                val server = CommandServer(this, this)
-                commandServer = server
-                server.start()
-                server.startOrReloadService(profile, OverrideOptions())
-                started = true
-                isRunning = true
-                updateNotification("sing-box active")
-                sendBroadcast(Intent(ACTION_STATE).setPackage(packageName).putExtra(EXTRA_CONNECTED, true))
-            } catch (error: Exception) {
-                Log.e(TAG, "sing-box startup failed (${error.javaClass.simpleName})")
-                stopEngine()
-                stopSelf(startId)
             }
         }, "NetPulse-sing-box-start").start()
         return START_NOT_STICKY
@@ -294,21 +306,24 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
     }
 
     private fun stopEngine() {
-        if (!stopping.compareAndSet(false, true)) return
-        networkCallbacks.keys.toList().forEach(::closeDefaultInterfaceMonitor)
-        runCatching { commandServer?.closeService() }
-        runCatching { commandServer?.close() }
-        commandServer = null
-        synchronized(tunDescriptors) {
-            tunDescriptors.forEach { descriptor -> runCatching { descriptor.close() } }
-            tunDescriptors.clear()
+        synchronized(lifecycleLock) {
+            if (!stopping.compareAndSet(false, true)) return
+            networkCallbacks.keys.toList().forEach(::closeDefaultInterfaceMonitor)
+            runCatching { commandServer?.closeService() }
+            runCatching { commandServer?.close() }
+            commandServer = null
+            synchronized(tunDescriptors) {
+                tunDescriptors.forEach { descriptor -> runCatching { descriptor.close() } }
+                tunDescriptors.clear()
+            }
+            starting = false
+            started = false
+            isRunning = false
+            VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.SING_BOX)
+            sendBroadcast(Intent(ACTION_STATE).setPackage(packageName).putExtra(EXTRA_CONNECTED, false))
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) stopForeground(STOP_FOREGROUND_REMOVE)
+            else @Suppress("DEPRECATION") stopForeground(true)
         }
-        started = false
-        isRunning = false
-        VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.SING_BOX)
-        sendBroadcast(Intent(ACTION_STATE).setPackage(packageName).putExtra(EXTRA_CONNECTED, false))
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) stopForeground(STOP_FOREGROUND_REMOVE)
-        else @Suppress("DEPRECATION") stopForeground(true)
     }
 
     private fun buildNotification(message: String): Notification {
