@@ -51,7 +51,22 @@ jobs:
             io.nekohasekai.libbox.StringIterator \
             io.nekohasekai.libbox.InterfaceAddress \
             io.nekohasekai.libbox.DNSRule \
-            io.nekohasekai.libbox.ConnectionOwner
+            io.nekohasekai.libbox.ConnectionOwner \
+            io.nekohasekai.libbox.RoutePrefix \
+            io.nekohasekai.libbox.RoutePrefixIterator \
+            io.nekohasekai.libbox.StringBox \
+            io.nekohasekai.libbox.Notification \
+            io.nekohasekai.libbox.SystemProxyStatus \
+            io.nekohasekai.libbox.WIFIState \
+            io.nekohasekai.libbox.PlatformUser \
+            io.nekohasekai.libbox.BridgeOptions \
+            io.nekohasekai.libbox.BridgeSession \
+            io.nekohasekai.libbox.AutoRedirectSession \
+            io.nekohasekai.libbox.AutoRedirectHandler \
+            io.nekohasekai.libbox.ShellSession \
+            io.nekohasekai.libbox.LocalDNSTransport \
+            io.nekohasekai.libbox.NeighborUpdateListener \
+            io.nekohasekai.libbox.NeighborEntryIterator
           do
             echo "===== $type ====="
             if ! javap -classpath "$work/classes.jar" -p "$type"; then
