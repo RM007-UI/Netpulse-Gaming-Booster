@@ -81,4 +81,4 @@ For the currently selected release:
 - Release page: https://github.com/singbox-android/libbox/releases/tag/1.14.4
 - Source repository: https://github.com/singbox-android/libbox
 
-This verifies the published asset identity and the repository's declared Maven coordinates. It does not yet prove that the resolved JitPack cache artifact in every CI run matches that release asset; a future CI supply-chain check should compare the resolved AAR bytes against the published SHA-256 before packaging.
+This verifies the published asset identity and the repository's declared Maven coordinates. The Android CI now compares the resolved Gradle-cache AAR against this SHA-256 after the build and fails if the bytes differ, preventing an unexpected artifact from silently entering the APK.
