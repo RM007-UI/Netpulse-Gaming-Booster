@@ -5,6 +5,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Intent
 import android.net.VpnService
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.LinkProperties
 import android.net.IpPrefix
 import java.net.InetAddress
 import android.os.Build
@@ -13,6 +17,8 @@ import android.util.Log
 import io.nekohasekai.libbox.*
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.ConcurrentHashMap
+import java.net.NetworkInterface
 
 /**
  * Minimal no-root sing-box VPN host. Unsupported root/platform integrations fail closed.
@@ -23,6 +29,8 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
     private var tunDescriptor: ParcelFileDescriptor? = null
     private val stopping = AtomicBoolean(false)
     private var started = false
+    private val networkCallbacks = ConcurrentHashMap<InterfaceUpdateListener, ConnectivityManager.NetworkCallback>()
+    private val connectivity by lazy { getSystemService(ConnectivityManager::class.java) }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val profile = intent?.getStringExtra(EXTRA_PROFILE)
@@ -119,10 +127,48 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
     }
 
     override fun startDefaultInterfaceMonitor(listener: InterfaceUpdateListener) {
-        // Network monitoring is not yet wired; report a conservative unavailable state.
-        listener.updateDefaultInterface("", 0, false, false)
+        closeDefaultInterfaceMonitor(listener)
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) = publishDefaultNetwork(network, listener)
+            override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) =
+                publishDefaultNetwork(network, listener, linkProperties)
+            override fun onLost(network: Network) {
+                val active = connectivity.activeNetwork
+                if (active == null || active == network) {
+                    listener.updateDefaultInterface("", -1, false, false)
+                } else {
+                    publishDefaultNetwork(active, listener)
+                }
+            }
+        }
+        networkCallbacks[listener] = callback
+        connectivity.registerDefaultNetworkCallback(callback)
+        connectivity.activeNetwork?.let { publishDefaultNetwork(it, listener) }
+            ?: listener.updateDefaultInterface("", -1, false, false)
     }
-    override fun closeDefaultInterfaceMonitor(listener: InterfaceUpdateListener) = Unit
+
+    override fun closeDefaultInterfaceMonitor(listener: InterfaceUpdateListener) {
+        networkCallbacks.remove(listener)?.let { callback ->
+            runCatching { connectivity.unregisterNetworkCallback(callback) }
+        }
+    }
+
+    private fun publishDefaultNetwork(
+        network: Network,
+        listener: InterfaceUpdateListener,
+        suppliedProperties: LinkProperties? = null
+    ) {
+        val properties = suppliedProperties ?: connectivity.getLinkProperties(network)
+        val name = properties?.interfaceName
+        if (name.isNullOrBlank()) {
+            listener.updateDefaultInterface("", -1, false, false)
+            return
+        }
+        val index = runCatching { NetworkInterface.getByName(name)?.index ?: -1 }.getOrDefault(-1)
+        val capabilities = connectivity.getNetworkCapabilities(network)
+        val metered = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) != true
+        listener.updateDefaultInterface(name, index, metered, false)
+    }
     override fun getInterfaces(): NetworkInterfaceIterator = object : NetworkInterfaceIterator {
         override fun hasNext() = false
         override fun next(): io.nekohasekai.libbox.NetworkInterface =
@@ -177,6 +223,7 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
 
     private fun stopEngine() {
         if (!stopping.compareAndSet(false, true)) return
+        networkCallbacks.keys.toList().forEach(::closeDefaultInterfaceMonitor)
         runCatching { commandServer?.closeService() }
         runCatching { commandServer?.close() }
         commandServer = null
