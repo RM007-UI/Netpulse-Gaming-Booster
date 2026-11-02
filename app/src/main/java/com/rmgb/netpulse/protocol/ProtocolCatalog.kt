@@ -13,7 +13,7 @@ data class ProtocolOption(
 
 object ProtocolCatalog {
     val options = listOf(
-        ProtocolOption("wireguard", "WireGuard", ProtocolFamily.VPN_TUNNEL, "Modern encrypted VPN tunnel", EngineState.INTEGRATION_REQUIRED),
+        ProtocolOption("wireguard", "WireGuard", ProtocolFamily.VPN_TUNNEL, "Integrated userspace tunnel; import your own .conf profile", EngineState.AVAILABLE),
         ProtocolOption("openvpn_udp", "OpenVPN UDP", ProtocolFamily.VPN_TUNNEL, "OpenVPN over UDP", EngineState.INTEGRATION_REQUIRED),
         ProtocolOption("openvpn_tcp", "OpenVPN TCP", ProtocolFamily.VPN_TUNNEL, "OpenVPN over TCP", EngineState.INTEGRATION_REQUIRED),
         ProtocolOption("ikev2_ipsec", "IKEv2 / IPsec", ProtocolFamily.VPN_TUNNEL, "IKEv2 VPN tunnel", EngineState.PLANNED),
@@ -32,8 +32,9 @@ object ProtocolCatalog {
         ProtocolOption("dot", "DNS over TLS", ProtocolFamily.DNS, "Encrypted DNS over TLS", EngineState.PLANNED),
         ProtocolOption("doq", "DNS over QUIC", ProtocolFamily.DNS, "Encrypted DNS over QUIC", EngineState.PLANNED)
     )
+
     fun stateLabel(state: EngineState) = when (state) {
-        EngineState.AVAILABLE -> "Ready"
+        EngineState.AVAILABLE -> "Integrated · profile required"
         EngineState.INTEGRATION_REQUIRED -> "Engine integration required"
         EngineState.PLANNED -> "Planned"
         EngineState.NOT_A_TUNNEL_ENGINE -> "Transport only"
