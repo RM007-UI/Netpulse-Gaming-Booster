@@ -4,9 +4,11 @@ import android.app.Application
 import android.util.Log
 import io.nekohasekai.libbox.Libbox
 import io.nekohasekai.libbox.SetupOptions
+import com.wireguard.android.backend.GoBackend
 import java.util.Locale
 
 class NetPulseApplication : Application() {
+    val wireGuardBackend: GoBackend by lazy(LazyThreadSafetyMode.SYNCHRONIZED) { GoBackend(applicationContext) }
     override fun onCreate() {
         super.onCreate()
         try {
