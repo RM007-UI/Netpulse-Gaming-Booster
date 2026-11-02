@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.Intent
 import android.net.VpnService
 import android.os.Bundle
-import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -13,6 +12,7 @@ import android.graphics.Color
 import android.widget.Toast
 import com.rmgb.netpulse.protocol.ProtocolCatalog
 import com.rmgb.netpulse.protocol.ProtocolFamily
+import com.rmgb.netpulse.protocol.EngineState
 import com.wireguard.android.backend.GoBackend
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.config.Config
@@ -38,6 +38,7 @@ class MainActivity : Activity() {
                 connected = newState == Tunnel.State.UP
                 status.text = if (connected) "WireGuard connected" else "WireGuard disconnected"
                 connectButton.text = if (connected) "Disconnect" else "Connect"
+                connectButton.isEnabled = loadedConfig != null
             }
         }
     }
@@ -94,53 +95,6 @@ class MainActivity : Activity() {
     @Deprecated("Handled for compatibility with the current minimal Activity scaffold")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != REQUEST_PROFILE || resultCode != RESULT_OK) return
-        val uri = data?.data ?: return
-        worker.execute {
-            try {
-                val parsed = contentResolver.openInputStream(uri)?.use { Config.parse(it) }
-                    ?: throw IllegalArgumentException("Unable to open the selected profile")
-                runOnUiThread {
-                    loadedConfig = parsed
-                    status.text = "Profile validated · ${parsed.peers.size} peer(s)"
-                    connectButton.isEnabled = true
-                    Toast.makeText(this, "WireGuard profile imported", Toast.LENGTH_SHORT).show()
-                }
-            } catch (error: Exception) {
-                runOnUiThread {
-                    loadedConfig = null
-                    connectButton.isEnabled = false
-                    status.text = "Profile could not be parsed"
-                    Toast.makeText(this, "Invalid WireGuard profile: ${error.message ?: "unknown error"}", Toast.LENGTH_LONG).show()
-                }
-            }
-        }
-    }
-
-    private fun toggleWireGuard() {
-        if (connected) {
-            worker.execute {
-                try {
-                    backend.setState(wireGuardTunnel, Tunnel.State.DOWN, null)
-                } catch (error: Exception) {
-                    showError("Disconnect failed", error)
-                }
-            }
-            return
-        }
-        val config = loadedConfig ?: return
-        val permissionIntent = VpnService.prepare(this)
-        if (permissionIntent != null) {
-            pendingConfig = config
-            startActivityForResult(permissionIntent, REQUEST_VPN_PERMISSION)
-        } else {
-            connect(config)
-        }
-    }
-
-    @Deprecated("Handled for compatibility with the current minimal Activity scaffold")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQUEST_VPN_PERMISSION) {
             val config = pendingConfig
             pendingConfig = null
@@ -167,6 +121,28 @@ class MainActivity : Activity() {
                     Toast.makeText(this, "Invalid WireGuard profile: ${error.message ?: "unknown error"}", Toast.LENGTH_LONG).show()
                 }
             }
+        }
+    }
+
+    private fun toggleWireGuard() {
+        if (connected) {
+            connectButton.isEnabled = false
+            worker.execute {
+                try {
+                    backend.setState(wireGuardTunnel, Tunnel.State.DOWN, null)
+                } catch (error: Exception) {
+                    showError("Disconnect failed", error)
+                }
+            }
+            return
+        }
+        val config = loadedConfig ?: return
+        val permissionIntent = VpnService.prepare(this)
+        if (permissionIntent != null) {
+            pendingConfig = config
+            startActivityForResult(permissionIntent, REQUEST_VPN_PERMISSION)
+        } else {
+            connect(config)
         }
     }
 
@@ -201,7 +177,7 @@ class MainActivity : Activity() {
             }
             card.addView(label(option.title, 16f, Color.WHITE, true))
             card.addView(label(option.description, 12f, muted))
-            card.addView(label(ProtocolCatalog.stateLabel(option.engineState), 11f, if (option.engineState == com.rmgb.netpulse.protocol.EngineState.AVAILABLE) cyan else Color.rgb(255, 190, 95)))
+            card.addView(label(ProtocolCatalog.stateLabel(option.engineState), 11f, if (option.engineState == EngineState.AVAILABLE) cyan else Color.rgb(255, 190, 95)))
             parent.addView(card, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 8 })
         }
     }
