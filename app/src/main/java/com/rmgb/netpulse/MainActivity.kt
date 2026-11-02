@@ -31,8 +31,7 @@ class MainActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var connectButton: Button
     private lateinit var singBoxStatus: TextView
-    private var loadedConfig: Config? = null
-    private var pendingConfig: Config? = null
+    private var loadedConfig: Config? = (application as NetPulseApplication).loadedWireGuardConfig
     private var connected = false
 
     private val wireGuardTunnel: Tunnel get() = (application as NetPulseApplication).wireGuardTunnel
@@ -72,11 +71,11 @@ class MainActivity : Activity() {
             text = "Import WireGuard profile (.conf)"
             setOnClickListener { openProfilePicker() }
         })
-        status = label("No profile loaded", 13f, muted).apply { setPadding(0, 12, 0, 12) }
+        status = label(if (loadedConfig != null) "Profile validated · ready to connect" else "No profile loaded", 13f, muted).apply { setPadding(0, 12, 0, 12) }
         body.addView(status)
         connectButton = Button(this).apply {
             text = "Connect"
-            isEnabled = false
+            isEnabled = loadedConfig != null
             setOnClickListener { toggleWireGuard() }
         }
         body.addView(connectButton)
@@ -137,8 +136,9 @@ class MainActivity : Activity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQUEST_VPN_PERMISSION) {
-            val config = pendingConfig
-            pendingConfig = null
+            val app = application as NetPulseApplication
+            val config = app.pendingWireGuardConfig
+            app.pendingWireGuardConfig = null
             if (resultCode == RESULT_OK && config != null) connect(config)
             return
         }
@@ -173,6 +173,7 @@ class MainActivity : Activity() {
                     ?: throw IllegalArgumentException("Unable to open the selected profile")
                 val parsed = bytes.inputStream().use { Config.parse(it) }
                 runOnUiThread {
+                    (application as NetPulseApplication).loadedWireGuardConfig = parsed
                     loadedConfig = parsed
                     status.text = "Profile validated · ${parsed.peers.size} peer(s)"
                     connectButton.isEnabled = true
@@ -180,6 +181,7 @@ class MainActivity : Activity() {
                 }
             } catch (error: Exception) {
                 runOnUiThread {
+                    (application as NetPulseApplication).loadedWireGuardConfig = null
                     loadedConfig = null
                     connectButton.isEnabled = false
                     status.text = "Profile could not be parsed"
@@ -204,7 +206,7 @@ class MainActivity : Activity() {
         val config = loadedConfig ?: return
         val permissionIntent = VpnService.prepare(this)
         if (permissionIntent != null) {
-            pendingConfig = config
+            (application as NetPulseApplication).pendingWireGuardConfig = config
             startActivityForResult(permissionIntent, REQUEST_VPN_PERMISSION)
         } else {
             connect(config)
