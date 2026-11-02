@@ -192,7 +192,7 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
         val dnsServers = activeProperties?.dnsServers.orEmpty().map { it.hostAddress ?: "" }.filter { it.isNotBlank() }
         val gateways = activeProperties?.routes.orEmpty()
             .filter { it.isDefaultRoute && it.gateway != null }
-            .mapNotNull { it.gateway.hostAddress }
+            .mapNotNull { it.gateway?.hostAddress }
             .distinct()
 
         val snapshot = java.net.NetworkInterface.getNetworkInterfaces()?.toList().orEmpty()
