@@ -116,3 +116,21 @@ For the initial implementation, report platform bridge and auto-redirect as unsu
 - Keep profile JSON and secrets out of logs and notifications.
 
 Reference implementation reviewed: `SagerNet/sing-box-for-android`, `VPNService.kt`, `PlatformInterfaceWrapper.kt`, and `BoxService.kt`. This is implementation guidance from upstream source, not a claim that NetPulse has already integrated those components.
+
+### Android service and permission review
+
+The upstream Android client declares its sing-box VPN component as a non-exported `VpnService` protected by `android.permission.BIND_VPN_SERVICE`, with a foreground-service type. It also has a separate notification/foreground-service lifecycle managed by its service controller. NetPulse must implement its own minimal notification channel and foreground notification rather than importing the upstream application's service framework.
+
+Before enabling a sing-box service, review the target-SDK-specific foreground-service requirements and notification permission behavior for Android 13–15. Add only permissions that the implemented no-root feature actually uses; do not copy the upstream manifest wholesale. In particular, Wi-Fi/location, package visibility, boot receiver, special-use proxy, root bridge, camera, and storage permissions are not justified by the first TUN-only integration.
+
+The current NetPulse manifest intentionally does not declare a sing-box service or foreground-service permissions because no sing-box tunnel service exists yet. Those declarations must land in the same change as a real service implementation, along with service startup, notification, revoke, stop, and descriptor cleanup tests.
+
+### Device and API-level test matrix
+
+- Android 8/API 26: baseline TUN establishment, IPv4 routes, DNS, revoke, and teardown.
+- Android 10/API 29: connection-owner callback behavior and per-app routing where supported.
+- Android 13/API 33: notification permission behavior and route exclusion APIs.
+- Android 14/API 34 and Android 15/API 35: foreground-service type and start restrictions.
+- Wi-Fi to cellular handoff, cellular to Wi-Fi handoff, airplane mode, IPv6-only/dual-stack networks, app process recreation, force-stop, VPN permission revoke, and simultaneous-start attempts against WireGuard.
+
+CI can validate compilation and unit tests, but only real-device runs can validate the Android VPN prompt, foreground-service policy, route installation, DNS behavior, and traffic flow.
