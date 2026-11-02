@@ -48,6 +48,9 @@ jobs:
             io.nekohasekai.libbox.OverrideOptions \
             io.nekohasekai.libbox.InterfaceUpdateListener \
             io.nekohasekai.libbox.NetworkInterfaceIterator \
+            io.nekohasekai.libbox.NetworkInterface \
+            io.nekohasekai.libbox.InterfaceType \
+            io.nekohasekai.libbox.Libbox \
             io.nekohasekai.libbox.StringIterator \
             io.nekohasekai.libbox.InterfaceAddress \
             io.nekohasekai.libbox.DNSRule \
