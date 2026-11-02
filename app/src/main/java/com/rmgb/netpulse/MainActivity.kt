@@ -116,7 +116,8 @@ class MainActivity : Activity() {
     private fun openSingBoxPicker() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
-            type = "application/json"
+            type = "*/*"
+            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("application/json", "text/plain", "application/octet-stream"))
         }
         startActivityForResult(intent, REQUEST_SINGBOX_PROFILE)
     }
@@ -148,7 +149,7 @@ class MainActivity : Activity() {
                     val bytes = contentResolver.openInputStream(uri)?.use { readLimited(it) }
                         ?: throw IllegalArgumentException("Unable to open selected JSON profile")
                     if (bytes.size > MAX_PROFILE_BYTES) throw IllegalArgumentException("Profile exceeds the 2 MiB import limit")
-                    val content = bytes.toString(Charsets.UTF_8)
+                    val content = ProfileTextDecoder.decodeUtf8(bytes)
                     if (content.isBlank()) throw IllegalArgumentException("Configuration is empty")
                     Libbox.checkConfig(content)
                     runOnUiThread {
