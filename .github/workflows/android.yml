@@ -33,6 +33,31 @@ jobs:
           echo "Expected SHA-256: $expected"
           echo "Actual SHA-256:   $actual"
           test "$actual" = "$expected"
+      - name: Inspect pinned libbox Android API
+        shell: bash
+        run: |
+          set -euo pipefail
+          aar="$(find "$HOME/.gradle/caches/modules-2/files-2.1/com.github.singbox-android/libbox/1.14.4" -type f -name '*.aar' -print -quit)"
+          work="$(mktemp -d)"
+          unzip -p "$aar" classes.jar > "$work/classes.jar"
+          for type in \
+            io.nekohasekai.libbox.PlatformInterface \
+            io.nekohasekai.libbox.TunOptions \
+            io.nekohasekai.libbox.CommandServer \
+            io.nekohasekai.libbox.CommandServerHandler \
+            io.nekohasekai.libbox.OverrideOptions \
+            io.nekohasekai.libbox.InterfaceUpdateListener \
+            io.nekohasekai.libbox.NetworkInterfaceIterator \
+            io.nekohasekai.libbox.StringIterator \
+            io.nekohasekai.libbox.InterfaceAddress \
+            io.nekohasekai.libbox.DNSRule \
+            io.nekohasekai.libbox.ConnectionOwner
+          do
+            echo "===== $type ====="
+            if ! javap -classpath "$work/classes.jar" -p "$type"; then
+              echo "Class not present in pinned AAR: $type"
+            fi
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: netpulse-debug
