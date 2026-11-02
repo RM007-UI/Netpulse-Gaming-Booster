@@ -16,6 +16,7 @@ import com.rmgb.netpulse.protocol.EngineState
 import com.wireguard.android.backend.GoBackend
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.config.Config
+import io.nekohasekai.libbox.Libbox
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -74,6 +75,17 @@ class MainActivity : Activity() {
         }
         body.addView(connectButton)
 
+        body.addView(label("sing-box", 21f, Color.WHITE, true).apply { setPadding(0, 28, 0, 8) })
+        body.addView(label("Import a sing-box JSON configuration. The native core validates it before accepting it.", 13f, muted))
+        body.addView(Button(this).apply {
+            text = "Import sing-box JSON"
+            setOnClickListener { openSingBoxPicker() }
+        })
+        body.addView(label("No sing-box configuration loaded", 13f, muted).apply {
+            tag = "singbox_status"
+            setPadding(0, 12, 0, 12)
+        })
+
         body.addView(label("Protocol catalog", 20f, Color.WHITE, true).apply { setPadding(0, 28, 0, 8) })
         body.addView(label("Only integrated engines are marked as available. Other entries remain inactive until their engines are implemented and tested.", 13f, muted))
         addFamily(body, "VPN TUNNELS", ProtocolFamily.VPN_TUNNEL)
@@ -81,6 +93,28 @@ class MainActivity : Activity() {
         addFamily(body, "TRANSPORTS", ProtocolFamily.TRANSPORT)
         addFamily(body, "DNS", ProtocolFamily.DNS)
         setContentView(root)
+    }
+
+    private fun openSingBoxPicker() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/json"
+        }
+        startActivityForResult(intent, REQUEST_SINGBOX_PROFILE)
+    }
+
+    private fun updateSingBoxStatus(message: String) {
+        fun search(view: android.view.View): TextView? {
+            if (view is TextView && view.tag == "singbox_status") return view
+            if (view is android.view.ViewGroup) {
+                for (index in 0 until view.childCount) {
+                    val found = search(view.getChildAt(index))
+                    if (found != null) return found
+                }
+            }
+            return null
+        }
+        search(findViewById(android.R.id.content))?.text = message
     }
 
     private fun openProfilePicker() {
@@ -99,6 +133,27 @@ class MainActivity : Activity() {
             val config = pendingConfig
             pendingConfig = null
             if (resultCode == RESULT_OK && config != null) connect(config)
+            return
+        }
+        if (requestCode == REQUEST_SINGBOX_PROFILE && resultCode == RESULT_OK) {
+            val uri = data?.data ?: return
+            worker.execute {
+                try {
+                    val content = contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                        ?: throw IllegalArgumentException("Unable to open selected JSON profile")
+                    if (content.isBlank()) throw IllegalArgumentException("Configuration is empty")
+                    Libbox.checkConfig(content)
+                    runOnUiThread {
+                        updateSingBoxStatus("sing-box configuration validated")
+                        Toast.makeText(this, "sing-box configuration validated", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (error: Exception) {
+                    runOnUiThread {
+                        updateSingBoxStatus("sing-box configuration rejected")
+                        Toast.makeText(this, "Invalid sing-box configuration: " + (error.message ?: "unknown error"), Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
             return
         }
         if (requestCode != REQUEST_PROFILE || resultCode != RESULT_OK) return
@@ -198,5 +253,6 @@ class MainActivity : Activity() {
     companion object {
         private const val REQUEST_PROFILE = 711
         private const val REQUEST_VPN_PERMISSION = 710
+        private const val REQUEST_SINGBOX_PROFILE = 712
     }
 }
