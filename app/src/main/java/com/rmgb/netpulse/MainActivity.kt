@@ -38,10 +38,14 @@ class MainActivity : Activity() {
     private val wireGuardTunnel: Tunnel get() = (application as NetPulseApplication).wireGuardTunnel
     private val stateListener: (Tunnel.State) -> Unit = { newState ->
         runOnUiThread {
-            connected = newState == Tunnel.State.UP
-            status.text = if (connected) "WireGuard connected" else "WireGuard disconnected"
-            connectButton.text = if (connected) "Disconnect" else "Connect"
-            connectButton.isEnabled = connected || loadedConfig != null
+            if (!isDestroyed && ::status.isInitialized && ::connectButton.isInitialized) {
+                connected = newState == Tunnel.State.UP
+                status.text = if (connected) "WireGuard connected"
+                    else if (loadedConfig != null) "Profile validated · ready to connect"
+                    else "No profile loaded"
+                connectButton.text = if (connected) "Disconnect" else "Connect"
+                connectButton.isEnabled = connected || loadedConfig != null
+            }
         }
     }
 
@@ -260,7 +264,11 @@ class MainActivity : Activity() {
                             connected = isUp
                             connectButton.text = if (isUp) "Disconnect" else "Connect"
                             connectButton.isEnabled = isUp || loadedConfig != null
-                            if (isUp) status.text = "WireGuard connected"
+                            status.text = when {
+                                isUp -> "WireGuard connected"
+                                loadedConfig != null -> "Profile validated · ready to connect"
+                                else -> "No profile loaded"
+                            }
                         }
                     }
             }
@@ -268,11 +276,11 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
-        super.onDestroy()
         if ((application as NetPulseApplication).wireGuardStateListener === stateListener) {
             (application as NetPulseApplication).wireGuardStateListener = null
         }
         worker.shutdown()
+        super.onDestroy()
     }
 
     companion object {
