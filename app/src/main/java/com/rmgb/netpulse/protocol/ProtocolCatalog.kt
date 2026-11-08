@@ -17,11 +17,18 @@ object ProtocolCatalog {
         ProtocolOption("openvpn_udp", "OpenVPN UDP", ProtocolFamily.VPN_TUNNEL, "OpenVPN over UDP", EngineState.INTEGRATION_REQUIRED),
         ProtocolOption("openvpn_tcp", "OpenVPN TCP", ProtocolFamily.VPN_TUNNEL, "OpenVPN over TCP", EngineState.INTEGRATION_REQUIRED),
         ProtocolOption("ikev2_ipsec", "IKEv2 / IPsec", ProtocolFamily.VPN_TUNNEL, "IKEv2 VPN tunnel", EngineState.PLANNED),
-        ProtocolOption("socks5", "SOCKS5", ProtocolFamily.PROXY, "Proxy mode; full-device routing needs a TUN adapter", EngineState.INTEGRATION_REQUIRED),
-        ProtocolOption("shadowsocks", "Shadowsocks", ProtocolFamily.PROXY, "Encrypted proxy protocol", EngineState.INTEGRATION_REQUIRED),
-        ProtocolOption("vless", "VLESS", ProtocolFamily.PROXY, "Requires a compatible core and profile", EngineState.INTEGRATION_REQUIRED),
-        ProtocolOption("vmess", "VMess", ProtocolFamily.PROXY, "Requires a compatible core and profile", EngineState.INTEGRATION_REQUIRED),
-        ProtocolOption("trojan", "Trojan", ProtocolFamily.PROXY, "Requires a compatible core and profile", EngineState.INTEGRATION_REQUIRED),
+        ProtocolOption("socks5", "SOCKS5", ProtocolFamily.PROXY, "Integrated through sing-box TUN; import a user profile", EngineState.AVAILABLE),
+        ProtocolOption("shadowsocks", "Shadowsocks", ProtocolFamily.PROXY, "Integrated through sing-box TUN; import a user profile", EngineState.AVAILABLE),
+        ProtocolOption("vless", "VLESS", ProtocolFamily.PROXY, "Integrated through sing-box TUN; import a user profile", EngineState.AVAILABLE),
+        ProtocolOption("vmess", "VMess", ProtocolFamily.PROXY, "Integrated through sing-box TUN; import a user profile", EngineState.AVAILABLE),
+        ProtocolOption("trojan", "Trojan", ProtocolFamily.PROXY, "Integrated through sing-box TUN; import a user profile", EngineState.AVAILABLE),
+        ProtocolOption("hysteria", "Hysteria", ProtocolFamily.PROXY, "Integrated through sing-box JSON profiles", EngineState.AVAILABLE),
+        ProtocolOption("hysteria2", "Hysteria 2", ProtocolFamily.PROXY, "Integrated through sing-box TUN; import a user profile", EngineState.AVAILABLE),
+        ProtocolOption("tuic", "TUIC", ProtocolFamily.PROXY, "Integrated through sing-box TUN; import a user profile", EngineState.AVAILABLE),
+        ProtocolOption("anytls", "AnyTLS", ProtocolFamily.PROXY, "Integrated through sing-box JSON profiles", EngineState.AVAILABLE),
+        ProtocolOption("ssh", "SSH tunnel", ProtocolFamily.PROXY, "Integrated through sing-box JSON profiles", EngineState.AVAILABLE),
+        ProtocolOption("http_proxy", "HTTP CONNECT", ProtocolFamily.PROXY, "Integrated through sing-box TUN; import a user profile", EngineState.AVAILABLE),
+        ProtocolOption("naive", "NaiveProxy", ProtocolFamily.PROXY, "Integrated through sing-box JSON profiles", EngineState.AVAILABLE),
         ProtocolOption("tcp", "TCP", ProtocolFamily.TRANSPORT, "Transport layer; not a VPN by itself", EngineState.NOT_A_TUNNEL_ENGINE),
         ProtocolOption("udp", "UDP", ProtocolFamily.TRANSPORT, "Transport layer; not a VPN by itself", EngineState.NOT_A_TUNNEL_ENGINE),
         ProtocolOption("quic", "QUIC", ProtocolFamily.TRANSPORT, "UDP-based transport", EngineState.NOT_A_TUNNEL_ENGINE),
@@ -34,7 +41,7 @@ object ProtocolCatalog {
     )
 
     fun stateLabel(state: EngineState) = when (state) {
-        EngineState.AVAILABLE -> "Integrated · profile required"
+        EngineState.AVAILABLE -> "Integrated in NetPulse · profile required"
         EngineState.INTEGRATION_REQUIRED -> "Engine integration required"
         EngineState.PLANNED -> "Planned"
         EngineState.NOT_A_TUNNEL_ENGINE -> "Transport only"
