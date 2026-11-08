@@ -67,6 +67,7 @@ class MainActivity : Activity() {
             singBoxButton.isEnabled = true
             singBoxButton.text = if (singBoxConnected) "Disconnect sing-box" else "Connect sing-box"
             singBoxStatus.text = if (singBoxConnected) "sing-box connected" else "sing-box disconnected"
+            publishNativeState()
         }
     }
     private var loadedConfig: Config? = null
@@ -194,6 +195,7 @@ class MainActivity : Activity() {
                     "importWireGuard" -> openProfilePicker()
                     "toggleWireGuard" -> toggleWireGuard()
                     "importSingBox" -> openSingBoxPicker()
+                    "importSingBoxText" -> importSingBoxText(value)
                     "toggleSingBox" -> toggleSingBox()
                     "applyRefreshRate" -> {
                         val rate = value?.toIntOrNull()
@@ -246,6 +248,8 @@ class MainActivity : Activity() {
             .put("wireguardProfileReady", loadedConfig != null)
             .put("singboxConnected", singBoxConnected || SingBoxVpnService.isRunning)
             .put("singboxProfileReady", (application as NetPulseApplication).loadedSingBoxProfile != null)
+            .put("singboxProtocol", (application as NetPulseApplication).loadedSingBoxProtocol ?: JSONObject.NULL)
+            .put("singboxDisplayName", (application as NetPulseApplication).loadedSingBoxDisplayName ?: JSONObject.NULL)
             .put("rootGranted", refreshRootGranted)
             .put("refreshRates", JSONArray(supported))
             .put("currentRefreshRate", refresh)
@@ -620,7 +624,47 @@ class MainActivity : Activity() {
         startActivityForResult(intent, REQUEST_SINGBOX_PROFILE)
     }
 
-    private fun updateSingBoxStatus(message: String) { singBoxStatus.text = message }
+    private fun updateSingBoxStatus(message: String) {
+        singBoxStatus.text = message
+        publishNativeState()
+    }
+
+    private fun importSingBoxText(rawText: String?) {
+        val input = rawText?.trim().orEmpty()
+        if (input.isBlank()) {
+            postWebMessage("لینک یا پیکربندی خالی است.")
+            return
+        }
+        if (input.toByteArray(Charsets.UTF_8).size > MAX_PROFILE_BYTES) {
+            postWebMessage("حجم پروفایل بیشتر از ۲ مگابایت است.")
+            return
+        }
+        postWebMessage("در حال شناسایی و اعتبارسنجی پروفایل…")
+        worker.execute {
+            try {
+                val imported = SingBoxProfileImporter.importProfile(input)
+                Libbox.checkConfig(imported.json)
+                val app = application as NetPulseApplication
+                app.loadedSingBoxProfile = imported.json
+                app.loadedSingBoxProtocol = imported.protocol
+                app.loadedSingBoxDisplayName = imported.displayName
+                runOnUiThread {
+                    if (!isDestroyed) {
+                        updateSingBoxStatus(imported.protocol + " · profile validated")
+                        singBoxButton.isEnabled = true
+                        postWebMessage(imported.protocol + " profile imported and validated.")
+                    }
+                }
+            } catch (error: Exception) {
+                runOnUiThread {
+                    if (!isDestroyed) {
+                        updateSingBoxStatus("Profile rejected · " + error.javaClass.simpleName)
+                        postWebMessage("پروفایل معتبر نیست: " + error.javaClass.simpleName)
+                    }
+                }
+            }
+        }
+    }
 
     private fun toggleSingBox() {
         if (singBoxConnected || singBoxStarting) {
@@ -694,18 +738,22 @@ class MainActivity : Activity() {
                         ?: throw IllegalArgumentException("Unable to open selected JSON profile")
                     if (bytes.size > MAX_PROFILE_BYTES) throw IllegalArgumentException("Profile exceeds the 2 MiB import limit")
                     val content = ProfileTextDecoder.decodeUtf8(bytes)
-                    if (content.isBlank()) throw IllegalArgumentException("Configuration is empty")
-                    Libbox.checkConfig(content)
+                    if (content.isBlank()) throw IllegalArgumentException("Profile is empty")
+                    val imported = SingBoxProfileImporter.importProfile(content)
+                    Libbox.checkConfig(imported.json)
                     runOnUiThread {
-                        (application as NetPulseApplication).loadedSingBoxProfile = content
-                        updateSingBoxStatus("Configuration validated · ready to connect")
+                        val app = application as NetPulseApplication
+                        app.loadedSingBoxProfile = imported.json
+                        app.loadedSingBoxProtocol = imported.protocol
+                        app.loadedSingBoxDisplayName = imported.displayName
+                        updateSingBoxStatus(imported.protocol + " · profile validated")
                         singBoxButton.isEnabled = true
-                        Toast.makeText(this, "sing-box configuration validated", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, imported.protocol + " profile imported", Toast.LENGTH_SHORT).show()
                     }
                 } catch (error: Exception) {
                     runOnUiThread {
-                        updateSingBoxStatus("sing-box configuration rejected")
-                        Toast.makeText(this, "Configuration rejected. Check the profile locally and try again.", Toast.LENGTH_LONG).show()
+                        updateSingBoxStatus("Profile rejected · " + error.javaClass.simpleName)
+                        Toast.makeText(this, "Profile rejected. Check the link or file format.", Toast.LENGTH_LONG).show()
                     }
                 }
             }
