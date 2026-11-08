@@ -235,16 +235,28 @@ class MainActivity : Activity() {
         worker.execute {
             try {
                 val prefs = getSharedPreferences(REFRESH_PREFS, MODE_PRIVATE)
+                // Capture the state before every attempt so a partially failed shell command
+                // can be rolled back without losing the original Auto baseline.
+                val beforeAttempt = RefreshRateController.captureSnapshot()
                 if (!prefs.getBoolean("snapshot_saved", false)) {
-                    val snapshot = RefreshRateController.captureSnapshot()
                     prefs.edit()
-                        .putString("snapshot", snapshot.encode())
+                        .putString("snapshot", beforeAttempt.encode())
                         .putBoolean("snapshot_saved", true)
                         .apply()
                 }
 
-                val result = RefreshRateController.runRoot(RefreshRateController.buildApplyScript(mode))
-                check(result.exitCode == 0) { "Root command returned exit code " + result.exitCode }
+                try {
+                    val result = RefreshRateController.runRoot(RefreshRateController.buildApplyScript(mode))
+                    check(result.exitCode == 0) { "Root command returned exit code " + result.exitCode }
+                } catch (applyError: Exception) {
+                    val rollback = RefreshRateController.runRoot(
+                        RefreshRateController.buildRestoreScript(beforeAttempt)
+                    )
+                    check(rollback.exitCode == 0) {
+                        "Apply failed and rollback returned exit code " + rollback.exitCode
+                    }
+                    throw applyError
+                }
 
                 runOnUiThread {
                     if (!isDestroyed) {
