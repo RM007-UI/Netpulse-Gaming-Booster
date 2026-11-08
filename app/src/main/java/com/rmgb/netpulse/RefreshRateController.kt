@@ -90,7 +90,7 @@ internal object RefreshRateController {
             "settings put system min_refresh_rate " + rate,
             "settings put system peak_refresh_rate " + rate,
             "settings put secure user_refresh_rate 1",
-            "settings put secure miui_refresh_rate " + rate,
+            "settings put secure miui_refresh_rate " + mode.hz,
             "cmd display set-user-preferred-display-mode " +
                 mode.widthPx + " " + mode.heightPx + " " + rate + " 0"
         ).joinToString("\n")
