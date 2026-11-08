@@ -18,6 +18,14 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.TrafficStats
 import android.os.SystemClock
+import android.annotation.SuppressLint
+import android.webkit.JavascriptInterface
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.InetSocketAddress
+import java.net.Socket
 import android.widget.Toast
 import android.os.Handler
 import android.os.Looper
@@ -76,6 +84,9 @@ class MainActivity : Activity() {
     private var lastNetworkRx = -1L
     private var lastNetworkTx = -1L
     private var lastNetworkSampleAt = 0L
+    private var networkDownBytesPerSecond = 0L
+    private var networkUpBytesPerSecond = 0L
+    private lateinit var webView: WebView
     private val networkTick = object : Runnable {
         override fun run() {
             updateNetworkMetrics()
@@ -98,6 +109,7 @@ class MainActivity : Activity() {
         }
     }
 
+    @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val app = application as NetPulseApplication
@@ -105,161 +117,156 @@ class MainActivity : Activity() {
         backend = app.wireGuardBackend
         app.wireGuardStateListener = stateListener
 
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+        // Native controls are kept as state holders for the existing VPN and refresh-rate engines.
+        // The user-facing interface is the approved multi-screen HTML design rendered below.
+        status = TextView(this)
+        connectButton = Button(this)
+        singBoxStatus = TextView(this)
+        singBoxButton = Button(this)
+        refreshRootStatus = TextView(this)
+        refreshStatus = TextView(this)
+        refreshRateContainer = LinearLayout(this)
+        autoRefreshButton = Button(this)
+
+        webView = WebView(this).apply {
             setBackgroundColor(bg)
+            isVerticalScrollBarEnabled = false
+            isHorizontalScrollBarEnabled = false
+            settings.javaScriptEnabled = true
+            settings.domStorageEnabled = true
+            settings.allowFileAccess = true
+            settings.allowContentAccess = false
+            settings.javaScriptCanOpenWindowsAutomatically = false
+            settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            webViewClient = WebViewClient()
+            addJavascriptInterface(NetPulseBridge(), "NetPulse")
         }
-        val scroll = ScrollView(this).apply {
-            clipToPadding = false
-            setPadding(0, 0, 0, dp(14))
-        }
-        val body = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(24), dp(18), dp(24))
-        }
-        scroll.addView(body)
-        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        setContentView(webView)
+        webView.loadUrl("file:///android_asset/netpulse/index.html")
 
-        val header = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        val mark = label("N", 23f, bg, true).apply {
-            gravity = Gravity.CENTER
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                intArrayOf(cyan, Color.rgb(113, 101, 255))
-            ).apply { cornerRadius = dp(16).toFloat() }
-        }
-        header.addView(mark, LinearLayout.LayoutParams(dp(48), dp(48)))
-        val brandText = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(12), 0, 0, 0)
-            addView(label("NetPulse", 23f, Color.WHITE, true))
-            addView(label("GAMING NETWORK CONTROL", 9f, muted, true))
-        }
-        header.addView(brandText, LinearLayout.LayoutParams(0, -2, 1f))
-        val livePill = label("● LIVE", 10f, Color.rgb(112, 242, 198), true).apply {
-            gravity = Gravity.CENTER
-            setPadding(dp(12), dp(7), dp(12), dp(7))
-            background = roundedBackground(Color.rgb(18, 54, 55), 40f, Color.rgb(31, 91, 91))
-        }
-        header.addView(livePill)
-        body.addView(header)
-
-        val overview = panel()
-        overview.addView(label("NETWORK OVERVIEW  /  LIVE TELEMETRY", 10f, cyan, true))
-        overview.addView(label("Your connection,\nunder control.", 25f, Color.WHITE, true).apply {
-            setPadding(0, dp(8), 0, dp(8))
-        })
-        networkBadge = label("CHECKING", 10f, Color.WHITE, true).apply {
-            gravity = Gravity.CENTER
-            setPadding(dp(12), dp(6), dp(12), dp(6))
-            background = roundedBackground(Color.rgb(48, 57, 74), 40f, Color.rgb(66, 83, 108))
-        }
-        overview.addView(networkBadge, LinearLayout.LayoutParams(-2, -2).apply { bottomMargin = dp(9) })
-        networkSummary = label("Checking active network…", 13f, muted)
-        overview.addView(networkSummary)
-        addPanel(body, overview)
-
-        val metrics = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        val downloadCard = panel().apply {
-            addView(label("DOWNLOAD", 10f, muted, true))
-            downloadRate = label("—", 22f, Color.WHITE, true).apply { setPadding(0, dp(7), 0, 0) }
-            addView(downloadRate)
-        }
-        val uploadCard = panel().apply {
-            addView(label("UPLOAD", 10f, muted, true))
-            uploadRate = label("—", 22f, Color.WHITE, true).apply { setPadding(0, dp(7), 0, 0) }
-            addView(uploadRate)
-        }
-        metrics.addView(downloadCard, LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = dp(8) })
-        metrics.addView(uploadCard, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(8) })
-        body.addView(metrics, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
-
-        val trafficCard = panel()
-        trafficCard.addView(label("DEVICE TRAFFIC", 10f, cyan, true))
-        totalTraffic = label("↓ —    ↑ —", 13f, Color.WHITE, true).apply { setPadding(0, dp(7), 0, 0) }
-        trafficCard.addView(totalTraffic)
-        addPanel(body, trafficCard)
-
-        body.addView(sectionTitle("CONNECTION ENGINES"))
-        val wireCard = panel()
-        wireCard.addView(label("WireGuard", 18f, Color.WHITE, true))
-        wireCard.addView(label("Import a provider-issued .conf profile. Profile data stays in memory.", 12f, muted).apply {
-            setPadding(0, dp(4), 0, dp(10))
-        })
-        wireCard.addView(styledButton("Import WireGuard profile  ·  .conf", false) { openProfilePicker() })
-        status = label(
-            if (loadedConfig != null) "Profile validated · ready to connect" else "No profile loaded",
-            12f, muted
-        ).apply { setPadding(0, dp(10), 0, dp(8)) }
-        wireCard.addView(status)
-        connectButton = styledButton("Connect WireGuard", true) { toggleWireGuard() }.apply {
-            isEnabled = loadedConfig != null
-        }
-        wireCard.addView(connectButton)
-        addPanel(body, wireCard)
-
-        val singCard = panel()
-        singCard.addView(label("sing-box", 18f, Color.WHITE, true))
-        singCard.addView(label("Import and validate a sing-box JSON configuration before connecting.", 12f, muted).apply {
-            setPadding(0, dp(4), 0, dp(10))
-        })
-        singCard.addView(styledButton("Import sing-box JSON", false) { openSingBoxPicker() })
-        singBoxStatus = label(
-            if (app.loadedSingBoxProfile != null) "Configuration validated · ready to connect"
-            else "No sing-box configuration loaded",
-            12f, muted
-        ).apply { setPadding(0, dp(10), 0, dp(8)) }
-        singCard.addView(singBoxStatus)
-        singBoxButton = styledButton("Connect sing-box", true) { toggleSingBox() }.apply {
-            isEnabled = app.loadedSingBoxProfile != null
-        }
-        singCard.addView(singBoxButton)
-        addPanel(body, singCard)
-
-        body.addView(sectionTitle("DISPLAY REFRESH RATE"))
-        val refreshCard = panel()
-        refreshCard.addView(label("Pin a mode supported by your display firmware.", 12f, muted))
-        refreshRootStatus = label("Checking root access…", 12f, muted).apply {
-            setPadding(0, dp(10), 0, dp(8))
-        }
-        refreshCard.addView(refreshRootStatus)
-        refreshRateContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        refreshCard.addView(refreshRateContainer)
-        autoRefreshButton = styledButton("AUTO  ·  Restore previous settings", false) {
-            restoreAutomaticRefreshRate()
-        }.apply { isEnabled = false }
-        refreshCard.addView(autoRefreshButton)
-        refreshStatus = label("Reading supported display modes…", 12f, muted).apply {
-            setPadding(0, dp(9), 0, 0)
-        }
-        refreshCard.addView(refreshStatus)
-        addPanel(body, refreshCard)
-
-        body.addView(sectionTitle("PROTOCOL CATALOG"))
-        body.addView(label(
-            "Only integrated engines are marked available. Other protocols remain inactive until their engines are implemented and tested.",
-            12f, muted
-        ).apply { setPadding(dp(2), 0, dp(2), dp(6)) })
-        addFamily(body, "VPN TUNNELS", ProtocolFamily.VPN_TUNNEL)
-        addFamily(body, "PROXY PROTOCOLS", ProtocolFamily.PROXY)
-        addFamily(body, "TRANSPORTS", ProtocolFamily.TRANSPORT)
-        addFamily(body, "DNS", ProtocolFamily.DNS)
-
-        body.addView(label(
-            "NETPULSE  ·  Local diagnostics only. VPN profiles are never bundled.",
-            10f, muted
-        ).apply {
-            gravity = Gravity.CENTER
-            setPadding(0, dp(16), 0, dp(4))
-        })
-        setContentView(root)
         initializeRefreshRateControls()
         updateNetworkMetrics()
     }
 
+    private inner class NetPulseBridge {
+        @JavascriptInterface
+        fun getState(): String = nativeState().toString()
+
+        @JavascriptInterface
+        fun perform(action: String, value: String?) {
+            runOnUiThread {
+                when (action) {
+                    "importWireGuard" -> openProfilePicker()
+                    "toggleWireGuard" -> toggleWireGuard()
+                    "importSingBox" -> openSingBoxPicker()
+                    "toggleSingBox" -> toggleSingBox()
+                    "applyRefreshRate" -> {
+                        val rate = value?.toIntOrNull()
+                        if (rate != null) applyRefreshRate(rate)
+                        else postWebMessage("نرخ انتخاب‌شده معتبر نیست.")
+                    }
+                    "restoreRefreshRate" -> restoreAutomaticRefreshRate()
+                    "checkRoot" -> checkRefreshRootPermission()
+                    "refresh" -> {
+                        updateNetworkMetrics()
+                        postWebMessage("اطلاعات دستگاه بروزرسانی شد.")
+                    }
+                    "testLatency" -> runTcpLatencyTest()
+                    else -> postWebMessage("این عملیات هنوز پشتیبانی نمی‌شود.")
+                }
+            }
+        }
+    }
+
+    private fun nativeState(): JSONObject {
+        val manager = getSystemService(ConnectivityManager::class.java)
+        val capabilities = manager.getNetworkCapabilities(manager.activeNetwork)
+        val transport = when {
+            capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true -> "VPN"
+            capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true -> "Wi-Fi"
+            capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true -> "Mobile data"
+            capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) == true -> "Ethernet"
+            else -> "Unknown"
+        }
+        val rx = TrafficStats.getTotalRxBytes()
+        val tx = TrafficStats.getTotalTxBytes()
+        val supported = runCatching {
+            RefreshRateController.supportedModes(windowManager.defaultDisplay)
+                .map { it.hz }.distinct().sorted()
+        }.getOrDefault(emptyList())
+        val refresh = runCatching {
+            RefreshRateController.currentRate(windowManager.defaultDisplay)
+        }.getOrDefault(0)
+        return JSONObject()
+            .put("networkType", transport)
+            .put("hasInternet", capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true)
+            .put("validated", capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true)
+            .put("downloadMbps", if (rx >= 0L) networkDownBytesPerSecond * 8.0 / 1_000_000.0 else JSONObject.NULL)
+            .put("uploadMbps", if (tx >= 0L) networkUpBytesPerSecond * 8.0 / 1_000_000.0 else JSONObject.NULL)
+            .put("rxBytes", if (rx >= 0L) rx else JSONObject.NULL)
+            .put("txBytes", if (tx >= 0L) tx else JSONObject.NULL)
+            .put("rxFormatted", formatBytes(rx))
+            .put("txFormatted", formatBytes(tx))
+            .put("wireguardConnected", connected)
+            .put("wireguardProfileReady", loadedConfig != null)
+            .put("singboxConnected", singBoxConnected || SingBoxVpnService.isRunning)
+            .put("singboxProfileReady", (application as NetPulseApplication).loadedSingBoxProfile != null)
+            .put("rootGranted", refreshRootGranted)
+            .put("refreshRates", JSONArray(supported))
+            .put("currentRefreshRate", refresh)
+            .put("deviceModel", android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL)
+    }
+
+    private fun publishNativeState() {
+        if (!::webView.isInitialized || isDestroyed) return
+        val payload = runCatching { nativeState().toString() }.getOrNull() ?: return
+        webView.post {
+            if (!isDestroyed) {
+                webView.evaluateJavascript(
+                    "window.netPulseApplyState && window.netPulseApplyState($payload);",
+                    null
+                )
+            }
+        }
+    }
+
+    private fun postWebMessage(message: String) {
+        if (!::webView.isInitialized || isDestroyed) return
+        val safe = JSONObject.quote(message)
+        webView.post {
+            if (!isDestroyed) {
+                webView.evaluateJavascript("window.netPulseMessage && window.netPulseMessage($safe);", null)
+            }
+        }
+    }
+
+    private fun runTcpLatencyTest() {
+        postWebMessage("در حال برقراری اتصال TCP با 1.1.1.1:443…")
+        worker.execute {
+            val started = SystemClock.elapsedRealtime()
+            val result = runCatching {
+                Socket().use { socket ->
+                    socket.connect(InetSocketAddress("1.1.1.1", 443), 3500)
+                }
+                SystemClock.elapsedRealtime() - started
+            }
+            runOnUiThread {
+                if (isDestroyed || !::webView.isInitialized) return@runOnUiThread
+                val success = result.isSuccess
+                val millis = result.getOrNull() ?: -1L
+                val message = if (success) {
+                    "TCP connection to 1.1.1.1:443 completed in " + millis + " ms."
+                } else {
+                    "TCP connection failed: " + (result.exceptionOrNull()?.javaClass?.simpleName ?: "Unknown error")
+                }
+                val quoted = JSONObject.quote(message)
+                webView.evaluateJavascript(
+                    "window.netPulseLatency && window.netPulseLatency($success, $millis, $quoted);",
+                    null
+                )
+            }
+        }
+    }
 
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density + 0.5f).toInt()
@@ -315,14 +322,14 @@ class MainActivity : Activity() {
         val tx = TrafficStats.getTotalTxBytes()
         if (rx >= 0L && tx >= 0L) {
             val elapsed = now - lastNetworkSampleAt
-            val downBytesPerSecond = if (lastNetworkRx >= 0L && elapsed > 0L) {
+            networkDownBytesPerSecond = if (lastNetworkRx >= 0L && elapsed > 0L) {
                 ((rx - lastNetworkRx).coerceAtLeast(0L) * 1000L) / elapsed
             } else 0L
-            val upBytesPerSecond = if (lastNetworkTx >= 0L && elapsed > 0L) {
+            networkUpBytesPerSecond = if (lastNetworkTx >= 0L && elapsed > 0L) {
                 ((tx - lastNetworkTx).coerceAtLeast(0L) * 1000L) / elapsed
             } else 0L
-            downloadRate.text = formatRate(downBytesPerSecond)
-            uploadRate.text = formatRate(upBytesPerSecond)
+            downloadRate.text = formatRate(networkDownBytesPerSecond)
+            uploadRate.text = formatRate(networkUpBytesPerSecond)
             totalTraffic.text = "↓ " + formatBytes(rx) + "     ↑ " + formatBytes(tx)
             lastNetworkRx = rx
             lastNetworkTx = tx
@@ -360,6 +367,7 @@ class MainActivity : Activity() {
             hasInternet -> transport + " · internet access is not yet verified"
             else -> "No validated internet connection detected."
         }
+        publishNativeState()
     }
 
     private fun formatRate(bytesPerSecond: Long): String {
@@ -830,6 +838,11 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        if (::webView.isInitialized) {
+            webView.removeJavascriptInterface("NetPulse")
+            webView.loadUrl("about:blank")
+            webView.destroy()
+        }
         if ((application as NetPulseApplication).wireGuardStateListener === stateListener) {
             (application as NetPulseApplication).wireGuardStateListener = null
         }
