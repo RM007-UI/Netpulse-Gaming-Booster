@@ -87,6 +87,7 @@ internal object RefreshRateController {
         require(mode.hz in 1..240) { "Invalid refresh rate" }
         val rate = String.format(Locale.US, "%.1f", mode.hz.toFloat())
         return listOf(
+            "set -e",
             "settings put system min_refresh_rate " + rate,
             "settings put system peak_refresh_rate " + rate,
             "settings put secure user_refresh_rate 1",
@@ -110,7 +111,7 @@ internal object RefreshRateController {
         val modeText = snapshot.preferredDisplayMode
         val modeMatch = DISPLAY_MODE.find(modeText)
         val displayCommand = if (modeText == "null" || modeMatch == null) {
-            "cmd display clear-user-preferred-display-mode"
+            "cmd display clear-user-preferred-display-mode 0"
         } else {
             "cmd display set-user-preferred-display-mode " +
                 modeMatch.groupValues[1] + " " +
@@ -119,6 +120,7 @@ internal object RefreshRateController {
         }
 
         return listOf(
+            "set -e",
             restore("system", "min_refresh_rate", snapshot.systemMin),
             restore("system", "peak_refresh_rate", snapshot.systemPeak),
             restore("secure", "miui_refresh_rate", snapshot.secureMiuiRate),
