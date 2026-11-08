@@ -32,7 +32,7 @@ console.log("PASS 2/5 — all navigation taps route and update selected state");
 new vm.Script(js, { filename: "netpulse/index.html" });
 const actions = ["importWireGuard", "toggleWireGuard", "importSingBox", "toggleSingBox", "applyRefreshRate", "restoreRefreshRate", "checkRoot", "refresh", "testLatency"];
 for (const action of actions) {
-  assert.ok(js.includes(`nativeAction('${action}'`) || js.includes(`"${action}"`), `UI action missing: ${action}`);
+  assert.ok(html.includes(`nativeAction('${action}'`) || js.includes(`nativeAction('${action}'`), `UI action missing: ${action}`);
   assert.ok(activity.includes(`"${action}" ->`), `Native bridge handler missing: ${action}`);
 }
 assert.match(activity, /@JavascriptInterface\s+fun getState\(\): String/);
