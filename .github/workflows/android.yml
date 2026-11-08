@@ -1,7 +1,7 @@
 name: Android CI
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "feature/native-netpulse-dashboard" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
