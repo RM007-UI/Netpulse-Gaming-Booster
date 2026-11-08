@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 const html = fs.readFileSync("app/src/main/assets/netpulse/index.html", "utf8");
 const activity = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/MainActivity.kt", "utf8");
 const gradle = fs.readFileSync("app/build.gradle.kts", "utf8");
-const scripts = [...html.matchAll(/<script>([\\s\\S]*?)<\\/script>/g)].map(m => m[1]);
+const scripts = html.split("<script>").slice(1).map(part => part.split("</script>")[0]);
 assert.equal(scripts.length, 1, "Expected one bundled application script");
 const js = scripts[0];
 
@@ -24,7 +24,7 @@ assert.deepEqual(navIds, expectedViews, "Navigation buttons do not map one-to-on
 assert.match(js, /querySelectorAll\('\.nav button\[data-view\]'\)\.forEach\(button=>\{button\.addEventListener\('click'/);
 assert.match(js, /function go\(key\)\{const target=\$\('#view-'\+key\);if\(!target\)return/);
 assert.match(js, /b\.setAttribute\('aria-current','page'\)/);
-const referencedIds = [...new Set([...js.matchAll(/\$\('#([\\w-]+)'\)/g)].map(m => m[1]))];
+const referencedIds = [...new Set([...js.matchAll(/\$\('#([\w-]+)'\)/g)].map(m => m[1]))];
 for (const id of referencedIds) assert.ok(html.includes(`id="${id}"`), `HTML selector points to missing element: ${id}`);
 console.log("PASS 2/5 — all navigation taps route and update selected state");
 
