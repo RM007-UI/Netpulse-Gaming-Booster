@@ -12,6 +12,12 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
+import android.view.Gravity
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.net.TrafficStats
+import android.os.SystemClock
 import android.widget.Toast
 import android.os.Handler
 import android.os.Looper
@@ -26,6 +32,7 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.Locale
 
 class MainActivity : Activity() {
     private val bg = Color.rgb(9, 15, 28)
@@ -61,6 +68,21 @@ class MainActivity : Activity() {
     private val refreshHandler = Handler(Looper.getMainLooper())
     private var refreshRootGranted = false
 
+    private lateinit var networkBadge: TextView
+    private lateinit var networkSummary: TextView
+    private lateinit var downloadRate: TextView
+    private lateinit var uploadRate: TextView
+    private lateinit var totalTraffic: TextView
+    private var lastNetworkRx = -1L
+    private var lastNetworkTx = -1L
+    private var lastNetworkSampleAt = 0L
+    private val networkTick = object : Runnable {
+        override fun run() {
+            updateNetworkMetrics()
+            refreshHandler.postDelayed(this, 1000L)
+        }
+    }
+
     private val wireGuardTunnel: Tunnel get() = (application as NetPulseApplication).wireGuardTunnel
     private val stateListener: (Tunnel.State) -> Unit = { newState ->
         runOnUiThread {
@@ -85,71 +107,281 @@ class MainActivity : Activity() {
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(22, 28, 22, 24)
             setBackgroundColor(bg)
         }
-        val scroll = ScrollView(this)
-        val body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val scroll = ScrollView(this).apply {
+            clipToPadding = false
+            setPadding(0, 0, 0, dp(14))
+        }
+        val body = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(24), dp(18), dp(24))
+        }
         scroll.addView(body)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
 
-        body.addView(label("NETPULSE", 27f, cyan, true))
-        body.addView(label("Gaming network toolkit", 14f, muted))
-
-        body.addView(label("Display Refresh Rate", 21f, Color.WHITE, true).apply { setPadding(0, 28, 0, 8) })
-        body.addView(label("Lock the screen to a refresh mode exposed by the display firmware.", 13f, muted))
-        refreshRootStatus = label("Checking root access…", 13f, muted).apply { setPadding(0, 10, 0, 8) }
-        body.addView(refreshRootStatus)
-        refreshRateContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        body.addView(refreshRateContainer)
-        autoRefreshButton = Button(this).apply {
-            text = "Auto · Restore previous settings"
-            isEnabled = false
-            setOnClickListener { restoreAutomaticRefreshRate() }
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
         }
-        body.addView(autoRefreshButton)
-        refreshStatus = label("Reading supported display modes…", 13f, muted).apply { setPadding(0, 8, 0, 12) }
-        body.addView(refreshStatus)
-        body.addView(label("WireGuard", 21f, Color.WHITE, true).apply { setPadding(0, 28, 0, 8) })
-        body.addView(label("Import a WireGuard .conf file supplied by your VPN provider. The profile stays in memory and is not written to app storage.", 13f, muted))
-        body.addView(Button(this).apply {
-            text = "Import WireGuard profile (.conf)"
-            setOnClickListener { openProfilePicker() }
+        val mark = label("N", 23f, bg, true).apply {
+            gravity = Gravity.CENTER
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(cyan, Color.rgb(113, 101, 255))
+            ).apply { cornerRadius = dp(16).toFloat() }
+        }
+        header.addView(mark, LinearLayout.LayoutParams(dp(48), dp(48)))
+        val brandText = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), 0, 0, 0)
+            addView(label("NetPulse", 23f, Color.WHITE, true))
+            addView(label("GAMING NETWORK CONTROL", 9f, muted, true))
+        }
+        header.addView(brandText, LinearLayout.LayoutParams(0, -2, 1f))
+        val livePill = label("● LIVE", 10f, Color.rgb(112, 242, 198), true).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(12), dp(7), dp(12), dp(7))
+            background = roundedBackground(Color.rgb(18, 54, 55), 40f, Color.rgb(31, 91, 91))
+        }
+        header.addView(livePill)
+        body.addView(header)
+
+        val overview = panel()
+        overview.addView(label("NETWORK OVERVIEW  /  LIVE TELEMETRY", 10f, cyan, true))
+        overview.addView(label("Your connection,\nunder control.", 25f, Color.WHITE, true).apply {
+            setPadding(0, dp(8), 0, dp(8))
         })
-        status = label(if (loadedConfig != null) "Profile validated · ready to connect" else "No profile loaded", 13f, muted).apply { setPadding(0, 12, 0, 12) }
-        body.addView(status)
-        connectButton = Button(this).apply {
-            text = "Connect"
+        networkBadge = label("CHECKING", 10f, Color.WHITE, true).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(12), dp(6), dp(12), dp(6))
+            background = roundedBackground(Color.rgb(48, 57, 74), 40f, Color.rgb(66, 83, 108))
+        }
+        overview.addView(networkBadge, LinearLayout.LayoutParams(-2, -2).apply { bottomMargin = dp(9) })
+        networkSummary = label("Checking active network…", 13f, muted)
+        overview.addView(networkSummary)
+        addPanel(body, overview)
+
+        val metrics = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val downloadCard = panel().apply {
+            addView(label("DOWNLOAD", 10f, muted, true))
+            downloadRate = label("—", 22f, Color.WHITE, true).apply { setPadding(0, dp(7), 0, 0) }
+            addView(downloadRate)
+        }
+        val uploadCard = panel().apply {
+            addView(label("UPLOAD", 10f, muted, true))
+            uploadRate = label("—", 22f, Color.WHITE, true).apply { setPadding(0, dp(7), 0, 0) }
+            addView(uploadRate)
+        }
+        metrics.addView(downloadCard, LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = dp(8) })
+        metrics.addView(uploadCard, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(8) })
+        body.addView(metrics, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+
+        val trafficCard = panel()
+        trafficCard.addView(label("DEVICE TRAFFIC", 10f, cyan, true))
+        totalTraffic = label("↓ —    ↑ —", 13f, Color.WHITE, true).apply { setPadding(0, dp(7), 0, 0) }
+        trafficCard.addView(totalTraffic)
+        addPanel(body, trafficCard)
+
+        body.addView(sectionTitle("CONNECTION ENGINES"))
+        val wireCard = panel()
+        wireCard.addView(label("WireGuard", 18f, Color.WHITE, true))
+        wireCard.addView(label("Import a provider-issued .conf profile. Profile data stays in memory.", 12f, muted).apply {
+            setPadding(0, dp(4), 0, dp(10))
+        })
+        wireCard.addView(styledButton("Import WireGuard profile  ·  .conf", false) { openProfilePicker() })
+        status = label(
+            if (loadedConfig != null) "Profile validated · ready to connect" else "No profile loaded",
+            12f, muted
+        ).apply { setPadding(0, dp(10), 0, dp(8)) }
+        wireCard.addView(status)
+        connectButton = styledButton("Connect WireGuard", true) { toggleWireGuard() }.apply {
             isEnabled = loadedConfig != null
-            setOnClickListener { toggleWireGuard() }
         }
-        body.addView(connectButton)
+        wireCard.addView(connectButton)
+        addPanel(body, wireCard)
 
-        body.addView(label("sing-box", 21f, Color.WHITE, true).apply { setPadding(0, 28, 0, 8) })
-        body.addView(label("Import a sing-box JSON configuration. The native core validates it before accepting it.", 13f, muted))
-        body.addView(Button(this).apply {
-            text = "Import sing-box JSON"
-            setOnClickListener { openSingBoxPicker() }
+        val singCard = panel()
+        singCard.addView(label("sing-box", 18f, Color.WHITE, true))
+        singCard.addView(label("Import and validate a sing-box JSON configuration before connecting.", 12f, muted).apply {
+            setPadding(0, dp(4), 0, dp(10))
         })
-        singBoxStatus = label(if (app.loadedSingBoxProfile != null) "Configuration validated · ready to connect" else "No sing-box configuration loaded", 13f, muted).apply { setPadding(0, 12, 0, 12) }
-        body.addView(singBoxStatus)
-        singBoxButton = Button(this).apply {
-            text = "Connect sing-box"
+        singCard.addView(styledButton("Import sing-box JSON", false) { openSingBoxPicker() })
+        singBoxStatus = label(
+            if (app.loadedSingBoxProfile != null) "Configuration validated · ready to connect"
+            else "No sing-box configuration loaded",
+            12f, muted
+        ).apply { setPadding(0, dp(10), 0, dp(8)) }
+        singCard.addView(singBoxStatus)
+        singBoxButton = styledButton("Connect sing-box", true) { toggleSingBox() }.apply {
             isEnabled = app.loadedSingBoxProfile != null
-            setOnClickListener { toggleSingBox() }
         }
-        body.addView(singBoxButton)
+        singCard.addView(singBoxButton)
+        addPanel(body, singCard)
 
-        body.addView(label("Protocol catalog", 20f, Color.WHITE, true).apply { setPadding(0, 28, 0, 8) })
-        body.addView(label("Only integrated engines are marked as available. Other entries remain inactive until their engines are implemented and tested.", 13f, muted))
+        body.addView(sectionTitle("DISPLAY REFRESH RATE"))
+        val refreshCard = panel()
+        refreshCard.addView(label("Pin a mode supported by your display firmware.", 12f, muted))
+        refreshRootStatus = label("Checking root access…", 12f, muted).apply {
+            setPadding(0, dp(10), 0, dp(8))
+        }
+        refreshCard.addView(refreshRootStatus)
+        refreshRateContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        refreshCard.addView(refreshRateContainer)
+        autoRefreshButton = styledButton("AUTO  ·  Restore previous settings", false) {
+            restoreAutomaticRefreshRate()
+        }.apply { isEnabled = false }
+        refreshCard.addView(autoRefreshButton)
+        refreshStatus = label("Reading supported display modes…", 12f, muted).apply {
+            setPadding(0, dp(9), 0, 0)
+        }
+        refreshCard.addView(refreshStatus)
+        addPanel(body, refreshCard)
+
+        body.addView(sectionTitle("PROTOCOL CATALOG"))
+        body.addView(label(
+            "Only integrated engines are marked available. Other protocols remain inactive until their engines are implemented and tested.",
+            12f, muted
+        ).apply { setPadding(dp(2), 0, dp(2), dp(6)) })
         addFamily(body, "VPN TUNNELS", ProtocolFamily.VPN_TUNNEL)
         addFamily(body, "PROXY PROTOCOLS", ProtocolFamily.PROXY)
         addFamily(body, "TRANSPORTS", ProtocolFamily.TRANSPORT)
         addFamily(body, "DNS", ProtocolFamily.DNS)
+
+        body.addView(label(
+            "NETPULSE  ·  Local diagnostics only. VPN profiles are never bundled.",
+            10f, muted
+        ).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, dp(16), 0, dp(4))
+        })
         setContentView(root)
         initializeRefreshRateControls()
+        updateNetworkMetrics()
     }
 
+
+    private fun dp(value: Int): Int =
+        (value * resources.displayMetrics.density + 0.5f).toInt()
+
+    private fun roundedBackground(color: Int, radiusDp: Float, stroke: Int): GradientDrawable =
+        GradientDrawable().apply {
+            setColor(color)
+            cornerRadius = dp(radiusDp.toInt()).toFloat()
+            setStroke(dp(1), stroke)
+        }
+
+    private fun panel(): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(17), dp(16), dp(17), dp(16))
+        background = roundedBackground(Color.rgb(16, 27, 47), 22f, Color.rgb(34, 51, 76))
+    }
+
+    private fun addPanel(parent: LinearLayout, view: LinearLayout) {
+        parent.addView(view, LinearLayout.LayoutParams(-1, -2).apply {
+            bottomMargin = dp(12)
+        })
+    }
+
+    private fun sectionTitle(value: String): TextView =
+        label(value, 11f, cyan, true).apply {
+            setPadding(dp(3), dp(11), dp(3), dp(9))
+        }
+
+    private fun styledButton(
+        value: String,
+        primary: Boolean,
+        action: () -> Unit
+    ): Button = Button(this).apply {
+        text = value
+        isAllCaps = false
+        textSize = 13f
+        setTextColor(if (primary) Color.rgb(7, 19, 31) else Color.WHITE)
+        background = roundedBackground(
+            if (primary) cyan else Color.rgb(27, 43, 66),
+            14f,
+            if (primary) Color.rgb(84, 237, 242) else Color.rgb(54, 75, 105)
+        )
+        minHeight = dp(48)
+        setPadding(dp(14), dp(7), dp(14), dp(7))
+        setOnClickListener { action() }
+    }
+
+    private fun updateNetworkMetrics() {
+        if (!::networkSummary.isInitialized) return
+
+        val now = SystemClock.elapsedRealtime()
+        val rx = TrafficStats.getTotalRxBytes()
+        val tx = TrafficStats.getTotalTxBytes()
+        if (rx >= 0L && tx >= 0L) {
+            val elapsed = now - lastNetworkSampleAt
+            val downBytesPerSecond = if (lastNetworkRx >= 0L && elapsed > 0L) {
+                ((rx - lastNetworkRx).coerceAtLeast(0L) * 1000L) / elapsed
+            } else 0L
+            val upBytesPerSecond = if (lastNetworkTx >= 0L && elapsed > 0L) {
+                ((tx - lastNetworkTx).coerceAtLeast(0L) * 1000L) / elapsed
+            } else 0L
+            downloadRate.text = formatRate(downBytesPerSecond)
+            uploadRate.text = formatRate(upBytesPerSecond)
+            totalTraffic.text = "↓ " + formatBytes(rx) + "     ↑ " + formatBytes(tx)
+            lastNetworkRx = rx
+            lastNetworkTx = tx
+            lastNetworkSampleAt = now
+        } else {
+            downloadRate.text = "Unavailable"
+            uploadRate.text = "Unavailable"
+            totalTraffic.text = "Traffic counters are not exposed on this device."
+        }
+
+        val manager = getSystemService(ConnectivityManager::class.java)
+        val capabilities = manager.getNetworkCapabilities(manager.activeNetwork)
+        val transport = when {
+            capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true -> "VPN tunnel"
+            capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true -> "Wi-Fi"
+            capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true -> "Mobile data"
+            capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) == true -> "Ethernet"
+            else -> "No active network"
+        }
+        val hasInternet = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+        val validated = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
+        networkBadge.text = when {
+            validated -> "ONLINE"
+            hasInternet -> "CHECK CONNECTION"
+            else -> "OFFLINE"
+        }
+        networkBadge.background = roundedBackground(
+            if (validated) Color.rgb(18, 62, 58) else Color.rgb(64, 48, 34),
+            40f,
+            if (validated) Color.rgb(36, 112, 97) else Color.rgb(116, 83, 50)
+        )
+        networkBadge.setTextColor(if (validated) Color.rgb(112, 242, 198) else Color.rgb(255, 198, 116))
+        networkSummary.text = when {
+            validated -> transport + " · internet access verified by Android"
+            hasInternet -> transport + " · internet access is not yet verified"
+            else -> "No validated internet connection detected."
+        }
+    }
+
+    private fun formatRate(bytesPerSecond: Long): String {
+        val megabits = bytesPerSecond * 8.0 / 1_000_000.0
+        return if (megabits >= 1.0) {
+            String.format(Locale.US, "%.2f Mbps", megabits)
+        } else {
+            String.format(Locale.US, "%.0f Kbps", bytesPerSecond * 8.0 / 1000.0)
+        }
+    }
+
+    private fun formatBytes(bytes: Long): String {
+        if (bytes < 0L) return "—"
+        val units = arrayOf("B", "KB", "MB", "GB", "TB")
+        var amount = bytes.toDouble()
+        var unit = 0
+        while (amount >= 1024.0 && unit < units.lastIndex) {
+            amount /= 1024.0
+            unit++
+        }
+        return String.format(Locale.US, "%.1f %s", amount, units[unit])
+    }
 
     private fun initializeRefreshRateControls() {
         updateRefreshRateSummary()
@@ -512,17 +744,21 @@ class MainActivity : Activity() {
     }
 
     private fun addFamily(parent: LinearLayout, title: String, family: ProtocolFamily) {
-        parent.addView(label(title, 14f, cyan, true).apply { setPadding(0, 22, 0, 8) })
+        parent.addView(sectionTitle(title))
         ProtocolCatalog.options.filter { it.family == family }.forEach { option ->
-            val card = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(14, 12, 14, 12)
-                setBackgroundColor(Color.rgb(18, 29, 46))
-            }
-            card.addView(label(option.title, 16f, Color.WHITE, true))
-            card.addView(label(option.description, 12f, muted))
-            card.addView(label(ProtocolCatalog.stateLabel(option.engineState), 11f, if (option.engineState == EngineState.AVAILABLE) cyan else Color.rgb(255, 190, 95)))
-            parent.addView(card, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 8 })
+            val card = panel()
+            card.addView(label(option.title, 15f, Color.WHITE, true))
+            card.addView(label(option.description, 11f, muted).apply {
+                setPadding(0, dp(4), 0, dp(6))
+            })
+            val ready = option.engineState == EngineState.AVAILABLE
+            card.addView(label(
+                ProtocolCatalog.stateLabel(option.engineState),
+                10f,
+                if (ready) Color.rgb(112, 242, 198) else Color.rgb(255, 190, 95),
+                true
+            ))
+            addPanel(parent, card)
         }
     }
 
@@ -558,6 +794,8 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        refreshHandler.removeCallbacks(networkTick)
+        refreshHandler.post(networkTick)
         singBoxConnected = SingBoxVpnService.isRunning
         singBoxStarting = false
         if (::singBoxButton.isInitialized && ::singBoxStatus.isInitialized) {
@@ -584,6 +822,11 @@ class MainActivity : Activity() {
                     }
             }
         }
+    }
+
+    override fun onPause() {
+        refreshHandler.removeCallbacks(networkTick)
+        super.onPause()
     }
 
     override fun onDestroy() {
