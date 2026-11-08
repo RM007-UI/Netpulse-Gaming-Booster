@@ -136,9 +136,20 @@ class MainActivity : Activity() {
             settings.domStorageEnabled = true
             settings.allowFileAccess = true
             settings.allowContentAccess = false
+            settings.allowFileAccessFromFileURLs = false
+            settings.allowUniversalAccessFromFileURLs = false
+            settings.blockNetworkLoads = true
             settings.javaScriptCanOpenWindowsAutomatically = false
             settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
-            webViewClient = WebViewClient()
+            webViewClient = object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(
+                    view: WebView?,
+                    request: android.webkit.WebResourceRequest?
+                ): Boolean {
+                    val target = request?.url?.toString() ?: return true
+                    return !target.startsWith("file:///android_asset/netpulse/")
+                }
+            }
             addJavascriptInterface(NetPulseBridge(), "NetPulse")
         }
         setContentView(webView)
