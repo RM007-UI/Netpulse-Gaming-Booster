@@ -22,6 +22,9 @@ import android.annotation.SuppressLint
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.InetSocketAddress
@@ -152,7 +155,28 @@ class MainActivity : Activity() {
             }
             addJavascriptInterface(NetPulseBridge(), "NetPulse")
         }
+        // Android 15 / targetSdk 35 enforces edge-to-edge. Keep system bars outside
+        // the HTML viewport, while leaving their surfaces in the app's dark palette.
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = bg
+        window.navigationBarColor = bg
+        if (android.os.Build.VERSION.SDK_INT >= 29) {
+            window.isStatusBarContrastEnforced = false
+            window.isNavigationBarContrastEnforced = false
+        }
         setContentView(webView)
+        WindowCompat.getInsetsController(window, webView).apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
+        }
+        ViewCompat.setOnApplyWindowInsetsListener(webView) { view, insets ->
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+            )
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
+        ViewCompat.requestApplyInsets(webView)
         webView.loadUrl("file:///android_asset/netpulse/index.html")
 
         initializeRefreshRateControls()
