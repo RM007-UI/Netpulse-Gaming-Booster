@@ -21,10 +21,9 @@ console.log("PASS 1/5 — all eight screens are present exactly once");
 // PASS 2 — Catch the exact regression that broke navigation: querySelector returns one node.
 const navIds = [...html.matchAll(/<button[^>]*data-view="([^"]+)"/g)].map(m => m[1]);
 assert.deepEqual(navIds, expectedViews, "Navigation buttons do not map one-to-one to screens");
-assert.match(js, /function go\(key\)\{[\s\S]*?\$\$\('\.view'\)\.forEach/);
-assert.match(js, /\$\$\('\.nav button\[data-view\]'\)\.forEach/);
-assert.doesNotMatch(js, /\$\('\.view'\)\.forEach/);
-assert.doesNotMatch(js, /\$\('\.nav button\[data-view\]'\)\.forEach/);
+assert.match(js, /function go\(key\)\{[\s\S]*?Array\.from\(document\.querySelectorAll\('\.view'\)\)\.forEach/);
+assert.match(js, /Array\.from\(document\.querySelectorAll\('\.nav button\[data-view\]'\)\)\.forEach/);
+assert.doesNotMatch(js, /\$\('[^']+'\)\.forEach/);
 assert.match(js, /primaryNav\.addEventListener\('click'/);
 assert.match(js, /event\.target\.closest\('button\[data-view\]'\)/);
 assert.match(js, /nav\.scrollTo\(\{left/);
