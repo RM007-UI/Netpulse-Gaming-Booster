@@ -11,7 +11,7 @@ class RefreshRateControllerTest {
         assertTrue(script.contains("settings put system min_refresh_rate 120.0"))
         assertTrue(script.contains("settings put system peak_refresh_rate 120.0"))
         assertTrue(script.contains("settings put secure user_refresh_rate 1"))
-        assertTrue(script.contains("settings put secure miui_refresh_rate 120.0"))
+        assertTrue(script.contains("settings put secure miui_refresh_rate 120"))
         assertTrue(script.contains("cmd display set-user-preferred-display-mode 1220 2712 120.0 0"))
     }
 
