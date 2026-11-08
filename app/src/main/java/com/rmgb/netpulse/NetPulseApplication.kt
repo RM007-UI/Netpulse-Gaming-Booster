@@ -16,6 +16,8 @@ class NetPulseApplication : Application() {
     @Volatile var loadedWireGuardConfig: Config? = null
     @Volatile var pendingWireGuardConfig: Config? = null
     @Volatile var loadedSingBoxProfile: String? = null
+    @Volatile var loadedSingBoxProtocol: String? = null
+    @Volatile var loadedSingBoxDisplayName: String? = null
     val wireGuardTunnel: Tunnel = object : Tunnel {
         override fun getName(): String = "NetPulse-WireGuard"
         override fun onStateChange(newState: Tunnel.State) { wireGuardStateListener?.invoke(newState) }
