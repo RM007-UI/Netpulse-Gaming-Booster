@@ -339,7 +339,7 @@ internal object SingBoxProfileImporter {
         params["fp"]?.takeIf(String::isNotBlank)?.let { fingerprint ->
             tls.put("utls", JSONObject().put("enabled", true).put("fingerprint", fingerprint))
         }
-        if (params["security"] == "reality") {
+        if (params["security"].equals("reality", ignoreCase = true)) {
             require(allowReality) { "Reality is only accepted for VLESS links" }
             val publicKey = params["pbk"]?.takeIf(String::isNotBlank)
                 ?: throw IllegalArgumentException("Reality public key is missing")
