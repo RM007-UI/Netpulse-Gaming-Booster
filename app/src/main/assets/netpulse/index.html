@@ -52,8 +52,44 @@ main{min-width:0;padding:27px 34px 38px}.topbar{display:flex;align-items:center;
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];let toastTimer;let historyDown=[],historyUp=[];
 function toast(s){const t=$('#toast');t.textContent=s;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2300)}
-function go(key){const target=$('#view-'+key);if(!target)return;$('.view').forEach(v=>v.classList.toggle('active',v===target));$('.nav button[data-view]').forEach(b=>{const active=b.dataset.view===key;b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});const b=$('.nav button[data-view="'+key+'"]');$('#pageTitle').textContent=b?b.dataset.title:'NetPulse';document.documentElement.scrollTop=0;document.body.scrollTop=0;}
-document.querySelectorAll('.nav button[data-view]').forEach(button=>{button.addEventListener('click',event=>{event.preventDefault();go(button.dataset.view);});button.setAttribute('type','button')});
+function go(key){
+ const target=$('#view-'+key);
+ if(!target)return;
+ $('.view').forEach(v=>{
+  const active=v===target;
+  v.classList.toggle('active',active);
+  v.setAttribute('aria-hidden',String(!active));
+ });
+ let activeButton=null;
+ $('.nav button[data-view]').forEach(button=>{
+  const active=button.dataset.view===key;
+  button.classList.toggle('active',active);
+  if(active){button.setAttribute('aria-current','page');activeButton=button;}
+  else button.removeAttribute('aria-current');
+ });
+ $('#pageTitle').textContent=activeButton?activeButton.dataset.title:'NetPulse';
+ if(activeButton){
+  const nav=$('.nav');
+  if(nav && nav.scrollWidth>nav.clientWidth){
+   const left=activeButton.offsetLeft-nav.offsetLeft;
+   const right=left+activeButton.offsetWidth;
+   if(left<nav.scrollLeft)nav.scrollTo({left,behavior:'smooth'});
+   else if(right>nav.scrollLeft+nav.clientWidth)nav.scrollTo({left:right-nav.clientWidth,behavior:'smooth'});
+  }
+ }
+ document.documentElement.scrollTop=0;
+ document.body.scrollTop=0;
+}
+const primaryNav=$('.nav');
+if(primaryNav){
+ primaryNav.addEventListener('click',event=>{
+  const button=event.target.closest('button[data-view]');
+  if(!button || !primaryNav.contains(button))return;
+  event.preventDefault();
+  go(button.dataset.view);
+ });
+ $('.nav button[data-view]').forEach(button=>button.setAttribute('type','button'));
+}
 function nativeAction(action,value=''){if(window.NetPulse){window.NetPulse.perform(action,String(value));}else toast('رابط native در دسترس نیست.')}
 function applyState(s){if(!s)return;const fmt=v=>v===null||v===undefined?'—':v;$('#downMetric').innerHTML=fmt(s.downloadMbps)+' <small>Mbps</small>';$('#upMetric').innerHTML=fmt(s.uploadMbps)+' <small>Mbps</small>';$('#typeMetric').textContent=fmt(s.networkType);$('#internetMetric').textContent=s.validated?'آنلاین':(s.hasInternet?'در حال بررسی':'آفلاین');$('#validatedMetric').textContent=s.validated?'اینترنت تأییدشده': 'هنوز تأیید نشده';$('#sideNetworkStatus').textContent=s.validated?'آنلاین':'بررسی';$('#sideNetworkType').textContent=s.networkType||'اتصال نامشخص';$('#heroNetwork').innerHTML=(s.validated?'ONLINE':'DEVICE STATUS')+'<b>'+(s.validated?'اتصال تأییدشده':'در انتظار شبکه')+'</b>LIVE TELEMETRY';$('#connectionPill').textContent=s.validated?'پایدار':'بررسی';$('#healthScore').textContent=s.validated?'✓':'—';$('#healthArc').setAttribute('stroke-dasharray',s.validated?'285 308':'0 308');$('#networkHeadline').textContent=s.validated?'دسترسی اینترنت تأیید شد':'وضعیت اتصال';$('#networkDescription').textContent=(s.networkType||'اتصال نامشخص')+' · '+(s.validated?'Android اتصال را تأیید کرده است.':'هنوز دسترسی اینترنت تأیید نشده است.');$('#networkDetail').textContent='شمارنده محلی دستگاه';$('#rxTotal').textContent=fmt(s.rxFormatted);$('#txTotal').textContent=fmt(s.txFormatted);$('#rxBar').style.width=Math.min(100,Math.max(2,(s.rxBytes||0)%100000000/1000000))+'%';$('#txBar').style.width=Math.min(100,Math.max(2,(s.txBytes||0)%100000000/1000000))+'%';$('#aDown').textContent=fmt(s.downloadMbps)+' Mbps';$('#aUp').textContent=fmt(s.uploadMbps)+' Mbps';$('#aRx').textContent=fmt(s.rxFormatted);$('#aType').textContent=fmt(s.networkType);$('#aInternet').textContent=s.validated?'اتصال اعتبارسنجی‌شده':'اتصال تأییدنشده';$('#dRx').textContent=fmt(s.rxFormatted);$('#dTx').textContent=fmt(s.txFormatted);$('#dType').textContent=fmt(s.networkType);$('#deviceOnline').textContent=s.validated?'آنلاین':'نامشخص';$('#deviceModel').textContent=s.deviceModel||'دستگاه اندرویدی';$('#deviceTransport').textContent='نوع اتصال: '+fmt(s.networkType);$('#deviceRates').textContent='دانلود '+fmt(s.downloadMbps)+' Mbps · آپلود '+fmt(s.uploadMbps)+' Mbps';$('#serverOnline').textContent=s.validated?'بله':'نامشخص';$('#serverType').textContent=fmt(s.networkType);$('#speedDownload').textContent=fmt(s.downloadMbps)+' Mbps';$('#speedUpload').textContent=fmt(s.uploadMbps)+' Mbps';$('#speedNetworkType').textContent=fmt(s.networkType);$('#settingsWg').textContent=s.wireguardConnected?'متصل':(s.wireguardProfileReady?'پروفایل آماده':'پروفایل موجود نیست');$('#settingsSb').textContent=s.singboxConnected?'متصل':(s.singboxProfileReady?'پیکربندی آماده':'پروفایل موجود نیست');$('#wgState').textContent=s.wireguardConnected?'WireGuard متصل است':(s.wireguardProfileReady?'پروفایل آماده اتصال':'پروفایل بارگذاری نشده');$('#wgBadge').textContent=s.wireguardConnected?'متصل':(s.wireguardProfileReady?'آماده':'بدون پروفایل');$('#wgToggle').textContent=s.wireguardConnected?'قطع اتصال':'اتصال';$('#wgToggle').disabled=!s.wireguardConnected&&!s.wireguardProfileReady;$('#sbState').textContent=s.singboxConnected?'sing-box متصل است':(s.singboxProfileReady?'پیکربندی آماده اتصال':'پروفایل بارگذاری نشده');$('#sbBadge').textContent=s.singboxConnected?'متصل':(s.singboxProfileReady?'آماده':'بدون پروفایل');$('#sbToggle').textContent=s.singboxConnected?'قطع اتصال':'اتصال';$('#sbToggle').disabled=!s.singboxConnected&&!s.singboxProfileReady;$('#engineMessage').textContent=s.wireguardConnected?'تونل WireGuard فعال است.':(s.singboxConnected?'تونل sing-box فعال است.':'پروفایل‌ها داخل فضای خصوصی برنامه بارگذاری می‌شوند.');$('#rootState').textContent=s.rootGranted?'دسترسی Root تأیید شد.':'Root در دسترس نیست یا مجوز داده نشده است.';$('#rootBadge').textContent=s.rootGranted?'ROOT OK':'NO ROOT';$('#settingsRoot').textContent=s.rootGranted?'مجاز':'غیرمجاز';$('#alertRootState').textContent=s.rootGranted?'دسترسی روت موجود است.':'دسترسی روت موجود نیست.';$('#alertEngineState').textContent='WireGuard: '+(s.wireguardConnected?'متصل':'قطع')+' · sing-box: '+(s.singboxConnected?'متصل':'قطع');$('#refreshRates').innerHTML='';(s.refreshRates||[]).forEach(rate=>{const b=document.createElement('button');b.textContent=rate+' Hz';b.disabled=!s.rootGranted;b.classList.toggle('active',rate===s.currentRefreshRate);b.onclick=()=>nativeAction('applyRefreshRate',rate);$('#refreshRates').appendChild(b)});if(!s.refreshRates||!s.refreshRates.length)$('#refreshRates').textContent='نرخ‌های قابل پشتیبانی گزارش نشد.';historyDown.push(Math.max(0,Math.min(85,(s.downloadMbps||0)/2)));historyUp.push(Math.max(0,Math.min(85,(s.uploadMbps||0)/2)));if(historyDown.length>20){historyDown.shift();historyUp.shift()}drawLiveChart('downPath',historyDown);drawLiveChart('upPath',historyUp)}
 function drawLiveChart(id,a){if(a.length<2)return;const points=a.map((v,i)=>{const x=i*720/(a.length-1),y=180-v*1.7;return (i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1)}).join(' ');$('#'+id).setAttribute('d',points)}
@@ -65,8 +101,18 @@ function logEvent(type,message,result){const row=document.createElement('tr');ro
 function clearLogs(){$('#logRows').innerHTML='';toast('گزارش‌های این نشست پاک شدند.')}
 function filterLogs(){const q=$('#logSearch').value.toLowerCase();$$('#logRows tr').forEach(r=>r.style.display=r.textContent.toLowerCase().includes(q)?'':'none')}
 $$('[data-settings]').forEach(b=>b.addEventListener('click',()=>{$$('[data-settings]').forEach(x=>x.classList.toggle('active',x===b));['general','monitor','alerts','engines','security'].forEach(k=>$('#settings-'+k).hidden=k!==b.dataset.settings)}));
-$$('.switch').forEach(b=>{const key='np-pref-'+(b.dataset.pref||'generic');b.classList.toggle('on',localStorage.getItem(key)!=='false');b.addEventListener('click',()=>{b.classList.toggle('on');localStorage.setItem(key,b.classList.contains('on'))})});
+const memoryPrefs=Object.create(null);
+function readPref(key){try{return window.localStorage.getItem(key)}catch(error){return memoryPrefs[key]??null}}
+function writePref(key,value){memoryPrefs[key]=value;try{window.localStorage.setItem(key,value)}catch(error){}}
+$('.switch').forEach(button=>{
+ const key='np-pref-'+(button.dataset.pref||'generic');
+ button.classList.toggle('on',readPref(key)!=='false');
+ button.addEventListener('click',()=>{
+  button.classList.toggle('on');
+  writePref(key,button.classList.contains('on')?'true':'false');
+ });
+});
 window.netPulseApplyState=applyState;window.netPulseMessage=onNetPulseMessage;window.netPulseLatency=onNetPulseLatency;
-document.addEventListener('DOMContentLoaded',()=>{pullState();setInterval(()=>{if(localStorage.getItem('np-pref-live')!=='false')pullState()},1000)});
+document.addEventListener('DOMContentLoaded',()=>{pullState();setInterval(()=>{if(readPref('np-pref-live')!=='false')pullState()},1000)});
 </script>
 </body></html>
