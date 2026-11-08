@@ -302,7 +302,7 @@ class MainActivity : Activity() {
             14f,
             if (primary) Color.rgb(84, 237, 242) else Color.rgb(54, 75, 105)
         )
-        minHeight = dp(48)
+        minimumHeight = dp(48)
         setPadding(dp(14), dp(7), dp(14), dp(7))
         setOnClickListener { action() }
     }
