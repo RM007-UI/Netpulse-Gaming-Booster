@@ -183,7 +183,7 @@ class MainActivity : Activity() {
         updateNetworkMetrics()
     }
 
-    private inner class NetPulseBridge {
+    inner class NetPulseBridge {
         @JavascriptInterface
         fun getState(): String = nativeState().toString()
 
