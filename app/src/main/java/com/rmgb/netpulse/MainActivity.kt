@@ -13,6 +13,8 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.graphics.Color
 import android.widget.Toast
+import android.os.Handler
+import android.os.Looper
 import com.rmgb.netpulse.protocol.ProtocolCatalog
 import com.rmgb.netpulse.protocol.ProtocolFamily
 import com.rmgb.netpulse.protocol.EngineState
@@ -52,6 +54,13 @@ class MainActivity : Activity() {
     private var loadedConfig: Config? = null
     private var connected = false
 
+    private lateinit var refreshRootStatus: TextView
+    private lateinit var refreshStatus: TextView
+    private lateinit var refreshRateContainer: LinearLayout
+    private lateinit var autoRefreshButton: Button
+    private val refreshHandler = Handler(Looper.getMainLooper())
+    private var refreshRootGranted = false
+
     private val wireGuardTunnel: Tunnel get() = (application as NetPulseApplication).wireGuardTunnel
     private val stateListener: (Tunnel.State) -> Unit = { newState ->
         runOnUiThread {
@@ -86,6 +95,21 @@ class MainActivity : Activity() {
 
         body.addView(label("NETPULSE", 27f, cyan, true))
         body.addView(label("Gaming network toolkit", 14f, muted))
+
+        body.addView(label("Display Refresh Rate", 21f, Color.WHITE, true).apply { setPadding(0, 28, 0, 8) })
+        body.addView(label("Lock the screen to a refresh mode exposed by the display firmware.", 13f, muted))
+        refreshRootStatus = label("Checking root access…", 13f, muted).apply { setPadding(0, 10, 0, 8) }
+        body.addView(refreshRootStatus)
+        refreshRateContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        body.addView(refreshRateContainer)
+        autoRefreshButton = Button(this).apply {
+            text = "Auto · Restore previous settings"
+            isEnabled = false
+            setOnClickListener { restoreAutomaticRefreshRate() }
+        }
+        body.addView(autoRefreshButton)
+        refreshStatus = label("Reading supported display modes…", 13f, muted).apply { setPadding(0, 8, 0, 12) }
+        body.addView(refreshStatus)
         body.addView(label("WireGuard", 21f, Color.WHITE, true).apply { setPadding(0, 28, 0, 8) })
         body.addView(label("Import a WireGuard .conf file supplied by your VPN provider. The profile stays in memory and is not written to app storage.", 13f, muted))
         body.addView(Button(this).apply {
@@ -123,6 +147,167 @@ class MainActivity : Activity() {
         addFamily(body, "TRANSPORTS", ProtocolFamily.TRANSPORT)
         addFamily(body, "DNS", ProtocolFamily.DNS)
         setContentView(root)
+        initializeRefreshRateControls()
+    }
+
+
+    private fun initializeRefreshRateControls() {
+        updateRefreshRateSummary()
+        renderRefreshRateButtons()
+        refreshRootStatus.setOnClickListener { checkRefreshRootPermission() }
+        checkRefreshRootPermission()
+    }
+
+    private fun checkRefreshRootPermission() {
+        refreshRootStatus.text = "Checking root permission…"
+        worker.execute {
+            val rootAvailable = runCatching { RefreshRateController.hasRoot() }.getOrDefault(false)
+            runOnUiThread {
+                if (!isDestroyed) {
+                    refreshRootGranted = rootAvailable
+                    refreshRootStatus.text = if (rootAvailable) {
+                        "Root access: granted"
+                    } else {
+                        "Root access: unavailable or denied. Tap here to check again."
+                    }
+                    renderRefreshRateButtons()
+                }
+            }
+        }
+    }
+
+    private fun renderRefreshRateButtons() {
+        if (!::refreshRateContainer.isInitialized) return
+        refreshRateContainer.removeAllViews()
+        val supported = runCatching {
+            RefreshRateController.supportedModes(windowManager.defaultDisplay)
+        }.getOrDefault(emptyList())
+        val supportedRates = supported.map { it.hz }.distinct().sorted()
+        val visibleRates = (listOf(60, 90, 120) + supportedRates).distinct().sorted()
+
+        visibleRates.chunked(3).forEach { group ->
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            group.forEach { hz ->
+                val available = supportedRates.contains(hz)
+                val button = Button(this).apply {
+                    text = if (available) hz.toString() + " Hz" else hz.toString() + " Hz · N/A"
+                    isEnabled = available && refreshRootGranted
+                    setOnClickListener { applyRefreshRate(hz) }
+                }
+                row.addView(button, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    marginEnd = 5
+                })
+            }
+            refreshRateContainer.addView(row)
+        }
+
+        if (supportedRates.isEmpty()) {
+            refreshRateContainer.addView(label("No supported display modes could be read.", 12f, muted))
+        }
+
+        val prefs = getSharedPreferences(REFRESH_PREFS, MODE_PRIVATE)
+        autoRefreshButton.isEnabled = refreshRootGranted && prefs.getBoolean("snapshot_saved", false)
+    }
+
+    private fun updateRefreshRateSummary() {
+        if (!::refreshStatus.isInitialized) return
+        val display = windowManager.defaultDisplay
+        val active = RefreshRateController.currentRate(display)
+        val supportedRates = RefreshRateController.supportedModes(display).map { it.hz }.distinct().sorted()
+        refreshStatus.text = "Active now: " + active + " Hz   ·   Available: " +
+            (if (supportedRates.isEmpty()) "unknown" else supportedRates.joinToString(" / ") + " Hz")
+    }
+
+    private fun applyRefreshRate(hz: Int) {
+        val mode = RefreshRateController.supportedModes(windowManager.defaultDisplay)
+            .firstOrNull { it.hz == hz }
+        if (mode == null) {
+            Toast.makeText(this, "This refresh rate is not exposed by the display firmware.", Toast.LENGTH_LONG).show()
+            return
+        }
+        if (!refreshRootGranted) {
+            Toast.makeText(this, "Root access is required for this action.", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        refreshStatus.text = "Applying " + hz + " Hz and checking the live display mode…"
+        autoRefreshButton.isEnabled = false
+        worker.execute {
+            try {
+                val prefs = getSharedPreferences(REFRESH_PREFS, MODE_PRIVATE)
+                if (!prefs.getBoolean("snapshot_saved", false)) {
+                    val snapshot = RefreshRateController.captureSnapshot()
+                    prefs.edit()
+                        .putString("snapshot", snapshot.encode())
+                        .putBoolean("snapshot_saved", true)
+                        .apply()
+                }
+
+                val result = RefreshRateController.runRoot(RefreshRateController.buildApplyScript(mode))
+                check(result.exitCode == 0) { "Root command returned exit code " + result.exitCode }
+
+                runOnUiThread {
+                    if (!isDestroyed) {
+                        renderRefreshRateButtons()
+                        refreshStatus.text = "Requested " + hz + " Hz. Verifying the active panel mode…"
+                        refreshHandler.postDelayed({
+                            if (!isDestroyed) {
+                                val active = RefreshRateController.currentRate(windowManager.defaultDisplay)
+                                refreshStatus.text = if (active == hz) {
+                                    "Verified: the panel is running at " + active + " Hz."
+                                } else {
+                                    "Requested " + hz + " Hz, but the panel currently reports " + active +
+                                        " Hz. HyperOS policy may be limiting the change."
+                                }
+                                renderRefreshRateButtons()
+                            }
+                        }, 1400)
+                    }
+                }
+            } catch (error: Exception) {
+                runOnUiThread {
+                    if (!isDestroyed) {
+                        refreshStatus.text = "Could not apply the refresh rate: " + error.javaClass.simpleName
+                        renderRefreshRateButtons()
+                        Toast.makeText(this, "Refresh-rate change failed. Check the root permission.", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun restoreAutomaticRefreshRate() {
+        val prefs = getSharedPreferences(REFRESH_PREFS, MODE_PRIVATE)
+        val encoded = prefs.getString("snapshot", null)
+        if (encoded.isNullOrBlank()) {
+            autoRefreshButton.isEnabled = false
+            return
+        }
+
+        autoRefreshButton.isEnabled = false
+        refreshStatus.text = "Restoring the display settings saved before the first change…"
+        worker.execute {
+            try {
+                val snapshot = RefreshSettingsSnapshot.decode(encoded)
+                val result = RefreshRateController.runRoot(RefreshRateController.buildRestoreScript(snapshot))
+                check(result.exitCode == 0) { "Restore command returned exit code " + result.exitCode }
+                prefs.edit().remove("snapshot").putBoolean("snapshot_saved", false).apply()
+                runOnUiThread {
+                    if (!isDestroyed) {
+                        updateRefreshRateSummary()
+                        refreshStatus.text = "Previous settings restored. HyperOS can manage refresh rate automatically again."
+                        renderRefreshRateButtons()
+                    }
+                }
+            } catch (error: Exception) {
+                runOnUiThread {
+                    if (!isDestroyed) {
+                        refreshStatus.text = "Could not restore settings: " + error.javaClass.simpleName
+                        renderRefreshRateButtons()
+                    }
+                }
+            }
+        }
     }
 
     private fun readLimited(input: InputStream): ByteArray {
@@ -393,6 +578,7 @@ class MainActivity : Activity() {
         if ((application as NetPulseApplication).wireGuardStateListener === stateListener) {
             (application as NetPulseApplication).wireGuardStateListener = null
         }
+        refreshHandler.removeCallbacksAndMessages(null)
         worker.shutdown()
         super.onDestroy()
     }
@@ -403,5 +589,6 @@ class MainActivity : Activity() {
         private const val REQUEST_SINGBOX_PROFILE = 712
         private const val REQUEST_SINGBOX_VPN_PERMISSION = 713
         private const val MAX_PROFILE_BYTES = 2 * 1024 * 1024
+        private const val REFRESH_PREFS = "netpulse_refresh_rate"
     }
 }
