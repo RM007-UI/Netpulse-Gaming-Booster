@@ -12,7 +12,7 @@ Native Android network diagnostics, game-oriented routing, and display refresh-r
 - Validates profiles before enabling the connection controls.
 - Requests Android VPN consent only when the user taps Connect.
 - Keeps parsed profile material in memory; it is not written to app storage.
-- Includes a rooted display refresh controller for Android/HyperOS: reads the display's supported modes, applies only a mode actually exposed by the panel, verifies the live rate, and restores the settings captured before the first change.
+- Includes a rooted display refresh controller for Android/HyperOS: reads the display's supported modes, applies only a mode actually exposed by the panel, verifies the live rate, and restores the settings captured before the first change, and rolls back a failed attempt to the state from immediately before that attempt.
 - The refresh controller uses Android's display-mode preference plus the Android min/peak refresh settings and Xiaomi's HyperOS refresh-rate settings. Root is requested only when the refresh controller checks access.
 - Does not bundle public endpoints, credentials, or sample VPN profiles.
 - Other protocol catalog entries remain marked as planned or requiring integration.
@@ -21,7 +21,7 @@ A successful build verifies compilation and packaging only. VPN functionality st
 
 ## Display refresh rate
 
-Open **Display Refresh Rate** and grant the root prompt from Magisk/KernelSU when it appears. The app lists the panel's refresh rates at its current resolution. Select an available rate to pin it, or use **Auto** to restore the values captured before the first change.
+Open **Display Refresh Rate** and grant the root prompt from Magisk/KernelSU when it appears. The app lists the panel's refresh rates at its current resolution. Select an available rate to pin it, or use **Auto** to restore the values captured before the first change. Failed shell operations trigger an automatic rollback, and restoration targets the internal display ID explicitly.
 
 The POCO X7 Pro is specified for up to 120 Hz. The app will not try to invent a 90 Hz hardware mode: 90 Hz is enabled only if the installed display firmware exposes it as a supported mode. A 120 Hz panel setting also does not force an app or game to render 120 FPS.
 
