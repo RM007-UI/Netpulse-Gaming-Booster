@@ -24,6 +24,8 @@ assert.deepEqual(navIds, expectedViews, "Navigation buttons do not map one-to-on
 assert.match(js, /querySelectorAll\('\.nav button\[data-view\]'\)\.forEach\(button=>\{button\.addEventListener\('click'/);
 assert.match(js, /function go\(key\)\{const target=\$\('#view-'\+key\);if\(!target\)return/);
 assert.match(js, /b\.setAttribute\('aria-current','page'\)/);
+const referencedIds = [...new Set([...js.matchAll(/\$\('#([\\w-]+)'\)/g)].map(m => m[1]))];
+for (const id of referencedIds) assert.ok(html.includes(`id="${id}"`), `HTML selector points to missing element: ${id}`);
 console.log("PASS 2/5 — all navigation taps route and update selected state");
 
 // PASS 3 — JavaScript parses and every UI-to-native action has a Kotlin handler.
