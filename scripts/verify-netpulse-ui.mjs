@@ -9,7 +9,7 @@ const scripts = html.split("<script>").slice(1).map(part => part.split("</script
 assert.equal(scripts.length, 1, "Expected one bundled application script");
 const js = scripts[0];
 
-// PASS 1 — The eight navigation destinations exist exactly once.
+// PASS 1 — All screen containers are present once, in the approved order.
 const expectedViews = ["overview", "analytics", "devices", "servers", "alerts", "speed", "logs", "settings"];
 const viewIds = [...html.matchAll(/<section class="view(?: active)?" id="view-([^"]+)"/g)].map(m => m[1]);
 assert.deepEqual(viewIds, expectedViews, "Screen order or screen count changed");
@@ -18,18 +18,23 @@ for (const id of expectedViews) {
 }
 console.log("PASS 1/5 — all eight screens are present exactly once");
 
-// PASS 2 — Navigation buttons are actually wired to the screen router.
+// PASS 2 — Catch the exact regression that broke navigation: querySelector returns one node.
 const navIds = [...html.matchAll(/<button[^>]*data-view="([^"]+)"/g)].map(m => m[1]);
 assert.deepEqual(navIds, expectedViews, "Navigation buttons do not map one-to-one to screens");
-assert.match(js, /querySelectorAll\('\.nav button\[data-view\]'\)\.forEach\(button=>\{button\.addEventListener\('click'/);
-assert.match(js, /function go\(key\)\{const target=\$\('#view-'\+key\);if\(!target\)return/);
-assert.match(js, /b\.setAttribute\('aria-current','page'\)/);
-const referencedIds = [...new Set([...js.matchAll(/\$\('#([\w-]+)'\)/g)].map(m => m[1]))];
-for (const id of referencedIds) assert.ok(html.includes(`id="${id}"`), `HTML selector points to missing element: ${id}`);
-console.log("PASS 2/5 — all navigation taps route and update selected state");
+assert.match(js, /function go\(key\)\{[\s\S]*?\$\$\('\.view'\)\.forEach/);
+assert.match(js, /\$\$\('\.nav button\[data-view\]'\)\.forEach/);
+assert.doesNotMatch(js, /\$\('\.view'\)\.forEach/);
+assert.doesNotMatch(js, /\$\('\.nav button\[data-view\]'\)\.forEach/);
+assert.match(js, /primaryNav\.addEventListener\('click'/);
+assert.match(js, /event\.target\.closest\('button\[data-view\]'\)/);
+assert.match(js, /nav\.scrollTo\(\{left/);
+console.log("PASS 2/5 — multi-element routing and delegated navigation are correctly wired");
 
-// PASS 3 — JavaScript parses and every UI-to-native action has a Kotlin handler.
+// PASS 3 — JavaScript parses, DOM references exist, and bridge actions match Kotlin.
 new vm.Script(js, { filename: "netpulse/index.html" });
+const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]));
+const referencedIds = [...new Set([...js.matchAll(/\$\('#([\w-]+)'\)/g)].map(m => m[1]))];
+for (const id of referencedIds) assert.ok(ids.has(id), `HTML selector points to missing element: ${id}`);
 const actions = ["importWireGuard", "toggleWireGuard", "importSingBox", "toggleSingBox", "applyRefreshRate", "restoreRefreshRate", "checkRoot", "refresh", "testLatency"];
 for (const action of actions) {
   assert.ok(html.includes(`nativeAction('${action}'`) || js.includes(`nativeAction('${action}'`), `UI action missing: ${action}`);
@@ -37,24 +42,27 @@ for (const action of actions) {
 }
 assert.match(activity, /@JavascriptInterface\s+fun getState\(\): String/);
 assert.match(activity, /@JavascriptInterface\s+fun perform\(action: String, value: String\?\)/);
-console.log("PASS 3/5 — script syntax and native action bridge are valid");
+console.log("PASS 3/5 — JavaScript syntax, DOM targets and native bridge are valid");
 
-// PASS 4 — Android 15 edge-to-edge status/navigation bars receive safe insets.
+// PASS 4 — Android 15 system bars and cutout insets are applied to the WebView viewport.
 assert.match(gradle, /targetSdk\s*=\s*35/);
 assert.match(activity, /WindowCompat\.setDecorFitsSystemWindows\(window, false\)/);
 assert.match(activity, /WindowInsetsCompat\.Type\.systemBars\(\) or WindowInsetsCompat\.Type\.displayCutout\(\)/);
 assert.match(activity, /view\.setPadding\(bars\.left, bars\.top, bars\.right, bars\.bottom\)/);
+assert.match(activity, /ViewCompat\.requestApplyInsets\(webView\)/);
 assert.match(activity, /isAppearanceLightStatusBars = false/);
 assert.match(activity, /isAppearanceLightNavigationBars = false/);
-console.log("PASS 4/5 — status bar, gesture/navigation bar and cutout insets are handled");
+console.log("PASS 4/5 — status bar, navigation bar and display cutout insets are handled");
 
-// PASS 5 — Mobile navigation is reachable and WebView remains locally sandboxed.
+// PASS 5 — Mobile navigation fits a horizontally scrollable bottom bar; WebView storage is fault-tolerant.
 assert.match(html, /viewport-fit=cover/);
 assert.match(html, /\.nav\{display:flex;overflow-x:auto/);
+assert.match(js, /function readPref\(key\)\{try\{return window\.localStorage\.getItem\(key\)\}catch/);
+assert.match(js, /function writePref\(key,value\)\{[\s\S]*?catch\(error\)\{\}\}/);
 assert.match(activity, /settings\.javaScriptEnabled = true/);
 assert.match(activity, /settings\.allowContentAccess = false/);
 assert.match(activity, /settings\.allowUniversalAccessFromFileURLs = false/);
 assert.match(activity, /settings\.blockNetworkLoads = true/);
 assert.match(activity, /file:\/\/\/android_asset\/netpulse\/index\.html/);
-console.log("PASS 5/5 — mobile navigation, bundled assets and WebView isolation verified");
+console.log("PASS 5/5 — mobile navigation, local storage fallback and WebView isolation verified");
 console.log("NetPulse UI regression checks: 5/5 passed");
