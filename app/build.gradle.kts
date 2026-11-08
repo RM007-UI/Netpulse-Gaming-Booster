@@ -11,6 +11,7 @@ android {
         targetSdk = 35
         versionCode = 2
         versionName = "0.2.0"
+        ndk { abiFilters.add("arm64-v8a") }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
