@@ -8,6 +8,7 @@ class RefreshRateControllerTest {
     @Test
     fun applyScriptPinsAndroidAndHyperOsRefreshControls() {
         val script = RefreshRateController.buildApplyScript(RefreshModeOption(1220, 2712, 120))
+        assertTrue(script.contains("set -e"))
         assertTrue(script.contains("settings put system min_refresh_rate 120.0"))
         assertTrue(script.contains("settings put system peak_refresh_rate 120.0"))
         assertTrue(script.contains("settings put secure user_refresh_rate 1"))
@@ -37,7 +38,7 @@ class RefreshRateControllerTest {
         val script = RefreshRateController.buildRestoreScript(original)
         assertTrue(script.contains("settings delete system min_refresh_rate"))
         assertTrue(script.contains("settings delete secure miui_refresh_rate"))
-        assertTrue(script.contains("cmd display clear-user-preferred-display-mode"))
+        assertTrue(script.contains("cmd display clear-user-preferred-display-mode 0"))
     }
 
     @Test
