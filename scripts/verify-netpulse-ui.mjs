@@ -78,17 +78,17 @@ assert.ok(js.includes("function onNetPulseUdpComparison("));
 for (const id of ["startUdpCompare", "udpComparisonStatus", "udpDirectMedian", "udpVpnMedian", "udpDelta", "udpDirectLoss", "udpVpnLoss"]) {
   assert.ok(ids.has(id), `UDP comparison UI element missing: ${id}`);
 }
-assert.match(activity, /TrafficRateCalculator\\(\\)/);
-assert.match(activity, /trafficRateCalculator\\.sample\\(rx, tx, now\\)/);
-assert.doesNotMatch(activity, /if \\(!::networkSummary\\.isInitialized\\) return/);
-assert.match(traffic, /fun sample\\(rxBytes: Long, txBytes: Long, atElapsedMs: Long\\)/);
+assert.match(activity, /TrafficRateCalculator\(\)/);
+assert.match(activity, /trafficRateCalculator\.sample\(rx, tx, now\)/);
+assert.doesNotMatch(activity, /if \(!::networkSummary\.isInitialized\) return/);
+assert.match(traffic, /fun sample\(rxBytes: Long, txBytes: Long, atElapsedMs: Long\)/);
 assert.match(secureStore, /AndroidKeyStore/);
-assert.match(secureStore, /AES\\/GCM\\/NoPadding/);
-assert.match(secureStore, /context\\.noBackupFilesDir/);
-assert.match(secureStore, /file\\.finishWrite\\(output\\)/);
-assert.match(application, /fun persistProfiles\\(\\): Boolean/);
-assert.match(application, /private fun restoreProfiles\\(\\)/);
-assert.match(application, /Libbox\\.checkConfig\\(raw\\)/);
+assert.match(secureStore, /AES\/GCM\/NoPadding/);
+assert.match(secureStore, /context\.noBackupFilesDir/);
+assert.match(secureStore, /file\.finishWrite\(output\)/);
+assert.match(application, /fun persistProfiles\(\): Boolean/);
+assert.match(application, /private fun restoreProfiles\(\)/);
+assert.match(application, /Libbox\.checkConfig\(raw\)/);
 assert.match(gamingConfigurator, /auto_route/);
 assert.match(vpnService, /Android 12 and earlier cannot enforce safely/);
 assert.match(vpnService, /cannot combine include_package and exclude_package/);
