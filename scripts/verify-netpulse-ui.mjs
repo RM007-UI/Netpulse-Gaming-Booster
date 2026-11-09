@@ -117,8 +117,8 @@ assert.match(activity, /UdpStunProbe\\.measure/);
 assert.match(activity, /TcpProbeSummary\\.from/);
 assert.match(js, /function onNetPulseLatencyStats\\(/);
 assert.match(js, /function onNetPulseUdpComparison\\(/);
-assert.match(js, /direct\\.variationMs/);
-assert.match(js, /vpn\\.variationMs/);
+assert.match(js, /direct\\.jitterMs/);
+assert.match(js, /vpn\\.jitterMs/);
 
 // Existing reliability, secure-storage and VPN platform gates remain covered.
 assert.match(activity, /TrafficRateCalculator\\(\\)/);
