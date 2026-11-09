@@ -96,6 +96,12 @@ object VpnGateCatalog {
             if (decoded.isEmpty() || decoded.size > MAX_CONFIG_BYTES) continue
             val profile = decoded.toString(Charsets.UTF_8)
             if (!isCompatibleOpenVpnProfile(profile, ip, host)) continue
+            // Do not show rows whose embedded profile the in-app importer cannot parse.
+            // This prevents a public directory entry from becoming a broken one-tap option.
+            val importable = runCatching {
+                OpenVpnProfileImporter.importProfile(profile, OpenVpnCredentials("vpn", "vpn"))
+            }.isSuccess
+            if (!importable) continue
 
             val ping = field("ping").toDoubleOrNull()?.takeIf { it >= 0.0 && it <= 60000.0 }
             val speed = field("speed").toDoubleOrNull()?.takeIf { it > 0.0 }?.div(1_000_000.0)
