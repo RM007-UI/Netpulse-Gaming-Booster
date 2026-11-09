@@ -105,6 +105,12 @@ assert.match(html, /closeGameSession\('sampling-gap',activeGameSession\.lastSamp
 assert.match(html, /state\.activeGameDownloadMbps!==null/);
 assert.match(html, /setTimeout\(\(\)=>URL\.revokeObjectURL\(url\),1500\)/);
 assert.match(html, /function exportGameSessions\(\)/);
+assert.match(html, /nativeAction\('exportGameSessions',payload\)/);
+assert.doesNotMatch(html, /createObjectURL\(blob\)/);
+assert.match(activity, /private fun exportGameSessionHistory\(rawJson: String\?\)/);
+assert.match(activity, /Intent\.ACTION_CREATE_DOCUMENT/);
+assert.match(activity, /REQUEST_GAME_SESSION_EXPORT/);
+assert.match(activity, /contentResolver\.openOutputStream\(uri, "wt"\)/);
 assert.match(html, /function clearGameSessions\(\)/);
 assert.match(html, /NetPulse foreground monitoring only/);
 assert.match(html, /id="gameSessionHistory"/);
