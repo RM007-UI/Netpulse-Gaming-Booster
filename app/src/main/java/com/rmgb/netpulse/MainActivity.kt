@@ -1122,8 +1122,9 @@ class MainActivity : Activity() {
                     return@runOnUiThread
                 }
 
+                val app = application as NetPulseApplication
+                app.pendingSingBoxServiceProfile = profileForStart
                 val intent = Intent(this, SingBoxVpnService::class.java)
-                    .putExtra(SingBoxVpnService.EXTRA_PROFILE, profileForStart)
                 try {
                     if (android.os.Build.VERSION.SDK_INT >= 26) {
                         startForegroundService(intent)
@@ -1133,6 +1134,7 @@ class MainActivity : Activity() {
                     singBoxButton.text = "Starting…"
                     singBoxStatus.text = "Starting sing-box…"
                 } catch (error: Exception) {
+                    app.pendingSingBoxServiceProfile = null
                     VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.SING_BOX)
                     singBoxConnected = false
                     singBoxStarting = false
