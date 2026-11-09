@@ -9,8 +9,8 @@ android {
         applicationId = "com.rmgb.netpulse"
         minSdk = 26
         targetSdk = 35
-        versionCode = 10
-        versionName = "0.6.1"
+        versionCode = 11
+        versionName = "0.6.2"
         ndk { abiFilters.add("arm64-v8a") }
     }
     compileOptions {
