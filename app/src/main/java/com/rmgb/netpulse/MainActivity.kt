@@ -485,7 +485,9 @@ class MainActivity : Activity() {
         worker.execute {
             val outcome = runCatching {
                 // Resolve once over the physical network so both paths test the exact same IP.
-                val address = physicalNetwork.getAllByName(host).firstOrNull()
+                val resolved = physicalNetwork.getAllByName(host)
+                val address = resolved.firstOrNull { it.address.size == 4 }
+                    ?: resolved.firstOrNull()
                     ?: throw IllegalStateException("مقصد به IP تبدیل نشد.")
                 val direct = TcpEndpointProbe.measure(
                     physicalNetwork,
@@ -884,6 +886,9 @@ class MainActivity : Activity() {
         val tx = TrafficStats.getUidTxBytes(uid)
         val now = SystemClock.elapsedRealtime()
         if (rx < 0L || tx < 0L) {
+            activeGameRxLast = -1L
+            activeGameTxLast = -1L
+            activeGameSampleAtMs = 0L
             activeGameDownloadBps = null
             activeGameUploadBps = null
             publishNativeState()
