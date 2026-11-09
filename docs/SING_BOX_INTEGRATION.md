@@ -6,15 +6,16 @@ NetPulse embeds the Android libbox 1.14.4 AAR and runs sing-box through its own 
 
 The current path is:
 
-1. The Activity accepts a user-supplied sing-box JSON configuration or one supported share link and checks the size/encoding.
+1. The Activity accepts a user-supplied sing-box JSON configuration or one supported share link and checks its size/encoding.
 2. `SingBoxProfileImporter` normalizes supported share links into a TUN profile. Custom JSON is kept as a full profile; a TUN inbound is added only when one is missing.
-3. `Libbox.checkConfig` validates the imported profile before it is stored in process memory.
-4. The user taps Connect, Android VPN consent is requested if needed, and the app starts its foreground VPN service.
-5. `SingBoxVpnService` starts a `CommandServer`, implements `PlatformInterface` and `CommandServerHandler`, establishes the TUN file descriptor through `VpnService.Builder`, and starts the core service.
-6. `VpnEngineCoordinator` prevents NetPulse's WireGuard and sing-box engines from intentionally claiming the same Android VPN slot.
-7. Disconnect, permission revoke, startup failure, and service destruction close the command server and TUN descriptors and release the coordinator claim.
+3. `Libbox.checkConfig` validates the imported profile before it is accepted.
+4. The validated profile is encrypted with AES-256-GCM using a non-exportable Android Keystore key and stored in the app's private no-backup directory. The profile is decrypted and validated again when the app process starts. WireGuard profile text is persisted through the same encrypted store.
+5. The user taps Connect, Android VPN consent is requested if needed, and the app starts its foreground VPN service.
+6. `SingBoxVpnService` starts a `CommandServer`, implements `PlatformInterface` and `CommandServerHandler`, establishes the TUN file descriptor through `VpnService.Builder`, and starts the core service.
+7. `VpnEngineCoordinator` prevents NetPulse's WireGuard and sing-box engines from intentionally claiming the same Android VPN slot.
+8. Disconnect, permission revoke, startup failure, and service destruction close the command server and TUN descriptors and release the coordinator claim.
 
-The imported source profile and credentials remain in application process memory only. They are not saved to app storage. After Android kills the app process, the user must import the profile again.
+The app does not log profile JSON or credential material. Uninstalling the app, losing its Android Keystore key, or invalidating that key makes the encrypted profile store unreadable; the user must then re-import the profile.
 
 ## Included share-link formats
 
@@ -36,7 +37,9 @@ The service translates the selected libbox `TunOptions` into Android's `VpnServi
 - Core outbound sockets are protected with `VpnService.protect(fd)` to prevent routing loops.
 - The TUN descriptor is retained and explicitly closed during engine teardown.
 
-For Game-only mode, NetPulse applies an `include_package` allowlist to the TUN profile and removes stale `exclude_package` entries. The imported profile is copied before modification and revalidated with `Libbox.checkConfig`. This is Android per-app split tunneling, not a traffic-priority feature. WireGuard remains full-device routing.
+On Android 12 and earlier, the service rejects configurations that request route exclusions because the platform cannot enforce those exclusions safely. Android's `VpnService.Builder` also cannot combine per-app allow and deny lists; such a profile is rejected. Unsupported routing is not silently dropped.
+
+For Game-only mode, NetPulse requires a TUN inbound with `auto_route: true`, applies an `include_package` allowlist to the copied profile, and removes stale `exclude_package` entries. The imported profile is copied before modification and revalidated with `Libbox.checkConfig`. This is Android per-app split tunneling, not a traffic-priority feature. WireGuard remains full-device routing.
 
 ## Platform callbacks intentionally outside the no-root scope
 
@@ -60,8 +63,8 @@ CI compares the resolved AAR bytes to this checksum and inspects the Android bin
 
 GitHub Actions runs:
 
-- Five-pass dashboard/navigation/WebView regression checks.
-- `testDebugUnitTest`, including importer, package-routing, UDP STUN codec, server catalog and coordinator tests.
+- Five-pass dashboard/navigation/WebView regression checks, including telemetry, storage, Game-only routing and Android TUN safety gates.
+- `testDebugUnitTest`, including profile import, encryption codec, traffic-rate calculation, package routing, UDP STUN codec, server catalog and coordinator tests.
 - `assembleDebug`.
 - Pinned libbox AAR SHA-256 verification.
 - libbox Android API inspection.
