@@ -8,6 +8,7 @@ import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.security.KeyStore
 import javax.crypto.Cipher
@@ -134,14 +135,15 @@ class SecureProfileStore(context: Context) {
         val encrypted = ProfilePayloadCodec.encrypt(plaintext, getOrCreateKey())
         require(encrypted.size <= MAX_ENCRYPTED_BYTES) { "Profile data exceeds the encrypted storage limit" }
 
-        var stream = file.startWrite()
+        var stream: FileOutputStream? = file.startWrite()
         try {
-            stream.write(encrypted)
-            stream.fd.sync()
-            file.finishWrite(stream)
+            val output = stream ?: throw IOException("Unable to open encrypted profile file")
+            output.write(encrypted)
+            output.fd.sync()
+            file.finishWrite(output)
             stream = null
         } catch (error: Exception) {
-            if (stream != null) file.failWrite(stream)
+            stream?.let(file::failWrite)
             throw error
         }
     }
