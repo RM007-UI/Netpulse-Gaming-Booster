@@ -983,8 +983,9 @@ class MainActivity : Activity() {
             postWebMessage("برای تغییر Game-only ابتدا موتور VPN فعال را قطع کن؛ تنظیم جدید فقط هنگام ساخت تونل بعدی اعمال می‌شود.")
             return
         }
-        if (enabled && (application as NetPulseApplication).loadedSingBoxProfile.isNullOrBlank()) {
-            postWebMessage("Game-only فقط با موتور sing-box پشتیبانی می‌شود. ابتدا پروفایل sing-box وارد کن.")
+        val app = application as NetPulseApplication
+        if (enabled && app.loadedSingBoxProfile.isNullOrBlank() && app.loadedWireGuardConfig == null) {
+            postWebMessage("برای Game-only ابتدا یک پروفایل WireGuard یا sing-box وارد کن.")
             return
         }
         if (enabled && selectedGamingPackages().isEmpty()) {
@@ -994,8 +995,8 @@ class MainActivity : Activity() {
         gamingPreferences.edit().putBoolean(GAMING_ONLY_KEY, enabled).apply()
         publishNativeState()
         postWebMessage(
-            if (enabled) "Game-only برای اتصال بعدی sing-box فعال شد؛ فقط برنامه‌های انتخاب‌شده از تونل عبور می‌کنند. WireGuard و IKEv2 در این برنامه تمام‌دستگاه هستند."
-            else "Game-only برای اتصال بعدی sing-box خاموش شد؛ مسیر کامل موتور VPN اعمال می‌شود."
+            if (enabled) "Game-only برای اتصال بعدی WireGuard یا sing-box فعال شد؛ فقط برنامه‌های انتخاب‌شده از تونل عبور می‌کنند. مسیر اختصاصی برای هر بازی فقط در sing-box است؛ IKEv2 تمام‌دستگاه باقی می‌ماند."
+            else "Game-only برای اتصال بعدی WireGuard یا sing-box خاموش شد؛ مسیر کامل موتور VPN اعمال می‌شود."
         )
     }
 
