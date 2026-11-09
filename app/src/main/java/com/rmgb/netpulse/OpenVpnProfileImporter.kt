@@ -269,7 +269,7 @@ internal object OpenVpnProfileImporter {
                         "OpenVPN compression must remain disabled"
                     }
                 }
-                "verb", "mute", "float", "explicit-exit-notify", "connect-retry",
+                "verb", "mute", "float", "connect-retry",
                 "connect-retry-max", "server-poll-timeout", "hand-window", "tls-exit",
                 "persist-local-ip", "persist-remote-ip", "remote-random-hostname",
                 "allow-pull-fqdn", "auth-retry", "setenv", "setenv-safe" -> {
@@ -278,7 +278,7 @@ internal object OpenVpnProfileImporter {
                         require(args.none { it.contains("script", true) }) { "Script-related environment values are not supported" }
                     }
                 }
-                "ca", "cert", "key", "pkcs12", "tls-auth", "tls-crypt", "tls-crypt-v2" -> {
+                "ca", "cert", "key", "pkcs12" -> {
                     require(args.isEmpty()) { "External $key file paths are not supported; use an inline <$key> block" }
                 }
                 "script-security", "up", "down", "route-up", "route-pre-down", "ipchange",
@@ -289,6 +289,21 @@ internal object OpenVpnProfileImporter {
                     throw IllegalArgumentException("OpenVPN directive '$key' needs platform-specific or external-file behavior and is not imported")
                 }
                 else -> throw IllegalArgumentException("Unsupported OpenVPN directive '$key'; import a compatible .ovpn file")
+            }
+        }
+
+        // Inline key blocks are themselves the TLS control-wrap directive in standard .ovpn files.
+        // This also handles profiles where "tls-auth ta.key" was replaced with <tls-auth>.
+        if (controlWrapKey == null) {
+            val inlineWrap = listOf("tls-auth", "tls-crypt", "tls-crypt-v2")
+                .firstOrNull { !blocks[it].isNullOrBlank() }
+            if (inlineWrap != null) {
+                controlWrapType = when (inlineWrap) {
+                    "tls-auth" -> "tls_auth"
+                    "tls-crypt" -> "tls_crypt"
+                    else -> "tls_crypt_v2"
+                }
+                controlWrapKey = blocks[inlineWrap]
             }
         }
 
@@ -373,7 +388,7 @@ internal object OpenVpnProfileImporter {
         if (pullFilters.length() > 0) endpoint.put("pull_filters", pullFilters)
 
         val json = JSONObject()
-            .put("inbounds", JSONArray().put(SingBoxProfileImporter.defaultTunInbound()))
+            .put("inbounds", JSONArray().put(defaultTunInbound()))
             .put("endpoints", JSONArray().put(endpoint))
             .put("outbounds", JSONArray().put(JSONObject().put("type", "direct").put("tag", "direct")))
             .put("route", JSONObject().put("final", "direct").put("auto_detect_interface", true))
@@ -381,6 +396,14 @@ internal object OpenVpnProfileImporter {
         val displayName = remotes.first().host
         return ImportedProfile(json.toString(), protocol, displayName)
     }
+
+    private fun defaultTunInbound(): JSONObject = JSONObject()
+        .put("type", "tun")
+        .put("tag", "tun-in")
+        .put("address", JSONArray().put("172.19.0.1/30").put("fdfe:dcba:9876::1/126"))
+        .put("mtu", 1400)
+        .put("auto_route", true)
+        .put("stack", "mixed")
 
     private fun tokenize(line: String): List<String> {
         val result = mutableListOf<String>()
