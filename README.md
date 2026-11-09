@@ -24,6 +24,7 @@ NetPulse is an Android VPN and gaming-network diagnostics app with a Persian RTL
 - The custom game endpoint test works only for a host/port that accepts TCP. It reports successes, median, sequential variation and failed connection attempts. Failed TCP connects are not game packet loss.
 - STUN tests measure a generic UDP request/response path. Their timeout ratio is not a statistically representative game-server packet-loss result.
 - Game session history records while the NetPulse process is alive and optional Usage Access detection is enabled. It can continue when a game is foregrounded, but Android may reclaim the background process; this is not an always-on foreground service. UID traffic counters may be unavailable on some OEM builds, and displayed byte totals are estimates derived from sampled rates.
+- Public VPN Gate relays are volunteer-run, may be unstable or slow, and list a two-week logging policy; they are not recommended for sensitive accounts or private traffic. The directory's ping and speed values are server-reported, not measurements from the user's device.
 - The per-game UDP echo test is only valid against a dedicated echo endpoint that returns NetPulse's nonce-bearing test datagram unchanged. The probe originates from NetPulse and follows its default VPN outbound; selecting a game labels the target but does not exercise that game's package-specific outbound. It is not compatible with arbitrary commercial game servers or their proprietary packet protocols.
 - URLTest uses the HTTP health-check URL configured in the generated sing-box group. It estimates proxy-node health and is not a measurement of latency to the actual match server.
 - Android does not provide a universal way for a third-party app to discover every game's UDP server, interpret proprietary game packets, or measure in-match packet loss. A protocol-aware game server or in-game telemetry would be needed for those features.
@@ -43,7 +44,7 @@ NetPulse is an Android VPN and gaming-network diagnostics app with a Persian RTL
 ## Build and verification
 
 - JDK 17, Android SDK 35 and Gradle 8.9.
-- Current app version: **0.6.2** (versionCode 11).
+- Current app version: **0.6.3** (versionCode 12).
 - Run `gradle testDebugUnitTest assembleDebug`.
 - GitHub Actions runs the five-pass UI/bridge regression suite, Kotlin unit tests, debug APK assembly, pinned libbox AAR SHA-256 verification and Android API inspection.
 - A successful CI build does not replace testing on physical phones and networks.
@@ -51,7 +52,7 @@ NetPulse is an Android VPN and gaming-network diagnostics app with a Persian RTL
 ## Privacy and security
 
 - VPN consent is requested through Android's system UI.
-- No public VPN endpoints or credentials are bundled.
+- No NetPulse-owned VPN endpoints or private server credentials are bundled. The optional public-relay mode fetches relay records from the official VPN Gate API and uses that service's published shared credentials.
 - Profile credentials are encrypted at rest with AES-256-GCM and Android Keystore.
 - Usage Access is opt-in and used only to read foreground package transitions; no screen content, keystrokes or application data are read.
 - Game UID traffic counters and event history remain local.
