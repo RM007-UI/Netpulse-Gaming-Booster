@@ -56,3 +56,10 @@ The dashboard provides eight RTL screens, responsive navigation, live network ch
 The Speed screen can keep a diagnostic host, UDP port and optional hex payload for each Game-only-selected application. It compares five nonce-bearing diagnostic datagrams over the physical Android Network and active sing-box VPN Network, resolving the hostname once on the physical network so both paths test the same destination IP. A sample is counted only when the endpoint returns the exact request bytes.
 
 The tool requires a purpose-built UDP echo endpoint; it does not emit arbitrary game packets or infer a response from a silent UDP service. NetPulse itself originates the diagnostic socket, so the probe follows NetPulse's default VPN outbound; the selected game name stores/labels the destination but does not exercise the game's package-specific outbound rule. Many commercial game servers do not echo arbitrary datagrams, so this test is not a universal game-server ping or in-match packet-loss measurement. The result is the RTT and timeout behavior to the configured echo service.
+
+
+## Game session history
+
+When the user enables optional Usage Access and keeps NetPulse in the foreground, the app samples the currently detected game's Android UID traffic counters and records a local session. Each completed record contains the application package/name, start/end timestamps, duration, sample count and approximate average/peak upload/download rates. The dashboard retains the latest 40 sessions and supports JSON export or user-initiated deletion.
+
+The monitor deliberately stops when NetPulse leaves the foreground. It does not claim always-on/background session capture, and it does not capture packets, message contents or game payloads. Byte totals are approximations integrated from sampled rates; Android UID counters can be unavailable on some firmware. Sessions with unavailable counters do not record synthetic zero-rate samples.
