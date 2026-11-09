@@ -396,28 +396,34 @@ function renderGameSessionHistory(){
   copy.append(title,detail);row.append(icon,copy);list.appendChild(row);
  });
 }
-function closeGameSession(reason){
+function closeGameSession(reason,endedAtOverride){
  if(!activeGameSession)return;
- const endedAt=Math.max(activeGameSession.startedAt,Date.now());
+ const endedAt=Math.max(activeGameSession.startedAt,Math.min(Date.now(),Number(endedAtOverride)||Date.now()));
  const item={...activeGameSession,endedAt,durationMs:endedAt-activeGameSession.startedAt,endReason:reason||'game-ended'};
  if(item.durationMs>=3000&&item.sampleCount>0){gameSessionHistory.unshift(item);gameSessionHistory=gameSessionHistory.slice(0,GAME_SESSION_LIMIT);}
  activeGameSession=null;saveGameSessionState();renderGameSessionHistory();
 }
 function trackGameSession(state){
+ const now=Date.now();
  const enabled=!!(state.autoGameDetectionEnabled&&state.usageAccessGranted);
  const packageName=enabled&&typeof state.activeGamePackage==='string'?state.activeGamePackage:'';
- if(!packageName){closeGameSession(enabled?'no-active-game':'monitoring-unavailable');renderGameSessionHistory();return;}
- const now=Date.now();
- if(activeGameSession&&activeGameSession.packageName!==packageName)closeGameSession('game-changed');
+ const staleSession=activeGameSession&&now-activeGameSession.lastSampleAt>12000;
+ if(!packageName){
+  closeGameSession(enabled?'no-active-game':'monitoring-unavailable',staleSession?activeGameSession.lastSampleAt:now);
+  renderGameSessionHistory();return;
+ }
+ if(activeGameSession&&activeGameSession.packageName!==packageName){
+  closeGameSession('game-changed',staleSession?activeGameSession.lastSampleAt:now);
+ }
+ if(activeGameSession&&now-activeGameSession.lastSampleAt>12000){
+  closeGameSession('sampling-gap',activeGameSession.lastSampleAt);
+ }
  if(!activeGameSession){
   activeGameSession={packageName,label:state.activeGameLabel||packageName,startedAt:now,lastSampleAt:now,sampleCount:0,downloadMbpsSum:0,uploadMbpsSum:0,peakDownloadMbps:0,peakUploadMbps:0,estimatedDownloadBytes:0,estimatedUploadBytes:0};
   saveGameSessionState();
  }
  const elapsed=now-activeGameSession.lastSampleAt;
- if(elapsed>12000){
-  closeGameSession('sampling-gap');
-  activeGameSession={packageName,label:state.activeGameLabel||packageName,startedAt:now,lastSampleAt:now,sampleCount:0,downloadMbpsSum:0,uploadMbpsSum:0,peakDownloadMbps:0,peakUploadMbps:0,estimatedDownloadBytes:0,estimatedUploadBytes:0};
- }else if(elapsed>=500){
+ if(elapsed>=500){
   const hasRates=state.activeGameDownloadMbps!==null&&state.activeGameDownloadMbps!==undefined&&state.activeGameUploadMbps!==null&&state.activeGameUploadMbps!==undefined;
   const down=hasRates?Number(state.activeGameDownloadMbps):NaN;
   const up=hasRates?Number(state.activeGameUploadMbps):NaN;
@@ -438,7 +444,7 @@ function exportGameSessions(){
  const data={exportedAt:new Date().toISOString(),scope:'NetPulse foreground monitoring only',sessions:gameSessionHistory,activeSession:activeGameSession};
  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
  const url=URL.createObjectURL(blob),link=document.createElement('a');
- link.href=url;link.download='netpulse-game-sessions.json';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+ link.href=url;link.download='netpulse-game-sessions.json';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
 function clearGameSessions(){
  if(!confirm('تاریخچه محلی جلسات بازی پاک شود؟'))return;
