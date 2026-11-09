@@ -65,6 +65,8 @@ class MainActivity : Activity() {
     private val cyan = Color.rgb(48, 220, 230)
     private val muted = Color.rgb(165, 180, 198)
     private val worker: ExecutorService = Executors.newSingleThreadExecutor()
+    @Volatile private var publicVpnGateServers: List<VpnGateServer> = emptyList()
+    @Volatile private var publicVpnGateLoading = false
     private lateinit var backend: GoBackend
     private lateinit var status: TextView
     private lateinit var connectButton: Button
@@ -280,6 +282,8 @@ class MainActivity : Activity() {
                     "toggleAutoGameDetection" -> toggleAutoGameDetection()
                     "testGameServer" -> runGameServerComparison(value)
                     "testGameUdpEcho" -> runGameUdpEchoComparison(value)
+                    "loadPublicVpnServers" -> loadPublicVpnServers()
+                    "connectPublicVpnServer" -> connectPublicVpnServer(value)
                     "exportGameSessions" -> exportGameSessionHistory(value)
                     "clearProfiles" -> confirmClearSavedProfiles()
                     "configureIkev2" -> showIkev2ProfileDialog()
@@ -1990,9 +1994,101 @@ class MainActivity : Activity() {
         publishNativeState()
     }
 
+    private fun loadPublicVpnServers() {
+        if (publicVpnGateLoading) {
+            postWebMessage("فهرست سرورهای عمومی در حال دریافت است.")
+            return
+        }
+        publicVpnGateLoading = true
+        postWebMessage("در حال دریافت فهرست زنده از API رسمی VPN Gate…")
+        worker.execute {
+            val result = runCatching { VpnGateCatalog.fetch() }
+            publicVpnGateLoading = false
+            result.onSuccess { servers -> publicVpnGateServers = servers }
+            val payload = result.fold(
+                onSuccess = { servers ->
+                    JSONObject()
+                        .put("ok", true)
+                        .put("source", "VPN Gate · official public relay API")
+                        .put("count", servers.size)
+                        .put("servers", JSONArray().apply {
+                            servers.forEach { server ->
+                                put(
+                                    JSONObject()
+                                        .put("id", server.id)
+                                        .put("hostName", server.hostName)
+                                        .put("ipAddress", server.ipAddress)
+                                        .put("country", server.country)
+                                        .put("countryCode", server.countryCode)
+                                        .put("reportedPingMs", server.pingMs ?: JSONObject.NULL)
+                                        .put("reportedSpeedMbps", server.speedMbps ?: JSONObject.NULL)
+                                        .put("sessions", server.sessions)
+                                )
+                            }
+                        })
+                        .toString()
+                },
+                onFailure = { error ->
+                    JSONObject()
+                        .put("ok", false)
+                        .put("message", error.message ?: error.javaClass.simpleName)
+                        .put("count", publicVpnGateServers.size)
+                        .toString()
+                }
+            )
+            runOnUiThread {
+                if (isDestroyed || !::webView.isInitialized) return@runOnUiThread
+                webView.evaluateJavascript(
+                    "window.netPulseVpnGateServerList && window.netPulseVpnGateServerList($payload);",
+                    null
+                )
+            }
+        }
+    }
+
+    private fun connectPublicVpnServer(rawValue: String?) {
+        val request = runCatching { JSONObject(rawValue ?: "{}") }.getOrNull()
+        val id = request?.optString("id")?.trim().orEmpty()
+        val selected = publicVpnGateServers.firstOrNull { it.id == id }
+        if (selected == null) {
+            postWebMessage("سرور دیگر در فهرست تازه نیست؛ فهرست VPN Gate را بروزرسانی کن.")
+            return
+        }
+        if (singBoxStarting) {
+            postWebMessage("موتور sing-box در حال آماده‌سازی است؛ کمی بعد دوباره تلاش کن.")
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle("سرور عمومی و داوطلبانه")
+            .setMessage(
+                "این سرور متعلق به NetPulse نیست و توسط داوطلب مستقل اداره می‌شود. VPN Gate برای رله‌ها سیاست ثبت گزارش تا ۲ هفته را اعلام می‌کند؛ اپراتور سرور می‌تواند فراداده اتصال را ببیند. برای حساب‌های مهم، پرداخت یا اطلاعات خصوصی از رله عمومی استفاده نکن. پینگ و سرعت فهرست، اندازه‌گیری واقعی گوشی تو نیستند و کیفیت بازی تضمین نمی‌شود.\n\n" +
+                    "${selected.country} · ${selected.hostName}\n" +
+                    "اتصال با OpenVPN و اطلاعات عمومی vpn/vpn انجام می‌شود."
+            )
+            .setNegativeButton("انصراف", null)
+            .setPositiveButton("اتصال به این سرور") { _, _ ->
+                importOpenVpnText(
+                    selected.config,
+                    OpenVpnCredentials("vpn", "vpn"),
+                    connectAfterImport = true
+                )
+            }
+            .show()
+    }
+
+    private fun connectRecommendedPublicVpnServer() {
+        val candidate = publicVpnGateServers.firstOrNull()
+        if (candidate == null) {
+            postWebMessage("ابتدا فهرست سرورهای عمومی را دریافت کن.")
+            return
+        }
+        connectPublicVpnServer(JSONObject().put("id", candidate.id).toString())
+    }
+
     private fun importOpenVpnText(
         rawProfile: String,
-        credentials: OpenVpnCredentials? = null
+        credentials: OpenVpnCredentials? = null,
+        connectAfterImport: Boolean = false
     ) {
         postWebMessage("در حال خواندن و اعتبارسنجی پروفایل OpenVPN…")
         worker.execute {
@@ -2021,6 +2117,7 @@ class MainActivity : Activity() {
                     imported.protocol + " آماده اتصال شد." +
                         if (persisted) " پروفایل با رمزگذاری ذخیره شد." else " ذخیره امن انجام نشد."
                 )
+                if (connectAfterImport) toggleSingBox()
             }
         }
     }
