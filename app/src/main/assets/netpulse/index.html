@@ -280,7 +280,7 @@ Array.from(document.querySelectorAll('.switch')).forEach(button=>{
  });
 });
 applyUiPreferences();
-window.netPulseApplyState=applyState;window.netPulseMessage=onNetPulseMessage;window.netPulseLatencyStats=onNetPulseLatencyStats;window.netPulseUdpComparison=onNetPulseUdpComparison;
+window.netPulseApplyState=applyState;window.netPulseMessage=onNetPulseMessage;window.netPulseLatencyStats=onNetPulseLatencyStats;window.netPulseUdpComparison=onNetPulseUdpComparison;window.netPulseGameServerComparison=onNetPulseEndpointStats;
 document.addEventListener('DOMContentLoaded',()=>{renderLogs();pullState();setInterval(()=>{if(readPref('np-pref-live')!=='false')pullState()},1000)});
 </script>
 </body></html>
