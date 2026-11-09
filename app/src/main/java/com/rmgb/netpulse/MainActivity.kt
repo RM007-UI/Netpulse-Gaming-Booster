@@ -154,7 +154,8 @@ class MainActivity : Activity() {
             if (!isDestroyed && ::status.isInitialized && ::connectButton.isInitialized) {
                 connected = newState == Tunnel.State.UP
                 if (newState == Tunnel.State.DOWN) VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.WIREGUARD)
-                status.text = if (connected) "WireGuard connected"
+                status.text = if (connected && isGamingOnlyEnabled()) "WireGuard connected · Game-only"
+                    else if (connected) "WireGuard connected"
                     else if (loadedConfig != null) "Profile validated · ready to connect"
                     else "No profile loaded"
                 connectButton.text = if (connected) "Disconnect" else "Connect"
@@ -2377,6 +2378,7 @@ class MainActivity : Activity() {
                             connectButton.text = if (isUp) "Disconnect" else "Connect"
                             connectButton.isEnabled = isUp || loadedConfig != null
                             status.text = when {
+                                isUp && isGamingOnlyEnabled() -> "WireGuard connected · Game-only"
                                 isUp -> "WireGuard connected"
                                 loadedConfig != null -> "Profile validated · ready to connect"
                                 else -> "No profile loaded"
