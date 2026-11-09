@@ -490,22 +490,33 @@ class MainActivity : Activity() {
                 val address = resolved.firstOrNull { it.address.size == 4 }
                     ?: resolved.firstOrNull()
                     ?: throw IllegalStateException("مقصد به IP تبدیل نشد.")
-                val direct = TcpEndpointProbe.measure(
-                    physicalNetwork,
-                    address,
-                    port,
-                    attempts = GAME_SERVER_PROBE_ATTEMPTS,
-                    timeoutMs = GAME_SERVER_PROBE_TIMEOUT_MS,
-                    pauseMs = GAME_SERVER_PROBE_PAUSE_MS
-                )
-                val vpn = TcpEndpointProbe.measure(
-                    vpnNetwork,
-                    address,
-                    port,
-                    attempts = GAME_SERVER_PROBE_ATTEMPTS,
-                    timeoutMs = GAME_SERVER_PROBE_TIMEOUT_MS,
-                    pauseMs = GAME_SERVER_PROBE_PAUSE_MS
-                )
+                // Alternate paths on every sample to reduce time/order bias.
+                val directSamples = ArrayList<Long?>(GAME_SERVER_PROBE_ATTEMPTS)
+                val vpnSamples = ArrayList<Long?>(GAME_SERVER_PROBE_ATTEMPTS)
+                repeat(GAME_SERVER_PROBE_ATTEMPTS) {
+                    directSamples += TcpEndpointProbe.measure(
+                        physicalNetwork, address, port,
+                        attempts = 1,
+                        timeoutMs = GAME_SERVER_PROBE_TIMEOUT_MS,
+                        pauseMs = 0L
+                    ).medianMs?.toLong()
+                    vpnSamples += TcpEndpointProbe.measure(
+                        vpnNetwork, address, port,
+                        attempts = 1,
+                        timeoutMs = GAME_SERVER_PROBE_TIMEOUT_MS,
+                        pauseMs = 0L
+                    ).medianMs?.toLong()
+                    if (it < GAME_SERVER_PROBE_ATTEMPTS - 1) {
+                        try {
+                            Thread.sleep(GAME_SERVER_PROBE_PAUSE_MS)
+                        } catch (interrupted: InterruptedException) {
+                            Thread.currentThread().interrupt()
+                            throw interrupted
+                        }
+                    }
+                }
+                val direct = TcpProbeSummary.from(directSamples)
+                val vpn = TcpProbeSummary.from(vpnSamples)
                 JSONObject()
                     .put("ok", true)
                     .put("host", host)
@@ -642,18 +653,29 @@ class MainActivity : Activity() {
                     ?: resolved.firstOrNull()
                     ?: throw IllegalStateException("مقصد UDP به IP تبدیل نشد.")
 
-                val direct = UdpEchoProbe.measure(
-                    physicalNetwork, address, port, userPayload,
-                    attempts = GAME_UDP_ECHO_ATTEMPTS,
-                    timeoutMs = GAME_UDP_ECHO_TIMEOUT_MS,
-                    pauseMs = GAME_UDP_ECHO_PAUSE_MS
-                )
-                val vpn = UdpEchoProbe.measure(
-                    vpnNetwork, address, port, userPayload,
-                    attempts = GAME_UDP_ECHO_ATTEMPTS,
-                    timeoutMs = GAME_UDP_ECHO_TIMEOUT_MS,
-                    pauseMs = GAME_UDP_ECHO_PAUSE_MS
-                )
+                // Alternate direct/VPN probes so short-term network drift has less effect.
+                val directSamples = ArrayList<Double?>(GAME_UDP_ECHO_ATTEMPTS)
+                val vpnSamples = ArrayList<Double?>(GAME_UDP_ECHO_ATTEMPTS)
+                repeat(GAME_UDP_ECHO_ATTEMPTS) {
+                    directSamples += UdpEchoProbe.measure(
+                        physicalNetwork, address, port, userPayload,
+                        attempts = 1, timeoutMs = GAME_UDP_ECHO_TIMEOUT_MS, pauseMs = 0L
+                    ).medianMs
+                    vpnSamples += UdpEchoProbe.measure(
+                        vpnNetwork, address, port, userPayload,
+                        attempts = 1, timeoutMs = GAME_UDP_ECHO_TIMEOUT_MS, pauseMs = 0L
+                    ).medianMs
+                    if (it < GAME_UDP_ECHO_ATTEMPTS - 1) {
+                        try {
+                            Thread.sleep(GAME_UDP_ECHO_PAUSE_MS)
+                        } catch (interrupted: InterruptedException) {
+                            Thread.currentThread().interrupt()
+                            throw interrupted
+                        }
+                    }
+                }
+                val direct = UdpStunSummary.from(directSamples)
+                val vpn = UdpStunSummary.from(vpnSamples)
                 JSONObject()
                     .put("ok", true)
                     .put("packageName", gamePackage)
@@ -725,20 +747,29 @@ class MainActivity : Activity() {
                     ?: physicalNetwork.getAllByName(UdpStunProbe.SERVER_HOST).firstOrNull()
                     ?: throw IllegalStateException("STUN endpoint could not be resolved on the physical network")
 
-                val directStats = UdpStunProbe.measure(
-                    physicalNetwork,
-                    serverAddress,
-                    attempts = UDP_PROBE_ATTEMPTS,
-                    timeoutMs = UDP_PROBE_TIMEOUT_MS,
-                    pauseMs = UDP_PROBE_PAUSE_MS
-                )
-                val vpnStats = UdpStunProbe.measure(
-                    vpnNetwork,
-                    serverAddress,
-                    attempts = UDP_PROBE_ATTEMPTS,
-                    timeoutMs = UDP_PROBE_TIMEOUT_MS,
-                    pauseMs = UDP_PROBE_PAUSE_MS
-                )
+                // Alternate direct/VPN requests for a fairer same-target comparison.
+                val directSamples = ArrayList<Double?>(UDP_PROBE_ATTEMPTS)
+                val vpnSamples = ArrayList<Double?>(UDP_PROBE_ATTEMPTS)
+                repeat(UDP_PROBE_ATTEMPTS) {
+                    directSamples += UdpStunProbe.measure(
+                        physicalNetwork, serverAddress,
+                        attempts = 1, timeoutMs = UDP_PROBE_TIMEOUT_MS, pauseMs = 0L
+                    ).medianMs
+                    vpnSamples += UdpStunProbe.measure(
+                        vpnNetwork, serverAddress,
+                        attempts = 1, timeoutMs = UDP_PROBE_TIMEOUT_MS, pauseMs = 0L
+                    ).medianMs
+                    if (it < UDP_PROBE_ATTEMPTS - 1) {
+                        try {
+                            Thread.sleep(UDP_PROBE_PAUSE_MS)
+                        } catch (interrupted: InterruptedException) {
+                            Thread.currentThread().interrupt()
+                            throw interrupted
+                        }
+                    }
+                }
+                val directStats = UdpStunSummary.from(directSamples)
+                val vpnStats = UdpStunSummary.from(vpnSamples)
                 JSONObject()
                     .put("ok", true)
                     .put("host", UdpStunProbe.SERVER_HOST)
