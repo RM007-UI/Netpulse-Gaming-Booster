@@ -17,6 +17,7 @@ import android.view.Gravity
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.TrafficStats
+import android.content.pm.ApplicationInfo
 import android.os.SystemClock
 import android.annotation.SuppressLint
 import android.webkit.JavascriptInterface
@@ -189,6 +190,9 @@ class MainActivity : Activity() {
         fun getState(): String = nativeState().toString()
 
         @JavascriptInterface
+        fun getGamingAppCatalog(): String = gamingAppCatalogJson()
+
+        @JavascriptInterface
         fun perform(action: String, value: String?) {
             runOnUiThread {
                 when (action) {
@@ -209,6 +213,8 @@ class MainActivity : Activity() {
                         postWebMessage("اطلاعات دستگاه بروزرسانی شد.")
                     }
                     "testLatency" -> runTcpLatencyTest()
+                    "toggleGamingMode" -> setGamingOnlyMode(value)
+                    "saveGamingApps" -> saveGamingApps(value)
                     else -> postWebMessage("این عملیات هنوز پشتیبانی نمی‌شود.")
                 }
             }
@@ -250,6 +256,8 @@ class MainActivity : Activity() {
             .put("singboxProfileReady", (application as NetPulseApplication).loadedSingBoxProfile != null)
             .put("singboxProtocol", (application as NetPulseApplication).loadedSingBoxProtocol ?: JSONObject.NULL)
             .put("singboxDisplayName", (application as NetPulseApplication).loadedSingBoxDisplayName ?: JSONObject.NULL)
+            .put("gameOnlyEnabled", isGamingOnlyEnabled())
+            .put("selectedGameCount", selectedGamingPackages().size)
             .put("rootGranted", refreshRootGranted)
             .put("refreshRates", JSONArray(supported))
             .put("currentRefreshRate", refresh)
@@ -280,31 +288,141 @@ class MainActivity : Activity() {
     }
 
     private fun runTcpLatencyTest() {
-        postWebMessage("در حال برقراری اتصال TCP با 1.1.1.1:443…")
+        postWebMessage("در حال اجرای ۶ نمونه اتصال TCP به 1.1.1.1:443…")
         worker.execute {
-            val started = SystemClock.elapsedRealtime()
-            val result = runCatching {
-                Socket().use { socket ->
-                    socket.connect(InetSocketAddress("1.1.1.1", 443), 3500)
+            val samples = ArrayList<Long?>(TCP_PROBE_ATTEMPTS)
+            repeat(TCP_PROBE_ATTEMPTS) { index ->
+                val started = SystemClock.elapsedRealtime()
+                val elapsed = runCatching {
+                    Socket().use { socket ->
+                        socket.connect(
+                            InetSocketAddress(TCP_PROBE_HOST, TCP_PROBE_PORT),
+                            TCP_PROBE_TIMEOUT_MS
+                        )
+                    }
+                    SystemClock.elapsedRealtime() - started
+                }.getOrNull()
+                samples += elapsed
+                if (index < TCP_PROBE_ATTEMPTS - 1) {
+                    runCatching { Thread.sleep(TCP_PROBE_PAUSE_MS) }
                 }
-                SystemClock.elapsedRealtime() - started
             }
+            val stats = TcpProbeSummary.from(samples)
+            val payload = JSONObject()
+                .put("attempts", stats.attempts)
+                .put("successful", stats.successful)
+                .put("minMs", stats.minMs ?: JSONObject.NULL)
+                .put("medianMs", stats.medianMs ?: JSONObject.NULL)
+                .put("maxMs", stats.maxMs ?: JSONObject.NULL)
+                .put("variationMs", stats.variationMs ?: JSONObject.NULL)
+                .put("failurePercent", stats.failurePercent)
+                .put("host", TCP_PROBE_HOST)
+                .put("port", TCP_PROBE_PORT)
+                .toString()
             runOnUiThread {
                 if (isDestroyed || !::webView.isInitialized) return@runOnUiThread
-                val success = result.isSuccess
-                val millis = result.getOrNull() ?: -1L
-                val message = if (success) {
-                    "TCP connection to 1.1.1.1:443 completed in " + millis + " ms."
-                } else {
-                    "TCP connection failed: " + (result.exceptionOrNull()?.javaClass?.simpleName ?: "Unknown error")
-                }
-                val quoted = JSONObject.quote(message)
                 webView.evaluateJavascript(
-                    "window.netPulseLatency && window.netPulseLatency($success, $millis, $quoted);",
+                    "window.netPulseLatencyStats && window.netPulseLatencyStats($payload);",
                     null
                 )
             }
         }
+    }
+
+    private data class LaunchableApp(
+        val packageName: String,
+        val label: String,
+        val isGame: Boolean,
+        val uid: Int
+    )
+
+    private val gamingPreferences by lazy {
+        getSharedPreferences(GAMING_PREFS, MODE_PRIVATE)
+    }
+
+    private fun selectedGamingPackages(): Set<String> =
+        gamingPreferences.getStringSet(GAMING_PACKAGES_KEY, emptySet())?.toSet() ?: emptySet()
+
+    private fun isGamingOnlyEnabled(): Boolean =
+        gamingPreferences.getBoolean(GAMING_ONLY_KEY, false)
+
+    private fun launchableApps(): List<LaunchableApp> {
+        val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        return packageManager.queryIntentActivities(launcherIntent, 0)
+            .mapNotNull { resolveInfo ->
+                val appInfo = resolveInfo.activityInfo?.applicationInfo ?: return@mapNotNull null
+                val appPackage = appInfo.packageName ?: return@mapNotNull null
+                if (appPackage == packageName) return@mapNotNull null
+                val label = runCatching {
+                    packageManager.getApplicationLabel(appInfo).toString()
+                }.getOrDefault(appPackage)
+                LaunchableApp(
+                    packageName = appPackage,
+                    label = label,
+                    isGame = appInfo.category == ApplicationInfo.CATEGORY_GAME,
+                    uid = appInfo.uid
+                )
+            }
+            .distinctBy { it.packageName }
+            .sortedWith(compareByDescending<LaunchableApp> { it.isGame }.thenBy { it.label.lowercase(Locale.ROOT) })
+    }
+
+    private fun gamingAppCatalogJson(): String {
+        val selected = selectedGamingPackages()
+        val apps = JSONArray()
+        launchableApps().forEach { app ->
+            val rx = TrafficStats.getUidRxBytes(app.uid)
+            val tx = TrafficStats.getUidTxBytes(app.uid)
+            apps.put(
+                JSONObject()
+                    .put("packageName", app.packageName)
+                    .put("label", app.label)
+                    .put("isGame", app.isGame)
+                    .put("selected", app.packageName in selected)
+                    .put("rxFormatted", formatBytes(rx))
+                    .put("txFormatted", formatBytes(tx))
+            )
+        }
+        return apps.toString()
+    }
+
+    private fun saveGamingApps(rawPackages: String?) {
+        try {
+            val submitted = JSONArray(rawPackages ?: "[]")
+            require(submitted.length() <= MAX_GAMING_APPS) { "At most $MAX_GAMING_APPS games can be selected" }
+            val available = launchableApps().map { it.packageName }.toSet()
+            val selected = linkedSetOf<String>()
+            for (index in 0 until submitted.length()) {
+                val appPackage = submitted.optString(index).trim()
+                require(appPackage in available) { "An app is not installed or is no longer visible" }
+                selected += appPackage
+            }
+            if (selected.isEmpty() && isGamingOnlyEnabled()) {
+                gamingPreferences.edit().putBoolean(GAMING_ONLY_KEY, false).apply()
+            }
+            gamingPreferences.edit().putStringSet(GAMING_PACKAGES_KEY, selected).apply()
+            publishNativeState()
+            postWebMessage(
+                if (selected.isEmpty()) "فهرست بازی‌ها خالی شد؛ حالت Game-only خاموش است."
+                else "${selected.size} برنامه برای مسیر بازی ذخیره شد. برای اعمال، sing-box را دوباره وصل کن."
+            )
+        } catch (error: Exception) {
+            postWebMessage("ذخیره فهرست برنامه‌ها ناموفق بود: " + (error.message ?: error.javaClass.simpleName))
+        }
+    }
+
+    private fun setGamingOnlyMode(rawEnabled: String?) {
+        val enabled = rawEnabled.equals("true", ignoreCase = true)
+        if (enabled && selectedGamingPackages().isEmpty()) {
+            postWebMessage("ابتدا حداقل یک بازی را از فهرست برنامه‌ها انتخاب و ذخیره کن.")
+            return
+        }
+        gamingPreferences.edit().putBoolean(GAMING_ONLY_KEY, enabled).apply()
+        publishNativeState()
+        postWebMessage(
+            if (enabled) "حالت Game-only فعال شد؛ فقط برنامه‌های انتخاب‌شده از تونل sing-box عبور می‌کنند."
+            else "حالت Game-only خاموش شد؛ مسیر پیش‌فرض پروفایل sing-box اعمال می‌شود."
+        )
     }
 
     private fun dp(value: Int): Int =
@@ -684,12 +802,30 @@ class MainActivity : Activity() {
 
     private fun startSingBoxService(profile: String? = (application as NetPulseApplication).loadedSingBoxProfile) {
         if (profile.isNullOrBlank()) return
+        val profileForStart = try {
+            if (isGamingOnlyEnabled()) {
+                GamingProfileConfigurator.withGameOnlyRouting(profile, selectedGamingPackages())
+            } else {
+                profile
+            }
+        } catch (error: Exception) {
+            singBoxStatus.text = "Gaming profile setup failed"
+            postWebMessage("حالت بازی روی این پروفایل قابل اعمال نیست: " + (error.message ?: error.javaClass.simpleName))
+            return
+        }
+        try {
+            Libbox.checkConfig(profileForStart)
+        } catch (error: Exception) {
+            singBoxStatus.text = "Profile validation failed"
+            postWebMessage("پروفایل پس از اعمال تنظیمات بازی معتبر نماند.")
+            return
+        }
         if (!VpnEngineCoordinator.acquire(VpnEngineCoordinator.Engine.SING_BOX)) {
             singBoxStatus.text = "Another VPN engine is active. Disconnect it first."
             Toast.makeText(this, "Another VPN engine is active", Toast.LENGTH_LONG).show()
             return
         }
-        val intent = Intent(this, SingBoxVpnService::class.java).putExtra(SingBoxVpnService.EXTRA_PROFILE, profile)
+        val intent = Intent(this, SingBoxVpnService::class.java).putExtra(SingBoxVpnService.EXTRA_PROFILE, profileForStart)
         try {
             if (android.os.Build.VERSION.SDK_INT >= 26) startForegroundService(intent) else startService(intent)
             singBoxStarting = true
@@ -941,5 +1077,14 @@ class MainActivity : Activity() {
         private const val REQUEST_SINGBOX_VPN_PERMISSION = 713
         private const val MAX_PROFILE_BYTES = 2 * 1024 * 1024
         private const val REFRESH_PREFS = "netpulse_refresh_rate"
+        private const val GAMING_PREFS = "netpulse_gaming"
+        private const val GAMING_PACKAGES_KEY = "selected_packages"
+        private const val GAMING_ONLY_KEY = "game_only_enabled"
+        private const val MAX_GAMING_APPS = 50
+        private const val TCP_PROBE_HOST = "1.1.1.1"
+        private const val TCP_PROBE_PORT = 443
+        private const val TCP_PROBE_ATTEMPTS = 6
+        private const val TCP_PROBE_TIMEOUT_MS = 1500
+        private const val TCP_PROBE_PAUSE_MS = 120L
     }
 }
