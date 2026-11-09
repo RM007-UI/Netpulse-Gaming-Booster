@@ -33,3 +33,10 @@ STUN is a generic UDP path indicator. It does not measure a particular game's se
 NetPulse does not claim to lower ping, increase FPS, prioritize game packets, or change Android's scheduler. A VPN can change routing and may improve or worsen latency depending on the VPN server, operator routing, and network conditions. DNS mainly affects name resolution; it does not continuously reduce in-match latency.
 
 The implementation avoids automatic MTU changes, arbitrary packet marking, hidden bypass behavior, and fabricated network-quality scores. Measurements and their limitations are shown directly in the UI.
+
+
+## URLTest activation and custom endpoint checks
+
+The Servers screen can switch the profile's default route to an existing sing-box urltest group. This delegates node selection to sing-box's URLTest implementation and configured test URL/interval/tolerance. NetPulse does not invent a fastest-node result or run a background speed test. A profile without a urltest group must be edited by its owner before this action is available.
+
+The Servers screen also accepts a user-supplied host and TCP port and measures five TCP connection-establishment attempts over the device's current default network. The result reports successes, median connection time, sequential sample variation and failures. If a VPN is the active default network, the socket follows that route; otherwise it uses the physical/default route. This is a TCP endpoint reachability diagnostic, not ICMP ping, UDP game-server latency, or in-match packet loss. It does not compare two paths simultaneously.
