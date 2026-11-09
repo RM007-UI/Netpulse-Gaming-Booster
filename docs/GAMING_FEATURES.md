@@ -63,3 +63,10 @@ The tool requires a purpose-built UDP echo endpoint; it does not emit arbitrary 
 When the user enables optional Usage Access, NetPulse samples the currently detected game's Android UID traffic counters and records a local session while its process remains alive. Sampling can continue when the game is foregrounded and NetPulse is behind it; Android may reclaim the process, so the app does not guarantee always-on background capture. Each completed record contains the application package/name, start/end timestamps, duration, sample count and approximate average/peak upload/download rates. The dashboard retains the latest 40 sessions and supports JSON export or user-initiated deletion.
 
 The monitor deliberately stops when NetPulse leaves the foreground. It does not claim always-on/background session capture, and it does not capture packets, message contents or game payloads. Byte totals are approximations integrated from sampled rates; Android UID counters can be unavailable on some firmware. Sessions with unavailable counters do not record synthetic zero-rate samples.
+
+
+## Public one-tap relay catalog
+
+The Servers screen includes an optional VPN Gate community-relay list fetched from the official HTTPS CSV API. Selecting a relay decodes the OpenVPN profile included by VPN Gate, validates it with the existing OpenVPN importer and bundled libbox core, then requests Android VPN consent and starts sing-box. No user-uploaded profile or self-hosted server is needed for this mode.
+
+The service is not operated by NetPulse. Relays are volunteer-run, may be unreliable, and the official directory shows a two-week log policy. The displayed latency/throughput are server-reported values, not measurements from the user's device. A confirmation warning is shown before connecting, and the app refuses to replace an already-active VPN. Only OpenVPN is available in this provider-backed no-config mode.
