@@ -2,28 +2,34 @@
 
 ## Game-only VPN routing
 
-The Devices screen can list launcher-visible apps, let the user select games/apps, and save the selected package names locally. When Game-only is enabled, NetPulse modifies a copy of the imported sing-box profile and adds an Android `include_package` allowlist to its TUN inbound. The imported profile kept in process memory is not overwritten.
+The Devices screen lists launcher-visible applications, prioritizes apps that Android categorizes as games, and lets the user save a package allowlist locally. When Game-only is enabled, NetPulse applies that list to a copy of the imported sing-box TUN profile. NetPulse itself is temporarily included so its UDP diagnostics can use the VPN path.
 
-Only the selected packages are routed through the sing-box VPN. Other apps use Android's ordinary network connection. This is per-app split tunneling, not a latency accelerator. The VPN must be disconnected and reconnected after changing the selection. The feature requires a sing-box JSON profile with a TUN inbound; unsupported profiles fail validation instead of silently starting with the wrong routing. WireGuard remains full-device routing in this version.
+Only selected packages are routed through sing-box; other apps retain Android's ordinary network route. This is per-app split tunneling, not a latency accelerator. Disconnect and reconnect sing-box after changing the package selection. Profiles without a TUN inbound are rejected for Game-only mode. WireGuard remains full-device routing.
 
-Android application traffic counters are read by UID where the platform exposes them. A `—` value means Android did not provide a counter for that app.
+Per-app traffic counters use Android UID statistics where exposed by the device. A `—` value means Android did not provide that counter.
 
-## Multi-sample connection diagnostics
+## Server manager
 
-The connection test performs six TCP connection attempts to `1.1.1.1:443`. It reports the minimum, median and maximum successful connection-establishment time, the mean absolute difference between sequential successful samples, and the percentage of attempts that failed.
+The Servers screen reads the loaded sing-box profile and shows server outbounds plus `selector` and `urltest` groups. It displays only endpoint metadata (tag, protocol type, host and port); credentials, UUIDs, passwords and keys are never sent to the WebView.
 
-These values describe TCP connection setup to the probe endpoint. They are not ICMP ping, game-server UDP latency, packet loss, or a measurement of the actual match route. A future game-specific measurement needs a reachable endpoint controlled by the game server or a compatible UDP echo service.
+Selecting a node updates only `route.final` in the in-memory profile, then validates the resulting JSON with libbox. Custom route rules and the rest of the profile are preserved. The selection is applied when sing-box starts again; disconnect first if a tunnel is active. A rule that explicitly routes traffic elsewhere can still override the default outbound.
 
-## Claims and limitations
+## Multi-sample TCP diagnostics
 
-NetPulse does not claim to lower ping, increase FPS, prioritize game packets, or change Android's scheduler. A VPN can change routing and may improve or worsen latency depending on the server, operator routing and network conditions. DNS changes mainly affect name resolution and do not continuously reduce in-match latency.
+The connection test performs six TCP connection attempts to `1.1.1.1:443`. It reports minimum, median and maximum successful connection-establishment time, variation between sequential successful samples, and the percentage of attempts that failed.
 
-The implementation deliberately avoids unsafe automatic MTU changes, arbitrary packet marking, hidden bypass behavior and fabricated network-quality scores. User-selected app routing and measured diagnostics are exposed directly, with their limitations stated in the UI.
+These values describe TCP connection setup to the probe endpoint. They are not ICMP ping, game-server UDP latency, packet loss, or a measurement of the actual match route.
 
 ## Direct versus VPN UDP comparison
 
-The Speed screen can compare five UDP STUN Binding request/response samples over two explicitly selected Android Network handles: the physical network captured immediately before sing-box establishes its TUN, and the VPN Network itself. Both paths target the same resolved IPv4 address for `stun.l.google.com:19302`. The physical network performs the DNS lookup so that DNS resolution is not included in either timing set.
+The Speed screen compares five UDP STUN Binding request/response samples over two Android Network handles: the physical network captured before sing-box establishes its TUN and the VPN Network itself. Both paths use the same resolved IPv4 address for `stun.l.google.com:19302`; DNS resolution happens over the physical network before timing begins.
 
-This is available only while sing-box is connected and Game-only routing is enabled. The app adds its own package to the temporary per-app allowlist so its diagnostic datagrams can traverse the VPN Network; selected game packages remain included. Turning Game-only off restores the imported profile's normal routing when the tunnel is next connected.
+This is available only while sing-box is connected and Game-only routing is enabled. NetPulse is temporarily added to the allowlist so its diagnostic datagrams traverse the VPN. The test validates the STUN response type, magic cookie and transaction ID, and reports median/minimum/maximum, sample variation, and unanswered or invalid attempts for each path.
 
-The test uses STUN Binding messages over UDP and validates the response type, magic cookie and 96-bit transaction ID before recording a sample. It reports median/min/max response time, sample variation and unanswered/invalid attempts for each path, plus the median difference. It does not measure a specific game's server, gameplay packet loss, or match latency. Google WebRTC examples use `stun.l.google.com:19302` as a STUN endpoint; STUN Binding request/response structure and transaction-ID validation follow RFC 8489.
+STUN is a generic UDP path indicator. It does not measure a particular game's server, in-match latency, or gameplay packet loss.
+
+## Claims and limitations
+
+NetPulse does not claim to lower ping, increase FPS, prioritize game packets, or change Android's scheduler. A VPN can change routing and may improve or worsen latency depending on the VPN server, operator routing, and network conditions. DNS mainly affects name resolution; it does not continuously reduce in-match latency.
+
+The implementation avoids automatic MTU changes, arbitrary packet marking, hidden bypass behavior, and fabricated network-quality scores. Measurements and their limitations are shown directly in the UI.
