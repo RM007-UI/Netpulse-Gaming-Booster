@@ -12,6 +12,7 @@ NetPulse is a native Android VPN and gaming-network diagnostics app with a Persi
 - **Game-only routing:** select launcher-visible games/apps. With sing-box, only the selected package allowlist (plus NetPulse for its own UDP diagnostic sockets) is routed through the VPN. Other apps continue using Android's normal network. WireGuard remains full-device routing. The profile must use a TUN inbound with `auto_route: true`; configurations the Android VPN builder cannot enforce are rejected instead of silently weakened.
 - **Network diagnostics:** six TCP connection-establishment samples to `1.1.1.1:443`, plus five direct and five VPN UDP STUN samples to `stun.l.google.com:19302` when sing-box and Game-only mode are active.
 - **Traffic telemetry:** live device-wide upload/download rates calculated from monotonic Android `TrafficStats` counters, plus per-app UID counters where Android exposes them.
+- **Event history:** connection and diagnostic events are stored locally in a bounded 200-entry history and rendered with safe text-only DOM updates; users can search and clear the history.
 - **Display refresh controller:** lists panel modes and can apply/restore supported refresh rates with Root access. It does not invent unsupported panel modes.
 - **Dashboard:** eight screens for overview, analytics, devices, servers, alerts, speed tests, logs, and settings; navigation adapts to narrow mobile displays and Android system-bar insets.
 
@@ -33,7 +34,7 @@ NetPulse is a native Android VPN and gaming-network diagnostics app with a Persi
 - Target SDK: 35.
 - ABI: `arm64-v8a`.
 - JDK 17, Android SDK 35, and Gradle 8.9.
-- Run `gradle testDebugUnitTest assembleDebug`.
+- Current app version: **0.4.1** (versionCode 6). Run `gradle testDebugUnitTest assembleDebug`.
 - GitHub Actions runs the five-pass UI regression suite and unit tests, verifies the SHA-256 of the pinned libbox AAR, inspects its Android API, and uploads the `netpulse-debug` APK artifact.
 
 ## Privacy and security
