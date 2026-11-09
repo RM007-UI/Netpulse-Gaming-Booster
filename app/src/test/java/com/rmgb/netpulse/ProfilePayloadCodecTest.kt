@@ -19,6 +19,15 @@ class ProfilePayloadCodecTest {
     }
 
     @Test
+    fun productionEncryptionUsesFreshIvForEachSave() {
+        val first = ProfilePayloadCodec.encrypt("same-profile".toByteArray(), key)
+        val second = ProfilePayloadCodec.encrypt("same-profile".toByteArray(), key)
+        assertNotEquals(first.contentToString(), second.contentToString())
+        assertArrayEquals("same-profile".toByteArray(), ProfilePayloadCodec.decrypt(first, key))
+        assertArrayEquals("same-profile".toByteArray(), ProfilePayloadCodec.decrypt(second, key))
+    }
+
+    @Test
     fun rejectsModifiedCiphertext() {
         val encrypted = ProfilePayloadCodec.encrypt("private-config".toByteArray(), key, iv)
         encrypted[encrypted.lastIndex] = (encrypted.last().toInt() xor 0x01).toByte()
