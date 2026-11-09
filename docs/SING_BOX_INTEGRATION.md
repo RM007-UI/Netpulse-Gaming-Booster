@@ -7,7 +7,7 @@ NetPulse embeds the Android libbox 1.14.4 AAR and runs sing-box through its own 
 The current path is:
 
 1. The Activity accepts a user-supplied sing-box JSON configuration or one supported share link and checks its size/encoding.
-2. `SingBoxProfileImporter` normalizes supported share links into a TUN profile. Custom JSON is kept as a full profile; a TUN inbound is added only when one is missing.
+2. `SingBoxProfileImporter` normalizes supported proxy share links into a TUN profile. `OpenVpnProfileImporter` parses a conservative TLS-mode `.ovpn` subset into a sing-box 1.14.4 `openvpn-client` endpoint and sets the route default to that endpoint. Custom JSON is kept as a full profile; a TUN inbound is added only when one is missing.
 3. `Libbox.checkConfig` validates the imported profile before it is accepted.
 4. The validated profile is encrypted with AES-256-GCM using a non-exportable Android Keystore key and stored in the app's private no-backup directory. The profile is decrypted and validated again when the app process starts. WireGuard profile text is persisted through the same encrypted store.
 5. The user taps Connect, Android VPN consent is requested if needed, and the app starts its foreground VPN service.
@@ -21,7 +21,9 @@ The app does not log profile JSON or credential material. Uninstalling the app, 
 
 The importer has direct share-link normalization for VLESS, VMess, Trojan, Shadowsocks, SOCKS5, Hysteria v1, Hysteria 2, TUIC, AnyTLS, NaiveProxy, and HTTP/HTTPS proxy links. Full sing-box JSON can also use outbound types supported by the pinned core and the Android platform adapter.
 
-OpenVPN UDP/TCP and IKEv2/IPsec are not integrated. TCP, UDP, QUIC, HTTP/2, and HTTP/3 are transports, not independent VPN engines.
+OpenVPN UDP/TCP are integrated as sing-box 1.14.4 TLS client endpoints through the `.ovpn` importer. The importer accepts inline CA certificates, optional paired client certificate/key blocks, multiple UDP/TCP remotes, routing directives, and in-app username/password entry. It deliberately rejects unsupported or unsafe file references, PKCS#12 bundles, scripts/plugins, legacy compression, and external credential files. This is a conservative subset of the OpenVPN directive language, not complete compatibility with every `.ovpn` profile.
+
+IKEv2/IPsec is implemented separately with Android's native `VpnManager`; it is not a sing-box endpoint. It requires Android 11+ and `android.software.ipsec_tunnels`. TCP, UDP, QUIC, HTTP/2, and HTTP/3 are transports, not independent VPN engines.
 
 Reality is represented as VLESS TLS security configuration; it is not a standalone protocol.
 
