@@ -113,6 +113,13 @@ assert.match(activity, /override fun onResume\(\)[\s\S]*?refreshHandler\.post\(n
 assert.match(activity, /if \(isIkev2PlatformActive\(\)\)/);
 assert.match(activity, /private fun hasAnyActiveVpnNetwork\(\)/);
 assert.match(activity, /private fun isIkev2StatusUnverified\(\)/);
+assert.match(activity, /private fun setGamingOnlyMode\(rawEnabled: String\?\)/);
+assert.match(activity, /Game-only فقط با موتور sing-box پشتیبانی می‌شود/);
+assert.match(activity, /WireGuard و IKEv2 در این برنامه تمام‌دستگاه هستند/);
+assert.match(activity, /برای تغییر Game-only ابتدا موتور VPN فعال را قطع کن/);
+assert.match(activity, /val saveStatus = if \(persisted\)/);
+assert.match(activity, /if \(!persisted\) \{[\s\S]*?app\.loadedSingBoxProfile = current/);
+assert.match(activity, /این سنجش معیار عمومی HTTP است، نه پینگ سرور بازی/);
 assert.match(activity, /private fun autoSelectFastestServer\(\)/);
 assert.match(activity, /type == "urltest"/);
 assert.match(activity, /private fun runGameServerComparison\(rawValue: String\?\)/);
