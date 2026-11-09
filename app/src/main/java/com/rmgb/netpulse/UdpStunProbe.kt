@@ -96,7 +96,7 @@ object UdpStunProbe {
         }
     }
 
-    private fun summarize(samples: List<Long?>): UdpStunStats {
+    private fun summarize(samples: List<Double?>): UdpStunStats {
         val successful = samples.filterNotNull()
         val sorted = successful.sorted()
         val median = when {
