@@ -62,7 +62,7 @@ main{min-width:0;padding:27px 34px 38px}.topbar{display:flex;align-items:center;
  </div>
 </article>
 <article class="card" style="margin-top:14px">
- <div class="card-head"><div><div class="card-title">تاریخچه جلسات بازی</div><div class="card-sub">ثبت محلی زمان بازی، میانگین مصرف UID و اوج نرخ شبکه، فقط وقتی NetPulse باز است و تشخیص خودکار فعال باشد.</div></div><span class="tag" id="gameSessionCount">۰ جلسه</span></div>
+ <div class="card-head"><div><div class="card-title">تاریخچه جلسات بازی</div><div class="card-sub">ثبت محلی زمان بازی، میانگین مصرف UID و اوج نرخ شبکه؛ تشخیص می‌تواند هنگام اجرای بازی و در پس‌زمینه ادامه یابد تا وقتی Android پردازش NetPulse را زنده نگه دارد.</div></div><span class="tag" id="gameSessionCount">۰ جلسه</span></div>
  <div style="padding:14px 17px 17px">
   <div class="grid panel-grid">
    <div class="panel-card"><div class="pc-top">جلسه جاری</div><strong id="gameSessionActive">—</strong><small>وضعیت رصد</small></div>
@@ -71,7 +71,7 @@ main{min-width:0;padding:27px 34px 38px}.topbar{display:flex;align-items:center;
   </div>
   <div class="actions" style="margin-top:12px"><button class="btn" type="button" onclick="exportGameSessions()">خروجی JSON جلسات</button><button class="btn" type="button" onclick="clearGameSessions()">پاک‌کردن تاریخچه</button></div>
   <div id="gameSessionHistory" class="events-list" style="margin-top:12px"><p class="engine-message">هنوز جلسه‌ای ثبت نشده است.</p></div>
-  <p class="engine-message">این گزارش از شمارنده UID اندروید نمونه‌برداری می‌کند و مصرف دقیق داخل بازی را تضمین نمی‌کند. هنگام خروج NetPulse از پیش‌زمینه، جلسه بسته می‌شود؛ رصد دائمی پس‌زمینه انجام نمی‌شود.</p>
+  <p class="engine-message">این گزارش از شمارنده UID اندروید نمونه‌برداری می‌کند و مصرف دقیق داخل بازی را تضمین نمی‌کند. رصد با Usage Access اختیاری است و ممکن است هنگام زنده‌بودن پردازش NetPulse در پس‌زمینه ادامه یابد؛ Android می‌تواند پردازش را متوقف کند، بنابراین ثبت دائمی تضمین نمی‌شود.</p>
  </div>
 </article></section>
 <section class="view" id="view-servers">
