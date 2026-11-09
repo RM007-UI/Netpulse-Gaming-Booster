@@ -40,3 +40,19 @@ The implementation avoids automatic MTU changes, arbitrary packet marking, hidde
 The Servers screen can switch the profile's default route to an existing sing-box urltest group. This delegates node selection to sing-box's URLTest implementation and configured test URL/interval/tolerance. NetPulse does not invent a fastest-node result or run a background speed test. A profile without a urltest group must be edited by its owner before this action is available.
 
 The Servers screen also accepts a user-supplied host and TCP port and measures five TCP connection-establishment attempts over the device's current default network. The result reports successes, median connection time, sequential sample variation and failures. If a VPN is the active default network, the socket follows that route; otherwise it uses the physical/default route. This is a TCP endpoint reachability diagnostic, not ICMP ping, UDP game-server latency, or in-match packet loss. It does not compare two paths simultaneously.
+
+## WireGuard Game-only routing
+
+WireGuard Game-only is also available through Android's included-application allowlist. NetPulse creates a copied WireGuard configuration with the selected package list and preserves the peer configuration, interface addresses, DNS, MTU and listen port. The original imported profile remains unchanged. Android's VpnService app allowlist is full-device scoped to that VPN user; apps not selected continue on the ordinary network. IKEv2 remains full-device only.
+
+## Per-game outbound assignment
+
+The Devices screen can save an outbound tag for an individual selected game. On the next sing-box start, NetPulse prepends package-name route rules for those assignments while preserving the profile's existing rules. The assignment is only valid when the outbound exists in the loaded profile. These are routing choices, not automatic measurements of the game's match server.
+
+## Automatic node selection
+
+NetPulse can add a sing-box URLTest group that references existing endpoint outbounds. The sing-box core performs periodic health checks using the configured HTTP test URL and interval after the tunnel starts. This is core-managed endpoint selection, not a direct measurement of game-server latency. Profiles need at least two selectable endpoint outbounds.
+
+## User-supplied game endpoint diagnostics
+
+A user can enter a host and TCP port to compare five connection-establishment samples over the physical network and the VPN Network while Game-only is active. DNS resolution is performed before timing on the physical network, and both paths use the same resolved address. The UI reports successful attempts, median, variation and failures. This is an endpoint TCP reachability test; it is not UDP game traffic or an in-match ping.
