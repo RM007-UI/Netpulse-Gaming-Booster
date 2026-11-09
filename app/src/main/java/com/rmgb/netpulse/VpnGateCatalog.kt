@@ -37,13 +37,15 @@ object VpnGateCatalog {
         val connection = URL(API_URL).openConnection() as HttpURLConnection
         try {
             connection.requestMethod = "GET"
+            connection.instanceFollowRedirects = false
             connection.connectTimeout = CONNECT_TIMEOUT_MS
             connection.readTimeout = READ_TIMEOUT_MS
             connection.useCaches = false
             connection.setRequestProperty("Accept", "text/csv,text/plain")
             connection.setRequestProperty("User-Agent", "NetPulse-Android/0.6.2")
             val status = connection.responseCode
-            require(status == HttpURLConnection.HTTP_OK) { "VPN Gate API returned HTTP $status" }
+            require(status == HttpURLConnection.HTTP_OK) { "VPN Gate API returned HTTP $status; HTTPS redirects are not followed" }
+            require(connection.url.protocol.equals("https", true)) { "VPN Gate directory must be fetched over HTTPS" }
             val bytes = connection.inputStream.use { input ->
                 val output = java.io.ByteArrayOutputStream()
                 val buffer = ByteArray(8192)
@@ -128,13 +130,15 @@ object VpnGateCatalog {
             !profile.contains("-----BEGIN CERTIFICATE-----") ||
             !profile.contains("auth-user-pass")
         ) return false
+        val defaultProtocol = Regex("(?im)^\\s*proto\\s+(udp6?|tcp-client|tcp4-client|tcp6-client)\\s*$")
+            .find(profile)?.groupValues?.getOrNull(1)?.lowercase(Locale.ROOT).orEmpty()
         val remotes = Regex("(?im)^\\s*remote\\s+(\\S+)\\s+(\\d+)(?:\\s+(\\S+))?\\s*$")
             .findAll(profile).toList()
         if (remotes.isEmpty()) return false
         return remotes.any { match ->
             val remoteHost = match.groupValues[1].trim().trim('[', ']')
             val port = match.groupValues[2].toIntOrNull() ?: return@any false
-            val protocol = match.groupValues.getOrNull(3).orEmpty().lowercase(Locale.ROOT)
+            val protocol = match.groupValues.getOrNull(3).orEmpty().ifBlank { defaultProtocol }.lowercase(Locale.ROOT)
             port in 1..65535 &&
                 (remoteHost.equals(expectedIp, true) ||
                     remoteHost.equals(expectedHost, true) ||
@@ -148,7 +152,7 @@ object VpnGateCatalog {
 
     private fun validIpLiteral(value: String): Boolean =
         value.matches(Regex("^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$")) &&
-            value.split('.').all { it.toIntOrNull() in 0..255 }
+            value.split('.').all { part -> part.toIntOrNull()?.let { it in 0..255 } == true }
 
     /**
      * RFC-4180 single-record CSV parser: commas inside quoted fields and doubled
