@@ -107,6 +107,8 @@ assert.match(vpnService, /EXTRA_ERROR/);
 assert.match(vpnService, /pendingSingBoxServiceProfile/);
 assert.match(activity, /pendingSingBoxServiceProfile = profileForStart/);
 assert.doesNotMatch(activity, /putExtra\(SingBoxVpnService\.EXTRA_PROFILE/);
+assert.match(activity, /override fun onResume\(\)[\s\S]*?refreshHandler\.post\(networkTick\)/);
+assert.match(activity, /if \(isIkev2PlatformActive\(\)\)/);
 assert.match(activity, /VpnManager/);
 assert.match(activity, /REQUEST_IKEV2_PERMISSION/);
 assert.match(activity, /provisionVpnProfile\(platformProfile\)/);
@@ -115,17 +117,19 @@ assert.match(activity, /stopProvisionedVpnProfile\(\)/);
 assert.match(activity, /OpenVpnProfileImporter\.importProfile/);
 assert.match(activity, /looksLikeOpenVpnProfile/);
 assert.match(ikev2Config, /Ikev2VpnProfile\.Builder/);
-assert.match(ikev2Config, /FEATURE_IPSEC_TUNNELS/);
+assert.match(activity, /FEATURE_IPSEC_TUNNELS/);
 assert.match(ikev2Config, /EAP_MSCHAPV2/);
 assert.match(ikev2Config, /PRE_SHARED_KEY/);
+assert.match(ikev2Config, /custom root CA is supported only with EAP/);
 assert.match(openVpnImporter, /openvpn-client/);
-assert.match(openVpnImporter, /-----BEGIN CERTIFICATE-----/);
-assert.match(openVpnImporter, /Compression is rejected/);
+assert.match(openVpnImporter, /require\(ca != null\)/);
+assert.match(openVpnImporter, /compression is rejected/);
 assert.match(protocolCatalog, /openvpn_udp.*EngineState\.AVAILABLE/);
 assert.match(protocolCatalog, /ikev2_ipsec.*EngineState\.AVAILABLE/);
 for (const id of ["settingsIkev2", "ikev2Toggle", "ikev2Help"]) {
   assert.ok(ids.has(id), `IKEv2 settings control missing: ${id}`);
 }
+assert.match(html, /v0\.5\.0/);
 console.log("PASS 3/5 — JavaScript bridge, live telemetry, encrypted profile storage and VPN safety gates are wired");
 
 // PASS 4 — Android 15 system bars and cutout insets are applied to the WebView viewport.
