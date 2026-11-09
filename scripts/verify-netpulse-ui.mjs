@@ -100,7 +100,7 @@ assert.match(js, /nativeAction\\('saveGameRoutes'/);
 assert.match(js, /function renderGameDetectionState\\(/);
 
 // Custom TCP endpoint test binds sockets to two explicit Android Network handles.
-assert.match(tcpEndpoint, /network\\.socketFactory\\.createSocket\\(\\)/);
+assert.match(tcpEndpoint, /network\\.bindSocket\\(socket\\)/);
 assert.match(tcpEndpoint, /InetSocketAddress\\(address, port\\)/);
 assert.match(activity, /TcpEndpointProbe\\.measure/);
 assert.match(activity, /private fun runGameServerComparison\\(rawTarget: String\\?\\)/);
