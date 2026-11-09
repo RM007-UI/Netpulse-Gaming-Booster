@@ -88,6 +88,7 @@ internal object OpenVpnProfileImporter {
         var renegotiate = ""
         var renegotiateDisabled = false
         var explicitExitNotify = 0
+        var routeMetric: Int? = null
         var dataCiphers = emptyList<String>()
         var dataCipherFallback = ""
         var authUserPassRequired = false
@@ -230,9 +231,18 @@ internal object OpenVpnProfileImporter {
                     }
                 }
                 "route" -> {
-                    require(args.size in 2..3) { "OpenVPN route directive is incomplete" }
+                    require(args.size in 2..4) { "OpenVPN route directive is incomplete" }
                     require(args.getOrNull(2).isNullOrBlank() || args[2].equals("vpn_gateway", true)) {
                         "OpenVPN route gateway override is not supported"
+                    }
+                    args.getOrNull(3)?.let { rawMetric ->
+                        val metric = rawMetric.toIntOrNull()
+                            ?: throw IllegalArgumentException("OpenVPN route metric is invalid")
+                        require(metric in 0..65535) { "OpenVPN route metric is out of range" }
+                        require(routeMetric == null || routeMetric == metric) {
+                            "Per-route metrics cannot be represented by this OpenVPN endpoint"
+                        }
+                        routeMetric = metric
                     }
                     val prefix = ipv4NetworkPrefix(args[0], args[1])
                     explicitRoutes += prefix
@@ -269,9 +279,10 @@ internal object OpenVpnProfileImporter {
                     else renegotiate = durationSeconds(args[0], key)
                 }
                 "explicit-exit-notify" -> {
-                    one(tokens, 2, key)
-                    explicitExitNotify = args[0].toIntOrNull()
-                        ?: throw IllegalArgumentException("explicit-exit-notify is invalid")
+                    require(args.size <= 1) { "explicit-exit-notify accepts at most one value" }
+                    explicitExitNotify = args.singleOrNull()?.toIntOrNull() ?: if (args.isEmpty()) 1 else {
+                        throw IllegalArgumentException("explicit-exit-notify is invalid")
+                    }
                     require(explicitExitNotify in 0..10) { "explicit-exit-notify is out of range" }
                 }
                 "comp-lzo", "compress" -> {
@@ -390,7 +401,10 @@ internal object OpenVpnProfileImporter {
             .put("route_no_pull", routeNoPull)
             // If the profile captures IPv4 default traffic but does not provide an
             // IPv6 tunnel route, block IPv6 rather than silently leaking it outside VPN.
-            .put("block_ipv6", blockIpv6 || (redirectGateway && "ipv6" !in redirectFlags))
+            .put(
+                "block_ipv6",
+                blockIpv6 || (redirectGateway && "ipv6" !in redirectFlags && "!ipv4" !in redirectFlags)
+            )
             .put("mtu", mtu)
 
         if (username.isNotBlank()) endpoint.put("username", username)
@@ -405,6 +419,7 @@ internal object OpenVpnProfileImporter {
         if (renegotiateDisabled) endpoint.put("renegotiate_disabled", true)
         if (explicitExitNotify > 0) endpoint.put("explicit_exit_notify", explicitExitNotify)
         if (explicitRoutes.isNotEmpty()) endpoint.put("routes", JSONArray(explicitRoutes.toList()))
+        routeMetric?.let { endpoint.put("route_metric", it) }
         if (pullFilters.length() > 0) endpoint.put("pull_filters", pullFilters)
 
         val json = JSONObject()
