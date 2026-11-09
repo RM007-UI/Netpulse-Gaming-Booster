@@ -130,7 +130,7 @@ assert.match(js, /vpn\.jitterMs/);
 // Per-game UDP Echo tests use an explicit, nonce-protected echo contract and both Android Networks.
 assert.match(activity, /private fun runGameUdpEchoComparison\(rawValue: String\?\)/);
 assert.match(activity, /UdpEchoProbe\.measure/);
-assert.match(activity, /packageName.*selectedGamingPackages/);
+assert.match(activity, /gamePackage.*selectedGamingPackages/);
 assert.match(udpEchoProbe, /network\.bindSocket\(socket\)/);
 assert.match(udpEchoProbe, /UdpEchoPacketCodec\.isMatchingEcho/);
 assert.match(udpEchoCodec, /SecureRandom/);
