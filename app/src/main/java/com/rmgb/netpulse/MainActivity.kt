@@ -213,15 +213,6 @@ class MainActivity : Activity() {
         refreshIkev2State()
     }
 
-    override fun onResume() {
-        super.onResume()
-        if (liveRefreshEnabled) {
-            refreshHandler.removeCallbacks(networkTick)
-            refreshHandler.post(networkTick)
-        }
-        refreshIkev2State()
-    }
-
     inner class NetPulseBridge {
         @JavascriptInterface
         fun getState(): String = nativeState().toString()
@@ -1824,6 +1815,7 @@ class MainActivity : Activity() {
         super.onResume()
         refreshHandler.removeCallbacks(networkTick)
         if (liveRefreshEnabled) refreshHandler.post(networkTick)
+        refreshIkev2State()
         singBoxConnected = SingBoxVpnService.isRunning
         singBoxStarting = false
         if (::singBoxButton.isInitialized && ::singBoxStatus.isInitialized) {
