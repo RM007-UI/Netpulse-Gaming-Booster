@@ -2054,8 +2054,10 @@ class MainActivity : Activity() {
             postWebMessage("سرور دیگر در فهرست تازه نیست؛ فهرست VPN Gate را بروزرسانی کن.")
             return
         }
-        if (singBoxStarting) {
-            postWebMessage("موتور sing-box در حال آماده‌سازی است؛ کمی بعد دوباره تلاش کن.")
+        if (connected || SingBoxVpnService.isRunning || singBoxConnected || singBoxStarting ||
+            ikev2Connected || ikev2Starting || isIkev2PlatformActive()
+        ) {
+            postWebMessage("برای اتصال به رله عمومی، ابتدا VPN فعال فعلی را قطع کن.")
             return
         }
         AlertDialog.Builder(this)
