@@ -97,7 +97,7 @@ assert.match(html, /id="publicVpnList"/);
 assert.match(html, /id="publicVpnQuickConnect"/);
 assert.match(js, /function loadPublicVpnServers\(\)/);
 assert.match(js, /function netPulseVpnGateServerList\(result\)/);
-assert.match(js, /vpn\.vpngate\.net|VPN Gate/);
+assert.match(html, /VPN Gate/);
 assert.match(activity, /سیاست ثبت گزارش تا ۲ هفته/);
 
 // Automatic relay selection is a real sing-box URLTest group, not a static ping label.
