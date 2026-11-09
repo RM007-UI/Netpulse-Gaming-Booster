@@ -14,7 +14,7 @@ NetPulse is an Android VPN and gaming-network diagnostics app with a Persian RTL
 - **Per-game route selection:** in sing-box Game-only mode, each selected app can be assigned an outbound or group. NetPulse adds package-name route rules ahead of existing profile rules and validates every chosen tag.
 - **Automatic game detection:** optional Android Usage Access detects which launcher-visible game is in the foreground. The permission is user-controlled; package name and UID counters are read locally and are not uploaded. Detection does not silently start or stop VPN connections.
 - **Live game telemetry:** while detection is enabled and the app process remains alive, NetPulse reads UID-level RX/TX counters when Android exposes them and displays estimated per-app rates. Shared UIDs, OEM restrictions and unavailable counters can limit accuracy.
-- **Network diagnostics:** multi-sample TCP connection timing, direct-vs-VPN UDP STUN comparison, and a custom host/port TCP endpoint comparison over the physical and VPN Network handles.
+- **Network diagnostics:** multi-sample TCP connection timing, direct-vs-VPN UDP STUN comparison, a custom TCP endpoint comparison, and a per-game custom UDP echo endpoint comparison over explicit physical and VPN Network handles. The UDP echo tool requires an endpoint that mirrors the diagnostic datagram byte-for-byte.
 - **Event history:** a local, searchable 200-entry diagnostic history.
 - **Display controller:** lists refresh modes reported by the panel and can apply/restore supported rates with Root access.
 
@@ -23,6 +23,7 @@ NetPulse is an Android VPN and gaming-network diagnostics app with a Persian RTL
 - TCP endpoint tests measure connection-establishment time, not ICMP ping.
 - The custom game endpoint test works only for a host/port that accepts TCP. It reports successes, median, sequential variation and failed connection attempts. Failed TCP connects are not game packet loss.
 - STUN tests measure a generic UDP request/response path. Their timeout ratio is not a statistically representative game-server packet-loss result.
+- The per-game UDP echo test is only valid against a dedicated echo endpoint that returns NetPulse's nonce-bearing test datagram unchanged. It is not compatible with arbitrary commercial game servers or their proprietary packet protocols.
 - URLTest uses the HTTP health-check URL configured in the generated sing-box group. It estimates proxy-node health and is not a measurement of latency to the actual match server.
 - Android does not provide a universal way for a third-party app to discover every game's UDP server, interpret proprietary game packets, or measure in-match packet loss. A protocol-aware game server or in-game telemetry would be needed for those features.
 - NetPulse does not promise lower ping, higher FPS, packet priority or a gaming performance gain. VPN routing can improve or worsen network latency depending on provider, carrier and route.
@@ -41,7 +42,7 @@ NetPulse is an Android VPN and gaming-network diagnostics app with a Persian RTL
 ## Build and verification
 
 - JDK 17, Android SDK 35 and Gradle 8.9.
-- Current app version: **0.6.0** (versionCode 9).
+- Current app version: **0.6.1** (versionCode 10).
 - Run `gradle testDebugUnitTest assembleDebug`.
 - GitHub Actions runs the five-pass UI/bridge regression suite, Kotlin unit tests, debug APK assembly, pinned libbox AAR SHA-256 verification and Android API inspection.
 - A successful CI build does not replace testing on physical phones and networks.
