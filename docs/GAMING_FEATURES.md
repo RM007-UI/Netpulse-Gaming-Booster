@@ -1,58 +1,51 @@
 # NetPulse gaming-focused features
 
-## Game-only VPN routing
+## Game-only routing
 
-The Devices screen lists launcher-visible applications, prioritizes apps that Android categorizes as games, and lets the user save a package allowlist locally. When Game-only is enabled, NetPulse applies that list to a copy of the imported sing-box TUN profile. NetPulse itself is temporarily included so its UDP diagnostics can use the VPN path.
+Game-only is supported by both WireGuard and sing-box:
 
-Only selected packages are routed through sing-box; other apps retain Android's ordinary network route. This is per-app split tunneling, not a latency accelerator. Disconnect and reconnect sing-box after changing the package selection. Profiles without a TUN inbound are rejected for Game-only mode. WireGuard remains full-device routing.
+- WireGuard uses the Android WireGuard library's included-application list on a copied configuration. Peer settings, addresses, DNS, MTU and listen port are preserved.
+- sing-box requires an Android TUN inbound with auto_route enabled. NetPulse adds selected packages to include_package and includes its own package for diagnostic sockets. Existing route exclusions are removed only in the copied Game-only profile because Android's VpnService cannot combine allowlists and denylists.
+- IKEv2 uses Android's system VPN manager and remains full-device; NetPulse refuses to start IKEv2 while Game-only is enabled.
 
-Per-app traffic counters use Android UID statistics where exposed by the device. A `—` value means Android did not provide that counter.
+The selected apps are validated against launcher-visible installed applications before connection. Removing an app from the device prunes the stale selection. Changing the list requires reconnecting the engine.
 
-## Server manager
+## Per-game outbound rules
 
-The Servers screen reads the loaded sing-box profile and shows server outbounds plus `selector` and `urltest` groups. It displays only endpoint metadata (tag, protocol type, host and port); credentials, UUIDs, passwords and keys are never sent to the WebView.
+For sing-box profiles, a selected game can use the default outbound or a specific node/group. At connection time, NetPulse creates package_name route rules with action=route and the selected outbound tag, puts them before existing rules, and validates the resulting config with libbox. Unknown tags, unselected app assignments and missing TUN profiles are rejected. Existing non-game route rules remain in place after the per-game rules.
 
-Selecting a node updates only `route.final` in the in-memory profile, then validates the resulting JSON with libbox. Custom route rules and the rest of the profile are preserved. The selection is applied when sing-box starts again; disconnect first if a tunnel is active. A rule that explicitly routes traffic elsewhere can still override the default outbound.
+WireGuard uses one peer profile for all selected apps; it does not provide separate server selection per package in this build.
 
-## Multi-sample TCP diagnostics
+## Automatic foreground-game detection
 
-The connection test performs six TCP connection attempts to `1.1.1.1:443`. It reports minimum, median and maximum successful connection-establishment time, variation between sequential successful samples, and the percentage of attempts that failed.
+The user can optionally grant Android Usage Access. NetPulse reads foreground activity package transition events locally, identifies launcher-visible apps categorized as games or explicitly selected by the user, and displays the active package and label.
 
-These values describe TCP connection setup to the probe endpoint. They are not ICMP ping, game-server UDP latency, packet loss, or a measurement of the actual match route.
+While the process remains alive, the dashboard samples UID-level RX/TX byte counters for that app when Android exposes them. A shared UID, custom OEM policy, work profile or unavailable TrafficStats counter may make the values approximate or unavailable. The feature does not read screen contents, messages or keystrokes and does not automatically start/stop a VPN.
+
+## URLTest automatic relay selection
+
+The Servers screen can create or update a sing-box urltest outbound over the concrete selectable server nodes in the loaded profile. The group uses a periodic HTTP health-check URL, interval and tolerance; sing-box chooses the candidate according to its URLTest algorithm after the tunnel starts.
+
+This is a real core-managed relay health test, but it is not game-server ping. It tests the configured HTTP URL through each proxy node. It requires at least two supported server outbounds, and more-specific route rules in a user profile can still override route.final.
+
+## Multi-sample TCP and custom game endpoint diagnostics
+
+The standard TCP probe measures six TCP connection attempts to 1.1.1.1:443. The custom endpoint tool lets the user enter a hostname/IP and TCP port. NetPulse resolves the hostname once through the physical network, then compares ten TCP connect attempts over the physical Network and the active sing-box VPN Network using the same IP address.
+
+The results show successful attempts, median connect time, min/max, sequential variation and failed connections. This is useful only for endpoints that accept TCP. It does not measure an application's UDP game session, ICMP ping or in-match packet loss.
 
 ## Direct versus VPN UDP comparison
 
-The Speed screen compares five UDP STUN Binding request/response samples over two Android Network handles: the physical network captured before sing-box establishes its TUN and the VPN Network itself. Both paths use the same resolved IPv4 address for `stun.l.google.com:19302`; DNS resolution happens over the physical network before timing begins.
+The Speed screen compares five UDP STUN Binding request/response samples over the physical network and VPN Network. Both paths use the same resolved IP for stun.l.google.com:19302. The probe validates the STUN response type, magic cookie and transaction ID and reports median, min/max, RFC 3550-style smoothed RTT jitter, variation and unanswered/invalid probes.
 
-This is available only while sing-box is connected and Game-only routing is enabled. NetPulse is temporarily added to the allowlist so its diagnostic datagrams traverse the VPN. The test validates the STUN response type, magic cookie and transaction ID, and reports median/minimum/maximum, sample variation, and unanswered or invalid attempts for each path.
-
-STUN is a generic UDP path indicator. It does not measure a particular game's server, in-match latency, or gameplay packet loss.
+STUN is a generic UDP path indicator. Its timeout ratio is not packet loss at a game server and does not represent an in-match route.
 
 ## Claims and limitations
 
-NetPulse does not claim to lower ping, increase FPS, prioritize game packets, or change Android's scheduler. A VPN can change routing and may improve or worsen latency depending on the VPN server, operator routing, and network conditions. DNS mainly affects name resolution; it does not continuously reduce in-match latency.
+NetPulse does not promise lower ping, higher FPS, packet prioritization or changes to Android's scheduler. VPN selection and routing can make a route better or worse. DNS affects name resolution rather than ongoing in-match latency. Automatic detection reports the foreground game; it does not discover proprietary server addresses or interpret game packets.
 
-The implementation avoids automatic MTU changes, arbitrary packet marking, hidden bypass behavior, and fabricated network-quality scores. Measurements and their limitations are shown directly in the UI.
+A generic third-party app cannot truthfully measure every game's UDP ping or packet loss without a game-specific protocol, a supported telemetry API or an echo/measurement service at the game endpoint. NetPulse therefore labels generic probes honestly.
 
+## UI and reliability
 
-## URLTest activation and custom endpoint checks
-
-The Servers screen can switch the profile's default route to an existing sing-box urltest group. This delegates node selection to sing-box's URLTest implementation and configured test URL/interval/tolerance. NetPulse does not invent a fastest-node result or run a background speed test. A profile without a urltest group must be edited by its owner before this action is available.
-
-The Servers screen also accepts a user-supplied host and TCP port and measures five TCP connection-establishment attempts over the device's current default network. The result reports successes, median connection time, sequential sample variation and failures. If a VPN is the active default network, the socket follows that route; otherwise it uses the physical/default route. This is a TCP endpoint reachability diagnostic, not ICMP ping, UDP game-server latency, or in-match packet loss. It does not compare two paths simultaneously.
-
-## WireGuard Game-only routing
-
-WireGuard Game-only is also available through Android's included-application allowlist. NetPulse creates a copied WireGuard configuration with the selected package list and preserves the peer configuration, interface addresses, DNS, MTU and listen port. The original imported profile remains unchanged. Android's VpnService app allowlist is full-device scoped to that VPN user; apps not selected continue on the ordinary network. IKEv2 remains full-device only.
-
-## Per-game outbound assignment
-
-The Devices screen can save an outbound tag for an individual selected game. On the next sing-box start, NetPulse prepends package-name route rules for those assignments while preserving the profile's existing rules. The assignment is only valid when the outbound exists in the loaded profile. These are routing choices, not automatic measurements of the game's match server.
-
-## Automatic node selection
-
-NetPulse can add a sing-box URLTest group that references existing endpoint outbounds. The sing-box core performs periodic health checks using the configured HTTP test URL and interval after the tunnel starts. This is core-managed endpoint selection, not a direct measurement of game-server latency. Profiles need at least two selectable endpoint outbounds.
-
-## User-supplied game endpoint diagnostics
-
-A user can enter a host and TCP port to compare five connection-establishment samples over the physical network and the VPN Network while Game-only is active. DNS resolution is performed before timing on the physical network, and both paths use the same resolved address. The UI reports successful attempts, median, variation and failures. This is an endpoint TCP reachability test; it is not UDP game traffic or an in-match ping.
+The dashboard provides eight RTL screens, responsive navigation, live network charts, game UID estimates, server selection, local event history, refresh-rate controls and secure profile settings. The automated regression suite checks DOM IDs, JavaScript syntax, native bridge actions, Game-only configuration, endpoint probe wiring and engine safety rules.
