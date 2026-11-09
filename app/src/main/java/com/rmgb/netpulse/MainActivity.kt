@@ -1340,8 +1340,21 @@ class MainActivity : Activity() {
             Regex("(?im)^\\s*(?:client|remote|dev\\s+tun|proto\\s+(?:udp|tcp))\\b").containsMatchIn(value)
     }
 
+    private fun isIkev2PlatformActive(): Boolean {
+        if (!isIkev2Supported()) return false
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val state = runCatching { vpnManager()?.provisionedVpnProfileState?.state }.getOrNull()
+            state == VpnProfileState.STATE_CONNECTED || state == VpnProfileState.STATE_CONNECTING
+        } else {
+            val hasSavedProfile = (application as NetPulseApplication).loadedIkev2Config != null
+            val capabilities = getSystemService(ConnectivityManager::class.java)
+                .getNetworkCapabilities(getSystemService(ConnectivityManager::class.java).activeNetwork)
+            hasSavedProfile && capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
+        }
+    }
+
     private fun confirmClearSavedProfiles() {
-        if (SingBoxVpnService.isRunning || singBoxStarting) {
+        if (SingBoxVpnService.isRunning || singBoxStarting || ikev2Connected || ikev2Starting || isIkev2PlatformActive()) {
             postWebMessage("برای پاک‌کردن پروفایل‌ها ابتدا همه تونل‌های VPN را قطع کن.")
             return
         }
@@ -1353,7 +1366,9 @@ class MainActivity : Activity() {
 
             runOnUiThread {
                 if (isDestroyed) return@runOnUiThread
-                if (wireGuardIsUp || connected || SingBoxVpnService.isRunning || singBoxStarting) {
+                if (wireGuardIsUp || connected || SingBoxVpnService.isRunning || singBoxStarting ||
+                    ikev2Connected || ikev2Starting || isIkev2PlatformActive()
+                ) {
                     postWebMessage("برای پاک‌کردن پروفایل‌ها ابتدا همه تونل‌های VPN را قطع کن.")
                     return@runOnUiThread
                 }
@@ -1365,24 +1380,38 @@ class MainActivity : Activity() {
     private fun showClearProfilesConfirmation() {
         android.app.AlertDialog.Builder(this)
             .setTitle("پاک‌کردن پروفایل‌های ذخیره‌شده")
-            .setMessage("پروفایل‌های WireGuard و sing-box، کلید رمزگذاری آن‌ها و فهرست بازی‌های انتخاب‌شده از این دستگاه پاک می‌شوند. این کار قابل بازگشت نیست.")
+            .setMessage("پروفایل‌های WireGuard، sing-box و IKEv2، تنظیمات VPN اندروید، کلید رمزگذاری آن‌ها و فهرست بازی‌ها از این دستگاه پاک می‌شوند. این کار قابل بازگشت نیست.")
             .setNegativeButton("انصراف", null)
             .setPositiveButton("پاک‌کردن") { _, _ ->
                 val app = application as NetPulseApplication
+                val platformProfileRemoved = if (app.loadedIkev2Config != null && isIkev2Supported()) {
+                    runCatching { vpnManager()?.deleteProvisionedVpnProfile() }.isSuccess
+                } else {
+                    true
+                }
+                if (!platformProfileRemoved) {
+                    postWebMessage("پروفایل IKEv2 از تنظیمات سیستم حذف نشد؛ اطلاعات ذخیره‌شده دست‌نخورده باقی ماند.")
+                    return@setPositiveButton
+                }
                 if (app.clearStoredProfiles()) {
                     loadedConfig = null
                     connected = false
                     singBoxConnected = false
                     singBoxStarting = false
+                    ikev2Connected = false
+                    ikev2Starting = false
+                    ikev2ConsentPending = false
+                    refreshHandler.removeCallbacks(ikev2StateTick)
                     gamingPreferences.edit().clear().apply()
                     VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.WIREGUARD)
                     VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.SING_BOX)
+                    VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.IKEV2)
                     status.text = "No profile loaded"
                     connectButton.isEnabled = false
                     singBoxStatus.text = "No sing-box profile loaded"
                     singBoxButton.isEnabled = false
                     publishNativeState()
-                    postWebMessage("پروفایل‌ها و کلید رمزگذاری آن‌ها پاک شدند.")
+                    postWebMessage("پروفایل‌های VPN، اطلاعات رمزگذاری و کلید IKEv2 حذف شدند.")
                 } else {
                     postWebMessage("پاک‌کردن اطلاعات ذخیره‌شده ناموفق بود.")
                 }
