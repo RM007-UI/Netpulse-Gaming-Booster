@@ -10,6 +10,9 @@ const secureStore = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/SecureP
 const application = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/NetPulseApplication.kt", "utf8");
 const vpnService = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/SingBoxVpnService.kt", "utf8");
 const gamingConfigurator = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/GamingProfileConfigurator.kt", "utf8");
+const ikev2Config = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/Ikev2ProfileConfig.kt", "utf8");
+const openVpnImporter = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/OpenVpnProfileImporter.kt", "utf8");
+const protocolCatalog = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/protocol/ProtocolCatalog.kt", "utf8");
 const scripts = html.split("<script>").slice(1).map(part => part.split("</script>")[0]);
 assert.equal(scripts.length, 1, "Expected one bundled application script");
 const js = scripts[0];
@@ -39,7 +42,7 @@ new vm.Script(js, { filename: "netpulse/index.html" });
 const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]));
 const referencedIds = [...new Set([...js.matchAll(/\$\('#([\w-]+)'\)/g)].map(m => m[1]))];
 for (const id of referencedIds) assert.ok(ids.has(id), `HTML selector points to missing element: ${id}`);
-const actions = ["importWireGuard", "toggleWireGuard", "importSingBox", "toggleSingBox", "applyRefreshRate", "restoreRefreshRate", "checkRoot", "refresh", "testLatency", "testUdpRoutes", "toggleGamingMode", "saveGamingApps", "selectServer", "setLiveRefresh", "clearProfiles"];
+const actions = ["importWireGuard", "toggleWireGuard", "importSingBox", "toggleSingBox", "applyRefreshRate", "restoreRefreshRate", "checkRoot", "refresh", "testLatency", "testUdpRoutes", "toggleGamingMode", "saveGamingApps", "selectServer", "setLiveRefresh", "clearProfiles", "configureIkev2", "toggleIkev2"];
 for (const action of actions) {
   assert.ok(html.includes(`nativeAction('${action}'`) || js.includes(`nativeAction('${action}'`), `UI action missing: ${action}`);
   assert.ok(activity.includes(`"${action}" ->`), `Native bridge handler missing: ${action}`);
@@ -56,7 +59,7 @@ assert.match(js, /function renderLogs\(/);
 assert.match(js, /const MAX_LOG_EVENTS=200/);
 assert.match(js, /message\.textContent=String\(event\.message\|\|''\)/);
 assert.match(js, /writePref\(LOG_STORAGE_KEY,JSON\.stringify\(bounded\)\)/);
-assert.match(html, /v0\.4\.1/);
+assert.match(html, /v0\.5\.0/);
 assert.ok(js.includes("drawLiveChart('analyticsDown',historyDown)"));
 assert.ok(js.includes("drawLiveChart('analyticsUp',historyUp)"));
 assert.match(html, /LIVE · داده واقعی دستگاه/);
@@ -104,6 +107,25 @@ assert.match(vpnService, /EXTRA_ERROR/);
 assert.match(vpnService, /pendingSingBoxServiceProfile/);
 assert.match(activity, /pendingSingBoxServiceProfile = profileForStart/);
 assert.doesNotMatch(activity, /putExtra\(SingBoxVpnService\.EXTRA_PROFILE/);
+assert.match(activity, /VpnManager/);
+assert.match(activity, /REQUEST_IKEV2_PERMISSION/);
+assert.match(activity, /provisionVpnProfile\(platformProfile\)/);
+assert.match(activity, /startProvisionedVpnProfileSession\(\)/);
+assert.match(activity, /stopProvisionedVpnProfile\(\)/);
+assert.match(activity, /OpenVpnProfileImporter\.importProfile/);
+assert.match(activity, /looksLikeOpenVpnProfile/);
+assert.match(ikev2Config, /Ikev2VpnProfile\.Builder/);
+assert.match(ikev2Config, /FEATURE_IPSEC_TUNNELS/);
+assert.match(ikev2Config, /EAP_MSCHAPV2/);
+assert.match(ikev2Config, /PRE_SHARED_KEY/);
+assert.match(openVpnImporter, /openvpn-client/);
+assert.match(openVpnImporter, /-----BEGIN CERTIFICATE-----/);
+assert.match(openVpnImporter, /Compression is rejected/);
+assert.match(protocolCatalog, /openvpn_udp.*EngineState\.AVAILABLE/);
+assert.match(protocolCatalog, /ikev2_ipsec.*EngineState\.AVAILABLE/);
+for (const id of ["settingsIkev2", "ikev2Toggle", "ikev2Help"]) {
+  assert.ok(ids.has(id), `IKEv2 settings control missing: ${id}`);
+}
 console.log("PASS 3/5 — JavaScript bridge, live telemetry, encrypted profile storage and VPN safety gates are wired");
 
 // PASS 4 — Android 15 system bars and cutout insets are applied to the WebView viewport.
