@@ -122,8 +122,8 @@ assert.match(activity, /if \(!persisted\) \{[\s\S]*?app\.loadedSingBoxProfile = 
 assert.match(activity, /این سنجش معیار عمومی HTTP است، نه پینگ سرور بازی/);
 assert.match(activity, /private fun autoSelectFastestServer\(\)/);
 assert.match(fs.readFileSync("app/src/main/java/com/rmgb/netpulse/SingBoxServerCatalog.kt", "utf8"), /groupTypes = setOf\("selector", "urltest"\)/);
-assert.match(activity, /private fun runGameServerComparison\(rawValue: String\?\)/);
-assert.match(activity, /TCP connect time/);
+assert.match(activity, /private fun runGameServerComparison\(rawTarget: String\?\)/);
+assert.match(activity, /TcpEndpointProbe\.measure/);
 assert.match(html, /id="autoSelectNode"/);
 assert.match(html, /id="endpointHost"/);
 assert.match(html, /id="endpointPort"/);
