@@ -29,7 +29,10 @@ internal object SingBoxProfileImporter {
             "trojan" -> "Trojan"
             "ss", "shadowsocks" -> "Shadowsocks"
             "socks", "socks5", "socks5h" -> "SOCKS5"
+            "hysteria" -> "Hysteria"
             "hysteria2", "hy2" -> "Hysteria2"
+            "anytls" -> "AnyTLS"
+            "naive", "naive+https" -> "NaiveProxy"
             "tuic" -> "TUIC"
             "http", "https" -> "HTTP proxy"
             else -> throw IllegalArgumentException("Unsupported profile format")
@@ -96,7 +99,10 @@ internal object SingBoxProfileImporter {
             "trojan" -> importTrojan(link)
             "ss", "shadowsocks" -> importShadowsocks(link)
             "socks", "socks5", "socks5h" -> importSocks(link)
+            "hysteria" -> importHysteria(link)
             "hysteria2", "hy2" -> importHysteria2(link)
+            "anytls" -> importAnyTls(link)
+            "naive", "naive+https" -> importNaive(link)
             "tuic" -> importTuic(link)
             "http", "https" -> importHttp(link)
             else -> throw IllegalArgumentException("Unsupported profile format")
@@ -222,6 +228,127 @@ internal object SingBoxProfileImporter {
             if (parts.size == 2) outbound.put("password", parts[1])
         }
         return buildProfile(outbound, "SOCKS5", label(uri))
+    }
+
+
+    /**
+     * Hysteria v1 requires explicit bandwidth hints in sing-box. We accept the
+     * common share-link spellings but never invent bandwidth values.
+     */
+    private fun importHysteria(link: String): ImportedProfile {
+        val uri = URI(link)
+        require(!uri.host.isNullOrBlank() && uri.port in 1..65535) {
+            "Hysteria server address is incomplete"
+        }
+        val params = query(uri.rawQuery)
+        val auth = decoded(uri.rawUserInfo).ifBlank { params["auth"].orEmpty() }
+        require(auth.isNotBlank()) { "Hysteria authentication is missing" }
+
+        val upMbps = (params["up_mbps"] ?: params["upmbps"] ?: params["up"])
+            ?.toIntOrNull()
+        val downMbps = (params["down_mbps"] ?: params["downmbps"] ?: params["down"])
+            ?.toIntOrNull()
+        require(upMbps != null && upMbps in 1..100000) {
+            "Hysteria upload bandwidth (upmbps) is missing or invalid"
+        }
+        require(downMbps != null && downMbps in 1..100000) {
+            "Hysteria download bandwidth (downmbps) is missing or invalid"
+        }
+        requireSecureTls(params)
+
+        val outbound = JSONObject()
+            .put("type", "hysteria")
+            .put("tag", "proxy")
+            .put("server", uri.host)
+            .put("server_port", uri.port)
+            .put("auth_str", auth)
+            .put("up_mbps", upMbps)
+            .put("down_mbps", downMbps)
+            .put("tls", tlsObject(uri.host, params))
+
+        val obfs = params["obfs-password"] ?: params["obfs_password"]
+            ?: params["obfsParam"] ?: params["obfs_param"]
+        obfs?.takeIf(String::isNotBlank)?.let { outbound.put("obfs", it) }
+        params["network"]?.takeIf(String::isNotBlank)?.let { network ->
+            require(network in setOf("tcp", "udp")) { "Unsupported Hysteria network type" }
+            outbound.put("network", network)
+        }
+        return buildProfile(outbound, "Hysteria", label(uri))
+    }
+
+    private fun importAnyTls(link: String): ImportedProfile {
+        val uri = URI(link)
+        require(!uri.host.isNullOrBlank() && uri.port in 1..65535) {
+            "AnyTLS server address is incomplete"
+        }
+        val password = decoded(uri.rawUserInfo)
+        require(password.isNotBlank()) { "AnyTLS password is missing" }
+        val params = query(uri.rawQuery)
+        requireSecureTls(params)
+
+        val outbound = JSONObject()
+            .put("type", "anytls")
+            .put("tag", "proxy")
+            .put("server", uri.host)
+            .put("server_port", uri.port)
+            .put("password", password)
+            .put("tls", tlsObject(uri.host, params))
+        params["idle_session_check_interval"]?.takeIf(String::isNotBlank)?.let {
+            outbound.put("idle_session_check_interval", it)
+        }
+        params["idle_session_timeout"]?.takeIf(String::isNotBlank)?.let {
+            outbound.put("idle_session_timeout", it)
+        }
+        params["min_idle_session"]?.toIntOrNull()?.let {
+            require(it in 0..64) { "AnyTLS min_idle_session is out of range" }
+            outbound.put("min_idle_session", it)
+        }
+        return buildProfile(outbound, "AnyTLS", label(uri))
+    }
+
+    private fun importNaive(link: String): ImportedProfile {
+        val uri = URI(link)
+        require(!uri.host.isNullOrBlank() && uri.port in 1..65535) {
+            "NaiveProxy server address is incomplete"
+        }
+        val credentials = decoded(uri.rawUserInfo)
+        val parts = credentials.split(":", limit = 2)
+        require(parts.size == 2 && parts[0].isNotBlank() && parts[1].isNotBlank()) {
+            "NaiveProxy username and password are required"
+        }
+        val params = query(uri.rawQuery)
+        requireSecureTls(params)
+
+        val outbound = JSONObject()
+            .put("type", "naive")
+            .put("tag", "proxy")
+            .put("server", uri.host)
+            .put("server_port", uri.port)
+            .put("username", parts[0])
+            .put("password", parts[1])
+            .put("tls", tlsObject(uri.host, params))
+        params["quic"]?.let { value ->
+            outbound.put("quic", value.equals("1", true) || value.equals("true", true))
+        }
+        params["quic_congestion_control"]?.takeIf(String::isNotBlank)?.let { algorithm ->
+            require(algorithm in setOf("bbr", "bbr2", "cubic", "reno")) {
+                "Unsupported NaiveProxy QUIC congestion-control algorithm"
+            }
+            outbound.put("quic_congestion_control", algorithm)
+        }
+        return buildProfile(outbound, "NaiveProxy", label(uri))
+    }
+
+    /**
+     * Reject requests to disable TLS certificate validation on newly imported
+     * formats. Users can still use a trusted certificate or correct SNI.
+     */
+    private fun requireSecureTls(params: Map<String, String>) {
+        val insecure = params["insecure"] ?: params["allow_insecure"] ?: params["skip_cert_verify"]
+        require(insecure.isNullOrBlank() ||
+            !(insecure.equals("1", true) || insecure.equals("true", true) || insecure.equals("yes", true))) {
+            "Insecure TLS certificate validation is not accepted"
+        }
     }
 
     private fun importHysteria2(link: String): ImportedProfile {
