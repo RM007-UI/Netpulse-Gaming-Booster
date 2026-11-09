@@ -278,6 +278,7 @@ class MainActivity : Activity() {
                     "requestGameDetection" -> requestGameDetection()
                     "toggleAutoGameDetection" -> toggleAutoGameDetection()
                     "testGameServer" -> runGameServerComparison(value)
+                    "testGameUdpEcho" -> runGameUdpEchoComparison(value)
                     "clearProfiles" -> confirmClearSavedProfiles()
                     "configureIkev2" -> showIkev2ProfileDialog()
                     "toggleIkev2" -> toggleIkev2()
@@ -551,6 +552,134 @@ class MainActivity : Activity() {
             .put("maxMs", stats.maxMs ?: JSONObject.NULL)
             .put("variationMs", stats.variationMs ?: JSONObject.NULL)
             .put("failurePercent", stats.failurePercent)
+
+    /**
+     * Compares a user-configured UDP echo diagnostic endpoint over physical and
+     * active sing-box VPN networks. NetPulse sends the diagnostic datagrams.
+     * The endpoint must echo each datagram byte-for-byte; proprietary game
+     * protocols are not emulated by this diagnostic.
+     */
+    private fun runGameUdpEchoComparison(rawValue: String?) {
+        fun fail(message: String) {
+            postWebMessage(message)
+            val payload = JSONObject().put("ok", false).put("message", message).toString()
+            runOnUiThread {
+                if (!isDestroyed && ::webView.isInitialized) {
+                    webView.evaluateJavascript(
+                        "window.netPulseGameUdpEchoComparison && window.netPulseGameUdpEchoComparison($payload);",
+                        null
+                    )
+                }
+            }
+        }
+
+        if (!SingBoxVpnService.isRunning) {
+            fail("برای مقایسه UDP echo ابتدا sing-box را وصل کن.")
+            return
+        }
+        if (!isGamingOnlyEnabled()) {
+            fail("برای مقایسه دو مسیر، ابتدا Game-only را فعال کن.")
+            return
+        }
+
+        val request = runCatching { JSONObject(rawValue ?: "{}") }.getOrElse {
+            fail("تنظیمات مقصد UDP معتبر نیست.")
+            return
+        }
+        val gamePackage = request.optString("packageName").trim()
+        val host = request.optString("host").trim()
+        val port = request.optInt("port", -1)
+        val payloadHex = request.optString("payloadHex", "4e50554c5345")
+
+        if (gamePackage.isBlank() || gamePackage !in selectedGamingPackages()) {
+            fail("ابتدا بازی موردنظر را در فهرست Game-only انتخاب کن.")
+            return
+        }
+        if (launchableApps().none { it.packageName == gamePackage }) {
+            fail("برنامه انتخاب‌شده دیگر روی دستگاه نصب یا قابل‌نمایش نیست.")
+            return
+        }
+        if (host.isBlank() || host.length > 253 || host.any(Char::isWhitespace) ||
+            host.contains("://") || host.contains('/') || host.contains('@') ||
+            port !in 1..65535
+        ) {
+            fail("میزبان یا پورت UDP معتبر نیست.")
+            return
+        }
+        val userPayload = runCatching { UdpEchoPacketCodec.parsePayloadHex(payloadHex) }.getOrElse {
+            fail(it.message ?: "Payload هگزادسیمال معتبر نیست.")
+            return
+        }
+
+        val manager = getSystemService(ConnectivityManager::class.java)
+        @Suppress("DEPRECATION")
+        val networks = manager.allNetworks.toList()
+        val vpnNetwork = networks.firstOrNull { network ->
+            val capabilities = manager.getNetworkCapabilities(network)
+            capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true &&
+                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        }
+        val physicalNetwork = SingBoxVpnService.underlyingNetworkForDiagnostics
+            ?.takeIf { manager.getNetworkCapabilities(it)?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) != true }
+            ?: networks.firstOrNull { network ->
+                val capabilities = manager.getNetworkCapabilities(network)
+                capabilities != null &&
+                    !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            }
+
+        if (vpnNetwork == null || physicalNetwork == null) {
+            fail("شبکه فیزیکی یا رابط VPN برای مقایسه UDP پیدا نشد.")
+            return
+        }
+
+        postWebMessage("در حال مقایسه UDP echo برای بازی $gamePackage از مسیر مستقیم و VPN…")
+        worker.execute {
+            val outcome = runCatching {
+                val resolved = physicalNetwork.getAllByName(host)
+                val address = resolved.firstOrNull { it is java.net.Inet4Address }
+                    ?: resolved.firstOrNull()
+                    ?: throw IllegalStateException("مقصد UDP به IP تبدیل نشد.")
+
+                val direct = UdpEchoProbe.measure(
+                    physicalNetwork, address, port, userPayload,
+                    attempts = GAME_UDP_ECHO_ATTEMPTS,
+                    timeoutMs = GAME_UDP_ECHO_TIMEOUT_MS,
+                    pauseMs = GAME_UDP_ECHO_PAUSE_MS
+                )
+                val vpn = UdpEchoProbe.measure(
+                    vpnNetwork, address, port, userPayload,
+                    attempts = GAME_UDP_ECHO_ATTEMPTS,
+                    timeoutMs = GAME_UDP_ECHO_TIMEOUT_MS,
+                    pauseMs = GAME_UDP_ECHO_PAUSE_MS
+                )
+                JSONObject()
+                    .put("ok", true)
+                    .put("packageName", gamePackage)
+                    .put("host", host)
+                    .put("address", address.hostAddress)
+                    .put("port", port)
+                    .put("protocol", "UDP_ECHO")
+                    .put("direct", udpStatsJson(direct))
+                    .put("vpn", udpStatsJson(vpn))
+                    .toString()
+            }
+            val payload = outcome.getOrElse { error ->
+                JSONObject()
+                    .put("ok", false)
+                    .put("message", error.message ?: error.javaClass.simpleName)
+                    .toString()
+            }
+            runOnUiThread {
+                if (isDestroyed || !::webView.isInitialized) return@runOnUiThread
+                webView.evaluateJavascript(
+                    "window.netPulseGameUdpEchoComparison && window.netPulseGameUdpEchoComparison($payload);",
+                    null
+                )
+            }
+        }
+    }
 
     private fun runUdpRouteComparison() {
         if (!SingBoxVpnService.isRunning) {
@@ -2450,5 +2579,8 @@ class MainActivity : Activity() {
         private const val GAME_SERVER_PROBE_ATTEMPTS = 10
         private const val GAME_SERVER_PROBE_TIMEOUT_MS = 1800
         private const val GAME_SERVER_PROBE_PAUSE_MS = 100L
+        private const val GAME_UDP_ECHO_ATTEMPTS = 5
+        private const val GAME_UDP_ECHO_TIMEOUT_MS = 1200
+        private const val GAME_UDP_ECHO_PAUSE_MS = 100L
     }
 }
