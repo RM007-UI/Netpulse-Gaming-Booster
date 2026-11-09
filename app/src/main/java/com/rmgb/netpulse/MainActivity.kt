@@ -109,6 +109,7 @@ class MainActivity : Activity() {
                     else "No profile loaded"
                 connectButton.text = if (connected) "Disconnect" else "Connect"
                 connectButton.isEnabled = connected || loadedConfig != null
+                publishNativeState()
             }
         }
     }
@@ -913,13 +914,22 @@ class MainActivity : Activity() {
 
                 // Keep the source in process memory and change only the profile's default route.
                 app.loadedSingBoxProfile = updated
-                app.loadedSingBoxProtocol = selected.type.uppercase(Locale.ROOT)
+                app.loadedSingBoxProtocol = if (selected.group) {
+                    selected.type.uppercase(Locale.ROOT) + " GROUP"
+                } else {
+                    selected.type.uppercase(Locale.ROOT)
+                }
                 app.loadedSingBoxDisplayName = selected.tag
+                val persisted = app.persistProfiles()
 
                 runOnUiThread {
                     if (!isDestroyed) {
                         publishNativeState()
-                        postWebMessage("مسیر پیش‌فرض روی «" + selected.tag + "» قرار گرفت. برای اعمال تغییر، sing-box را وصل کن.")
+                        postWebMessage(
+                            "مسیر پیش‌فرض روی «" + selected.tag + "» قرار گرفت." +
+                                if (persisted) " ذخیره رمزگذاری‌شده شد." else " ذخیره امن انجام نشد." +
+                                " برای اعمال تغییر، sing-box را وصل کن."
+                        )
                     }
                 }
             } catch (error: Exception) {
@@ -951,11 +961,15 @@ class MainActivity : Activity() {
                 app.loadedSingBoxProfile = imported.json
                 app.loadedSingBoxProtocol = imported.protocol
                 app.loadedSingBoxDisplayName = imported.displayName
+                val persisted = app.persistProfiles()
                 runOnUiThread {
                     if (!isDestroyed) {
                         updateSingBoxStatus(imported.protocol + " · profile validated")
                         singBoxButton.isEnabled = true
-                        postWebMessage(imported.protocol + " profile imported and validated.")
+                        postWebMessage(
+                            imported.protocol + " profile imported and validated." +
+                                if (persisted) " به‌صورت رمزگذاری‌شده ذخیره شد." else " ذخیره امن انجام نشد؛ پروفایل فقط در حافظه باقی می‌ماند."
+                        )
                     }
                 }
             } catch (error: Exception) {
@@ -1069,7 +1083,9 @@ class MainActivity : Activity() {
                         app.loadedSingBoxProfile = imported.json
                         app.loadedSingBoxProtocol = imported.protocol
                         app.loadedSingBoxDisplayName = imported.displayName
+                        val persisted = app.persistProfiles()
                         updateSingBoxStatus(imported.protocol + " · profile validated")
+                        if (!persisted) postWebMessage("پروفایل وارد شد، اما ذخیره امن آن انجام نشد.")
                         singBoxButton.isEnabled = true
                         Toast.makeText(this, imported.protocol + " profile imported", Toast.LENGTH_SHORT).show()
                     }
@@ -1089,20 +1105,33 @@ class MainActivity : Activity() {
                 val bytes = contentResolver.openInputStream(uri)?.use { readLimited(it) }
                     ?: throw IllegalArgumentException("Unable to open the selected profile")
                 val parsed = bytes.inputStream().use { Config.parse(it) }
+                val profileText = ProfileTextDecoder.decodeUtf8(bytes)
+                val app = application as NetPulseApplication
+                app.loadedWireGuardConfig = parsed
+                app.loadedWireGuardText = profileText
+                val persisted = app.persistProfiles()
                 runOnUiThread {
                     (application as NetPulseApplication).loadedWireGuardConfig = parsed
                     loadedConfig = parsed
                     status.text = "Profile validated · ${parsed.peers.size} peer(s)"
                     connectButton.isEnabled = true
-                    Toast.makeText(this, "WireGuard profile imported", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        this,
+                        if (persisted) "WireGuard profile imported and encrypted" else "Profile imported; secure save failed",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             } catch (error: Exception) {
                 runOnUiThread {
-                    (application as NetPulseApplication).loadedWireGuardConfig = null
-                    loadedConfig = null
-                    connectButton.isEnabled = false
-                    status.text = "Profile could not be parsed"
-                    Toast.makeText(this, "WireGuard profile rejected. Check the file and try again.", Toast.LENGTH_LONG).show()
+                    // Keep the last known-good profile if a newly selected file is invalid.
+                    loadedConfig = (application as NetPulseApplication).loadedWireGuardConfig
+                    connectButton.isEnabled = loadedConfig != null
+                    status.text = if (loadedConfig != null) {
+                        "New profile rejected · previous profile is still ready"
+                    } else {
+                        "Profile could not be parsed"
+                    }
+                    Toast.makeText(this, "WireGuard profile rejected. The previous valid profile was kept.", Toast.LENGTH_LONG).show()
                 }
             }
         }
