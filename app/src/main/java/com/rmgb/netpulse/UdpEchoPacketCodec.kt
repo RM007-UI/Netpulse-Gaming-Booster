@@ -35,7 +35,7 @@ object UdpEchoPacketCodec {
     }
 
     fun isMatchingEcho(request: ByteArray, response: ByteArray, responseLength: Int): Boolean {
-        if (responseLength != request.size || responseLength > response.size) return false
+        if (responseLength < 0 || responseLength != request.size || responseLength > response.size) return false
         if (request.size < magic.size + NONCE_BYTES) return false
         if (!request.copyOfRange(0, magic.size).contentEquals(magic)) return false
         return request.contentEquals(response.copyOfRange(0, responseLength))
