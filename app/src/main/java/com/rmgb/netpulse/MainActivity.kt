@@ -337,7 +337,7 @@ class MainActivity : Activity() {
             .put("usageAccessGranted", isUsageAccessGranted())
             .put("activeGamePackage", activeGamePackage ?: JSONObject.NULL)
             .put("activeGameLabel", activeGameLabel ?: JSONObject.NULL)
-            .put("activeGameSelected", activeGamePackage in selectedGamingPackages())
+            .put("activeGameSelected", activeGamePackage?.let { it in selectedGamingPackages() } ?: false)
             .put("activeGameDownloadMbps", activeGameDownloadBps?.let { it * 8.0 / 1_000_000.0 } ?: JSONObject.NULL)
             .put("activeGameUploadMbps", activeGameUploadBps?.let { it * 8.0 / 1_000_000.0 } ?: JSONObject.NULL)
             .put("rootGranted", refreshRootGranted)
