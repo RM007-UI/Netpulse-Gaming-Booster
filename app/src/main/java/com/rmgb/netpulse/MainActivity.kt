@@ -1313,19 +1313,31 @@ class MainActivity : Activity() {
                 }
                 return@execute
             }
+            val previousProtocol = app.loadedSingBoxProtocol
+            val previousDisplayName = app.loadedSingBoxDisplayName
             app.loadedSingBoxProfile = updated
             app.loadedSingBoxProtocol = "URLTest"
             app.loadedSingBoxDisplayName = AutoServerConfigurator.AUTO_TAG
             val persisted = app.persistProfiles()
+            if (!persisted) {
+                // Do not leave an in-memory profile that appears saved but disappears on restart.
+                app.loadedSingBoxProfile = current
+                app.loadedSingBoxProtocol = previousProtocol
+                app.loadedSingBoxDisplayName = previousDisplayName
+            }
             runOnUiThread {
                 if (isDestroyed) return@runOnUiThread
                 publishNativeState()
                 val nodeCount = SingBoxServerCatalog.list(updated).count { !it.group }
-                val saveStatus = if (persisted) "ذخیره رمزگذاری‌شده شد." else "هشدار: ذخیره امن ناموفق بود."
+                val saveStatus = if (persisted) "ذخیره رمزگذاری‌شده شد." else "ذخیره امن ناموفق بود؛ پروفایل قبلی حفظ شد."
                 postWebMessage(
                     "گروه انتخاب خودکار با $nodeCount نود ساخته شد. $saveStatus " +
-                        "پس از اتصال sing-box، هسته به‌صورت دوره‌ای سرور سالم‌تر و کم‌تأخیرتر را انتخاب می‌کند. " +
-                        "این سنجش معیار عمومی HTTP است، نه پینگ سرور بازی."
+                        if (persisted) {
+                            "پس از اتصال sing-box، هسته به‌صورت دوره‌ای سرور سالم‌تر و کم‌تأخیرتر را انتخاب می‌کند. " +
+                                "این سنجش معیار عمومی HTTP است، نه پینگ سرور بازی."
+                        } else {
+                            "برای جلوگیری از نمایش موفقیت کاذب، تغییر ذخیره‌نشده کنار گذاشته شد."
+                        }
                 )
             }
         }
