@@ -441,7 +441,7 @@ function trackGameSession(state){
  saveGameSessionState();renderGameSessionHistory();
 }
 function exportGameSessions(){
- const data={exportedAt:new Date().toISOString(),scope:'NetPulse foreground monitoring only',sessions:gameSessionHistory,activeSession:activeGameSession};
+ const data={exportedAt:new Date().toISOString(),scope:'NetPulse process-lifetime Usage Access sampling; Android may reclaim the background process',sessions:gameSessionHistory,activeSession:activeGameSession};
  const payload=JSON.stringify(data,null,2);
  if(!window.NetPulse){toast('رابط ذخیره فایل در دسترس نیست.');return;}
  if(new Blob([payload]).size>524288){toast('حجم خروجی از ۵۱۲ کیلوبایت بیشتر است.');return;}
