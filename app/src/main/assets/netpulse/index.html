@@ -109,6 +109,18 @@ main{min-width:0;padding:27px 34px 38px}.topbar{display:flex;align-items:center;
 <div class="card-head"><div><div class="card-title">نقطه آزمایش</div><div class="card-sub">بررسی اتصال TCP؛ نه ICMP ping</div></div><span class="tag">Cloudflare DNS</span></div>
 <div class="events-list"><div class="event"><div class="event-icon">◎</div><div class="event-copy"><b>1.1.1.1 · TCP / 443</b><p id="latencyDetail">برای اجرای بررسی، دکمه «بررسی تأخیر» را بزن.</p></div></div></div>
 </article>
+<article class="card" style="margin-top:14px">
+ <div class="card-head"><div><div class="card-title">اتصال یک‌لمسی · سرورهای عمومی</div><div class="card-sub">دریافت زنده رله‌های داوطلبانه از API رسمی VPN Gate؛ بدون سرور یا فایل کانفیگ از طرف تو.</div></div><span class="tag">COMMUNITY RELAYS</span></div>
+ <div style="padding:14px 17px 17px">
+  <div class="actions" style="flex-wrap:wrap">
+   <button class="btn" id="publicVpnRefresh" type="button" onclick="loadPublicVpnServers()">↻ دریافت فهرست زنده</button>
+   <button class="btn primary" id="publicVpnQuickConnect" type="button" onclick="connectRecommendedPublicVpnServer()" disabled>✦ اتصال پیشنهادی</button>
+  </div>
+  <p class="engine-message" id="publicVpnStatus" aria-live="polite">برای بارگذاری رله‌های عمومی، دریافت فهرست را بزن.</p>
+  <div id="publicVpnList" class="server-list"><p class="engine-message">هنوز فهرستی دریافت نشده است.</p></div>
+  <p class="engine-message" style="margin-top:12px">هشدار حریم خصوصی: این سرورها متعلق به افراد داوطلب‌اند، نه NetPulse. VPN Gate برای رله‌ها سیاست ثبت گزارش تا دو هفته را اعلام می‌کند. اپراتور می‌تواند فراداده اتصال را ببیند؛ از این گزینه برای ورود به حساب‌های مهم یا تبادل اطلاعات حساس استفاده نکن. پینگ و سرعت نمایش‌داده‌شده گزارش خود فهرست‌اند، نه نتیجه اندازه‌گیری گوشی تو و نه تضمین کیفیت بازی.</p>
+ </div>
+</article>
 </section>
 <section class="view" id="view-alerts"><div class="view-intro"><div><h2>مرکز هشدارها</h2><p>اعلان‌های واقعی سیستم و وضعیت موتورهای اتصال.</p></div><button class="btn" onclick="nativeAction('refresh')">↻ بروزرسانی</button></div><article class="card"><div class="alert-item"><div class="alert-icon blue">i</div><div class="alert-main"><b>حریم خصوصی آمار شبکه</b><p>سرعت نمایش‌داده‌شده نرخ کلی ترافیک دستگاه است؛ مصرف یک اپلیکیشن را نشان نمی‌دهد.</p><div class="alert-meta">اطلاع‌رسانی · محلی</div></div><span class="tag green">اطلاع</span></div><div class="alert-item"><div class="alert-icon amber">⌁</div><div class="alert-main"><b>موتورهای اتصال</b><p id="alertEngineState">وضعیت WireGuard و sing-box در حال دریافت است.</p><div class="alert-meta">وضعیت سرویس · محلی</div></div><span class="tag">سیستم</span></div><div class="alert-item"><div class="alert-icon blue">◇</div><div class="alert-main"><b>دسترسی روت</b><p id="alertRootState">وضعیت مجوز روت بررسی نشده است.</p><div class="alert-meta">کنترل Refresh Rate</div></div><span class="tag">سیستم</span></div></article></section>
 <section class="view" id="view-speed"><div class="view-intro"><div><h2>تست تأخیر اتصال</h2><p>اندازه‌گیری زمان برقراری اتصال TCP به نقطه تست.</p></div><span class="tag">TCP latency · not ICMP ping</span></div><div class="speed-layout"><article class="card speed-panel"><div class="eyebrow">NETPULSE CONNECTION DIAGNOSTICS</div><div class="speed-gauge"><svg viewBox="0 0 230 230"><circle cx="115" cy="115" r="93" fill="none" stroke="#2b3452" stroke-width="12" stroke-dasharray="510 585" stroke-linecap="round"/><circle id="speedArc" cx="115" cy="115" r="93" fill="none" stroke="url(#speedGradient)" stroke-width="12" stroke-dasharray="355 585" stroke-linecap="round"/><defs><linearGradient id="speedGradient"><stop stop-color="#63e9e0"/><stop offset="1" stop-color="#7b8cff"/></linearGradient></defs></svg><div class="dial" id="speedDial">—</div><small>TCP CONNECT · ms</small></div><div class="speed-gauge-label" id="speedStatus">برای اندازه‌گیری، دکمه زیر را بزن.</div><button class="btn primary" id="startSpeed" onclick="runLatency()" style="min-width:175px;margin-top:12px">▶ شروع بررسی</button><div class="speed-stats"><div class="speed-stat"><small>دانلود فعلی</small><b id="speedDownload">—</b></div><div class="speed-stat"><small>آپلود فعلی</small><b id="speedUpload">—</b></div><div class="speed-stat"><small>نوع اتصال</small><b id="speedNetworkType">—</b></div></div></article><article class="card speed-history"><div class="card-head"><div><div class="card-title">نتیجه آخرین بررسی</div><div class="card-sub">مقادیر واقعی از دستگاه</div></div><span class="tag green">LOCAL</span></div><div id="speedResult" class="events-list"><div class="event"><div class="event-icon">◎</div><div class="event-copy"><b>هنوز تستی اجرا نشده</b><p>عدد ساختگی نمایش داده نمی‌شود.</p></div></div></div></article></div>
@@ -245,6 +257,48 @@ function applyState(s){if(!s)return;const fmt=v=>v===null||v===undefined?'—':v
 function drawLiveChart(id,a){if(a.length<2)return;const points=a.map((v,i)=>{const x=i*720/(a.length-1),y=180-v*1.7;return (i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1)}).join(' ');$('#'+id).setAttribute('d',points)}
 function renderGamingState(s){const button=$('#gameModeButton');if(button){button.textContent=s.gameOnlyEnabled?'فعال':'خاموش';button.classList.toggle('primary',!!s.gameOnlyEnabled)}const count=$('#selectedGameCount');if(count)count.textContent=(s.selectedGameCount||0)+' برنامه انتخاب‌شده';const hint=$('#gameModeHint');if(hint)hint.textContent=s.gameOnlyEnabled?'Game-only روی WireGuard و sing-box اعمال می‌شود. برای تغییر انتخاب‌ها باید تونل را قطع و دوباره وصل کنی؛ مسیر اختصاصی هر بازی فقط در sing-box فعال است.':'بازی‌ها را انتخاب کن و برای هرکدام مسیر پیش‌فرض یا یک نود جداگانه تعیین کن. IKEv2 همیشه تمام‌دستگاه است.'}
 function renderGameDetectionState(s){const button=$('#gameDetectionButton');if(button){button.textContent=s.autoGameDetectionEnabled?'خاموش‌کردن تشخیص':(s.usageAccessGranted?'فعال‌کردن تشخیص':'دادن دسترسی تشخیص');button.classList.toggle('primary',!!s.autoGameDetectionEnabled)}const state=$('#gameDetectionState');if(state){state.textContent=!s.usageAccessGranted?'برای تشخیص خودکار، Usage Access را به‌صورت اختیاری در تنظیمات Android فعال کن.':s.autoGameDetectionEnabled?'تشخیص پیش‌زمینه فعال است؛ اطلاعات فقط محلی پردازش می‌شود.':'دسترسی داده شده، اما تشخیص خودکار خاموش است.'}const active=$('#activeGameState');if(active){active.textContent=s.activeGameLabel?(s.activeGameLabel+(s.activeGameSelected?' · انتخاب‌شده در Game-only':' · در فهرست Game-only نیست')):'بازی پیش‌زمینه شناسایی نشده است.'}const traffic=$('#activeGameTraffic');if(traffic){const down=s.activeGameDownloadMbps,up=s.activeGameUploadMbps;traffic.textContent=s.activeGameLabel?'ترافیک UID بازی · دانلود '+(down===null||down===undefined?'—':Number(down).toFixed(2))+' · آپلود '+(up===null||up===undefined?'—':Number(up).toFixed(2))+' Mbps':'نرخ ترافیک بازی فعال: دانلود — · آپلود — Mbps'}}
+let publicVpnServers=[];
+function loadPublicVpnServers(){
+ const button=$('#publicVpnRefresh');button.disabled=true;button.textContent='◌ در حال دریافت…';
+ $('#publicVpnStatus').textContent='اتصال امن HTTPS به فهرست رسمی VPN Gate…';
+ nativeAction('loadPublicVpnServers');
+}
+function connectPublicVpnServer(id){
+ const server=publicVpnServers.find(x=>x.id===id);if(!server)return;
+ nativeAction('connectPublicVpnServer',JSON.stringify({id:server.id}));
+}
+function connectRecommendedPublicVpnServer(){
+ if(!publicVpnServers.length){toast('ابتدا فهرست سرورهای عمومی را دریافت کن.');return;}
+ connectPublicVpnServer(publicVpnServers[0].id);
+}
+function netPulseVpnGateServerList(result){
+ const refresh=$('#publicVpnRefresh'),quick=$('#publicVpnQuickConnect'),list=$('#publicVpnList');
+ refresh.disabled=false;refresh.textContent='↻ بروزرسانی فهرست';
+ if(!result||!result.ok){
+  $('#publicVpnStatus').textContent=(result&&result.message)||'دریافت فهرست عمومی ناموفق بود.';
+  quick.disabled=!publicVpnServers.length;return;
+ }
+ publicVpnServers=Array.isArray(result.servers)?result.servers:[];
+ quick.disabled=!publicVpnServers.length;
+ $('#publicVpnStatus').textContent=publicVpnServers.length+' رله OpenVPN قابل استفاده از '+(result.source||'VPN Gate')+' دریافت شد. ترتیب بر اساس Ping گزارش‌شده سرور است، نه مسیر واقعی گوشی.';
+ list.replaceChildren();
+ if(!publicVpnServers.length){
+  const empty=document.createElement('p');empty.className='engine-message';empty.textContent='در حال حاضر پروفایل سازگار پیدا نشد.';list.appendChild(empty);return;
+ }
+ publicVpnServers.forEach((server,index)=>{
+  const row=document.createElement('div');row.className='server-row';
+  const main=document.createElement('div');main.className='server-main';
+  const title=document.createElement('b');title.textContent=(index===0?'✦ ':'')+(server.country||server.countryCode||'Unknown')+' · '+server.hostName;
+  const detail=document.createElement('p');
+  const ping=server.reportedPingMs===null?'—':Math.round(server.reportedPingMs)+' ms';
+  const speed=server.reportedSpeedMbps===null?'—':(Math.round(server.reportedSpeedMbps*10)/10)+' Mbps';
+  detail.textContent='گزارش سرور: Ping '+ping+' · Speed '+speed+' · Sessions '+server.sessions+' · '+server.ipAddress;
+  main.append(title,detail);
+  const connect=document.createElement('button');connect.type='button';connect.className='btn'+(index===0?' primary':'');
+  connect.textContent='اتصال';connect.addEventListener('click',()=>connectPublicVpnServer(server.id));
+  row.append(main,connect);list.appendChild(row);
+ });
+}
 function loadServers(){const list=$('#serverCatalog');if(!list)return;if(!window.NetPulse){list.textContent='رابط native در دسترس نیست.';return;}try{const entries=JSON.parse(window.NetPulse.getServerCatalog()||'[]');let state={};try{state=JSON.parse(window.NetPulse.getState()||'{}')}catch(error){}list.replaceChildren();$('#serverCatalogCount').textContent=entries.length+' نود';if(!entries.length){const empty=document.createElement('div');empty.className='engine-message';empty.textContent='در پروفایل فعلی نود قابل انتخابی پیدا نشد. ابتدا یک پروفایل sing-box معتبر وارد کن.';list.appendChild(empty);$('#serverCatalogHint').textContent='پروفایل باید حداقل یک outbound سروری یا یک گروه selector/urltest داشته باشد.';return;}entries.forEach(entry=>{const row=document.createElement('div');row.className='server-row';const main=document.createElement('div');main.className='server-row-main';const title=document.createElement('b');title.textContent=entry.tag;const endpoint=document.createElement('small');endpoint.textContent=(entry.type||'unknown').toUpperCase()+' · '+(entry.group?('گروه با '+(entry.memberCount||0)+' عضو'):((entry.server||'میزبان نامشخص')+(entry.port?':'+entry.port:'')));main.append(title,endpoint);const actions=document.createElement('div');actions.className='server-row-actions';const badge=document.createElement('span');badge.className='tag'+(entry.selected?' active-node':'');badge.textContent=entry.selected?'مسیر پیش‌فرض':'آماده انتخاب';const button=document.createElement('button');button.type='button';button.className='btn'+(entry.selected?'':' primary');button.textContent=entry.selected?'انتخاب‌شده':'انتخاب مسیر';button.disabled=!!state.singboxConnected||!!entry.selected;button.addEventListener('click',()=>nativeAction('selectServer',entry.tag));actions.append(badge,button);row.append(main,actions);list.appendChild(row)});$('#serverCatalogHint').textContent=state.singboxConnected?'برای تغییر مسیر ابتدا sing-box را قطع کن. انتخاب جدید پس از اتصال دوباره اعمال می‌شود.':'تغییر مسیر، route.final پروفایل را عوض می‌کند و قوانین خاص route حفظ می‌شوند. برای فعال شدن، sing-box را وصل کن.';}catch(error){list.textContent='خواندن فهرست سرورها ناموفق بود.';$('#serverCatalogCount').textContent='نامشخص';}}
 function loadGamingApps(){
  const list=$('#gamingAppList');
