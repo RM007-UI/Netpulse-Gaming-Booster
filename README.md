@@ -23,6 +23,7 @@ NetPulse is an Android VPN and gaming-network diagnostics app with a Persian RTL
 - TCP endpoint tests measure connection-establishment time, not ICMP ping.
 - The custom game endpoint test works only for a host/port that accepts TCP. It reports successes, median, sequential variation and failed connection attempts. Failed TCP connects are not game packet loss.
 - STUN tests measure a generic UDP request/response path. Their timeout ratio is not a statistically representative game-server packet-loss result.
+- Game session history only covers periods while NetPulse is open and Usage Access detection is enabled; it is not an always-on background recorder. UID traffic counters may be unavailable on some OEM builds, and displayed byte totals are estimates derived from sampled rates.
 - The per-game UDP echo test is only valid against a dedicated echo endpoint that returns NetPulse's nonce-bearing test datagram unchanged. The probe originates from NetPulse and follows its default VPN outbound; selecting a game labels the target but does not exercise that game's package-specific outbound. It is not compatible with arbitrary commercial game servers or their proprietary packet protocols.
 - URLTest uses the HTTP health-check URL configured in the generated sing-box group. It estimates proxy-node health and is not a measurement of latency to the actual match server.
 - Android does not provide a universal way for a third-party app to discover every game's UDP server, interpret proprietary game packets, or measure in-match packet loss. A protocol-aware game server or in-game telemetry would be needed for those features.
@@ -42,7 +43,7 @@ NetPulse is an Android VPN and gaming-network diagnostics app with a Persian RTL
 ## Build and verification
 
 - JDK 17, Android SDK 35 and Gradle 8.9.
-- Current app version: **0.6.1** (versionCode 10).
+- Current app version: **0.6.2** (versionCode 11).
 - Run `gradle testDebugUnitTest assembleDebug`.
 - GitHub Actions runs the five-pass UI/bridge regression suite, Kotlin unit tests, debug APK assembly, pinned libbox AAR SHA-256 verification and Android API inspection.
 - A successful CI build does not replace testing on physical phones and networks.
