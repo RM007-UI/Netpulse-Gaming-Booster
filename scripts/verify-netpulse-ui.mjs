@@ -52,7 +52,7 @@ assert.match(js, /function loadGamingApps\(/);
 assert.match(js, /function onNetPulseLatencyStats\(/);
 assert.ok(activity.includes("UdpStunProbe.measure"));
 assert.ok(activity.includes("physicalNetwork.getAllByName"));
-assert.match(activity, /vpnNetwork, serverAddress/);
+assert.ok(activity.includes("val vpnStats = UdpStunProbe.measure("));
 assert.ok(js.includes("function runUdpComparison("));
 assert.ok(js.includes("function onNetPulseUdpComparison("));
 for (const id of ["startUdpCompare", "udpComparisonStatus", "udpDirectMedian", "udpVpnMedian", "udpDelta", "udpDirectLoss", "udpVpnLoss"]) {
