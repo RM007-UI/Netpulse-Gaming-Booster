@@ -101,6 +101,9 @@ assert.match(gamingConfigurator, /auto_route/);
 assert.match(vpnService, /Android 12 and earlier cannot enforce safely/);
 assert.match(vpnService, /cannot combine include_package and exclude_package/);
 assert.match(vpnService, /EXTRA_ERROR/);
+assert.match(vpnService, /pendingSingBoxServiceProfile/);
+assert.match(activity, /pendingSingBoxServiceProfile = profileForStart/);
+assert.doesNotMatch(activity, /putExtra\(SingBoxVpnService\.EXTRA_PROFILE/);
 console.log("PASS 3/5 — JavaScript bridge, live telemetry, encrypted profile storage and VPN safety gates are wired");
 
 // PASS 4 — Android 15 system bars and cutout insets are applied to the WebView viewport.
