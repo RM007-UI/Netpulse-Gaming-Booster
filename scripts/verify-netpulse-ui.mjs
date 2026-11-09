@@ -166,7 +166,7 @@ assert.match(openVpnImporter, /openvpn-client/);
 assert.match(protocolCatalog, /openvpn_udp.*EngineState\.AVAILABLE/);
 assert.match(protocolCatalog, /ikev2_ipsec.*EngineState\.AVAILABLE/);
 
-assert.match(html, /v0\.6\.0/);
+assert.match(html, /v0\.6\.1/);
 console.log("PASS 3/5 — game routing, foreground detection, TCP/UDP probes, URLTest and VPN safety are wired");
 
 // PASS 4 — Android 15 system bars and cutout insets are applied to the WebView viewport.
