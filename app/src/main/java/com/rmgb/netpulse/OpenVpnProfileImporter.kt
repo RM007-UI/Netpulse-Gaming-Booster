@@ -96,7 +96,7 @@ internal object OpenVpnProfileImporter {
         val explicitRoutes = linkedSetOf<String>()
         val pullFilters = JSONArray()
 
-        require(!blocks["pkcs12"].isNullOrBlank()) {
+        require(blocks["pkcs12"].isNullOrBlank()) {
             "PKCS#12 client bundles must be converted to inline <cert> and <key> blocks before import"
         }
         require(blocks["secret"].isNullOrBlank()) {
@@ -427,7 +427,14 @@ internal object OpenVpnProfileImporter {
             .put("endpoints", JSONArray().put(endpoint))
             .put("outbounds", JSONArray().put(JSONObject().put("type", "direct").put("tag", "direct")))
             .put("route", JSONObject().put("final", "direct").put("auto_detect_interface", true))
-        val protocol = if (remotes.all { it.network == "tcp" }) "OpenVPN TCP" else "OpenVPN UDP"
+        val protocol = when {
+            remotes.all { it.network == "tcp" } -> "OpenVPN TCP"
+            remotes.all { it.network == "udp" } -> "OpenVPN UDP"
+            else -> "OpenVPN UDP/TCP"
+        }
+        require(explicitExitNotify == 0 || remotes.any { it.network == "udp" }) {
+            "explicit-exit-notify is only supported for UDP remotes"
+        }
         val displayName = remotes.first().host
         return ImportedProfile(json.toString(), protocol, displayName)
     }
