@@ -150,6 +150,12 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
             builder.setHttpProxy(ProxyInfo.buildDirectProxy(host, port, bypassDomains))
         }
 
+        if (!options.autoRoute) {
+            require(!options.includePackage.hasNext() && !options.excludePackage.hasNext()) {
+                "Per-app package routing requires auto_route to be enabled on the TUN inbound"
+            }
+        }
+
         if (options.autoRoute) {
             val dns = options.dnsServerAddress
             if (options.dnsMode.value != Libbox.DNSModeDisabled) {
