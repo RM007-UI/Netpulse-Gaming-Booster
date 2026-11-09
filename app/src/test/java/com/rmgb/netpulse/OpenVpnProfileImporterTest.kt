@@ -62,7 +62,7 @@ class OpenVpnProfileImporterTest {
         val imported = OpenVpnProfileImporter.importProfile(profile)
         val endpoint = JSONObject(imported.json).getJSONArray("endpoints").getJSONObject(0)
         assertEquals(2, endpoint.getJSONArray("servers").length())
-        assertEquals("OpenVPN UDP", imported.protocol)
+        assertEquals("OpenVPN UDP/TCP", imported.protocol)
     }
 
     @Test
@@ -82,7 +82,7 @@ class OpenVpnProfileImporterTest {
     fun rejectsInlinePkcs12BundlesInsteadOfSilentlyDroppingThem() {
         val profile = minimal
             .replace("auth-user-pass", "")
-            .replace("</ca>", "</ca>\\n<pkcs12>\\nnot-a-p12\\n</pkcs12>")
+            .replace("</ca>", "</ca>\n<pkcs12>\nnot-a-p12\n</pkcs12>")
         assertThrows(IllegalArgumentException::class.java) {
             OpenVpnProfileImporter.importProfile(profile)
         }
@@ -92,7 +92,7 @@ class OpenVpnProfileImporterTest {
     fun supportsExplicitExitNotifyFlagWithoutAnArgumentForUdp() {
         val profile = minimal.replace(
             "auth-user-pass",
-            "auth-user-pass\\nexplicit-exit-notify"
+            "auth-user-pass\nexplicit-exit-notify"
         )
         val imported = OpenVpnProfileImporter.importProfile(
             profile,
@@ -106,7 +106,7 @@ class OpenVpnProfileImporterTest {
     fun labelsMixedRemoteTransportProfilesAccurately() {
         val profile = minimal.replace(
             "remote vpn.example.net 1194 udp",
-            "remote udp.example.net 1194 udp\\nremote tcp.example.net 443 tcp-client"
+            "remote udp.example.net 1194 udp\nremote tcp.example.net 443 tcp-client"
         )
         val imported = OpenVpnProfileImporter.importProfile(
             profile.replace("auth-user-pass", ""),
