@@ -23,7 +23,7 @@ class SingBoxProfileImporterTest {
 
     @Test fun importsHysteriaV1WhenBothBandwidthHintsAreExplicit() {
         val profile = SingBoxProfileImporter.importProfile(
-            "hysteria://secret@example.com:443?upmbps=30&downmbps=120&sni=edge.example.com#Game"
+            "hysteria://secret@example.com:443?upmbps=30&downmbps=120&sni=edge.example.com&obfs=game-key#Game"
         )
         assertEquals("Hysteria", profile.protocol)
         assertTrue(profile.json.contains("\"type\":\"hysteria\""))
