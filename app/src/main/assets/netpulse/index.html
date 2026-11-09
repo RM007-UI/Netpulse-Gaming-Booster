@@ -169,6 +169,7 @@ function readPref(key){try{return window.localStorage.getItem(key)}catch(error){
 function writePref(key,value){memoryPrefs[key]=value;try{window.localStorage.setItem(key,value)}catch(error){}}
 function applyUiPreferences(){
  document.documentElement.classList.toggle('no-motion',readPref('np-pref-motion')==='false');
+ nativeAction('setLiveRefresh',readPref('np-pref-live')!=='false');
 }
 Array.from(document.querySelectorAll('.switch')).forEach(button=>{
  const key='np-pref-'+(button.dataset.pref||'generic');
@@ -177,6 +178,7 @@ Array.from(document.querySelectorAll('.switch')).forEach(button=>{
   button.classList.toggle('on');
   writePref(key,button.classList.contains('on')?'true':'false');
   if(button.dataset.pref==='motion')applyUiPreferences();
+  if(button.dataset.pref==='live')nativeAction('setLiveRefresh',button.classList.contains('on'));
  });
 });
 applyUiPreferences();
