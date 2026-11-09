@@ -24,7 +24,7 @@ class GamingProfileConfiguratorTest {
     }
 
     @Test fun replacesPreviousAllowlistRatherThanSilentlyIncludingOldApps() {
-        val source = """{"inbounds":[{"type":"tun","include_package":["com.old.game"]}]}"""
+        val source = """{"inbounds":[{"type":"tun","auto_route":true,"include_package":["com.old.game"]}]}"""
         val result = JSONObject(GamingProfileConfigurator.withGameOnlyRouting(source, setOf("com.new.game")))
         val packages = result.getJSONArray("inbounds").getJSONObject(0).getJSONArray("include_package")
         assertEquals(1, packages.length())
