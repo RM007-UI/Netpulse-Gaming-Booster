@@ -987,6 +987,359 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun isIkev2Supported(): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+            packageManager.hasSystemFeature(PackageManager.FEATURE_IPSEC_TUNNELS)
+
+    private fun vpnManager(): VpnManager? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            getSystemService(VpnManager::class.java)
+        } else {
+            null
+        }
+
+    private fun showIkev2ProfileDialog() {
+        if (!isIkev2Supported()) {
+            postWebMessage("IKEv2 بومی به Android 11 یا جدیدتر و پشتیبانی IPsec دستگاه نیاز دارد.")
+            return
+        }
+
+        val saved = (application as NetPulseApplication).loadedIkev2Config
+        val form = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(6), dp(18), dp(6))
+        }
+        fun input(hintText: String, value: String = "", inputType: Int = InputType.TYPE_CLASS_TEXT): EditText =
+            EditText(this).apply {
+                hint = hintText
+                setText(value)
+                this.inputType = inputType
+                maxLines = if (hintText.contains("PEM")) 4 else 1
+            }
+
+        val server = input("آدرس سرور (مثلاً vpn.example.net)", saved?.serverAddress.orEmpty(), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI)
+        val identity = input("IKE identity / remote identity", saved?.identity.orEmpty())
+        val authGroup = RadioGroup(this).apply { orientation = RadioGroup.VERTICAL }
+        val eap = RadioButton(this).apply { text = "نام کاربری و رمز عبور (EAP-MSCHAPv2)"; id = 1001 }
+        val psk = RadioButton(this).apply { text = "کلید مشترک (Pre-Shared Key)"; id = 1002 }
+        authGroup.addView(eap)
+        authGroup.addView(psk)
+        authGroup.check(if (saved?.authMethod == Ikev2AuthMethod.PRE_SHARED_KEY) psk.id else eap.id)
+
+        val username = input("نام کاربری", saved?.username.orEmpty())
+        val password = input("رمز عبور", saved?.password.orEmpty(), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
+        val sharedKey = input("Pre-Shared Key", saved?.preSharedKey.orEmpty(), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
+        val ca = input("گواهی Root CA به فرمت PEM (اختیاری)", saved?.serverRootCaPem.orEmpty(), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE)
+        val caLabel = TextView(this).apply {
+            text = "گواهی CA اختیاری است؛ برای سرورهای دارای CA خصوصی، گواهی ریشه را وارد کن."
+            textSize = 12f
+            setTextColor(muted)
+        }
+        form.addView(server)
+        form.addView(identity)
+        form.addView(authGroup)
+        form.addView(username)
+        form.addView(password)
+        form.addView(sharedKey)
+        form.addView(caLabel)
+        form.addView(ca)
+
+        fun updateAuthFields() {
+            val usePsk = authGroup.checkedRadioButtonId == psk.id
+            username.visibility = if (usePsk) android.view.View.GONE else android.view.View.VISIBLE
+            password.visibility = if (usePsk) android.view.View.GONE else android.view.View.VISIBLE
+            sharedKey.visibility = if (usePsk) android.view.View.VISIBLE else android.view.View.GONE
+        }
+        authGroup.setOnCheckedChangeListener { _, _ -> updateAuthFields() }
+        updateAuthFields()
+
+        val scroll = ScrollView(this).apply {
+            addView(form)
+            isFillViewport = true
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("پیکربندی IKEv2 / IPsec")
+            .setView(scroll)
+            .setNegativeButton("انصراف", null)
+            .setPositiveButton("ذخیره و اتصال", null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                try {
+                    val authMethod = if (authGroup.checkedRadioButtonId == psk.id) {
+                        Ikev2AuthMethod.PRE_SHARED_KEY
+                    } else {
+                        Ikev2AuthMethod.EAP_MSCHAPV2
+                    }
+                    val config = Ikev2ProfileConfig(
+                        serverAddress = server.text.toString().trim(),
+                        identity = identity.text.toString().trim(),
+                        authMethod = authMethod,
+                        username = if (authMethod == Ikev2AuthMethod.EAP_MSCHAPV2) username.text.toString() else "",
+                        password = if (authMethod == Ikev2AuthMethod.EAP_MSCHAPV2) password.text.toString() else "",
+                        preSharedKey = if (authMethod == Ikev2AuthMethod.PRE_SHARED_KEY) sharedKey.text.toString() else "",
+                        serverRootCaPem = ca.text.toString().trim()
+                    )
+                    config.validate()
+                    (application as NetPulseApplication).loadedIkev2Config = config
+                    dialog.dismiss()
+                    persistAndProvisionIkev2(config)
+                } catch (error: Exception) {
+                    Toast.makeText(this, error.message ?: "IKEv2 profile is invalid", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+        dialog.show()
+    }
+
+    private fun persistAndProvisionIkev2(config: Ikev2ProfileConfig) {
+        if (!isIkev2Supported()) {
+            postWebMessage("این دستگاه قابلیت IKEv2 بومی را گزارش نمی‌کند.")
+            return
+        }
+        if (ikev2Connected || ikev2Starting) {
+            postWebMessage("برای تغییر تنظیمات IKEv2 ابتدا اتصال فعلی را قطع کن.")
+            return
+        }
+
+        postWebMessage("در حال اعتبارسنجی و ذخیره امن پروفایل IKEv2…")
+        worker.execute {
+            val result = runCatching {
+                config.validate()
+                val platformProfile = config.toPlatformProfile()
+                val app = application as NetPulseApplication
+                val persisted = app.persistProfiles()
+                platformProfile to persisted
+            }
+            runOnUiThread {
+                if (isDestroyed) return@runOnUiThread
+                val (platformProfile, persisted) = result.getOrElse { error ->
+                    postWebMessage("پروفایل IKEv2 آماده نشد: " + (error.message ?: error.javaClass.simpleName))
+                    return@runOnUiThread
+                }
+                try {
+                    val manager = vpnManager() ?: throw IllegalStateException("VpnManager is unavailable")
+                    val consent = manager.provisionVpnProfile(platformProfile)
+                    if (!persisted) {
+                        postWebMessage("پروفایل اعتبارسنجی شد، اما ذخیره رمزگذاری‌شده ناموفق بود.")
+                    }
+                    if (consent != null) {
+                        ikev2ConsentPending = true
+                        startActivityForResult(consent, REQUEST_IKEV2_PERMISSION)
+                    } else {
+                        startProvisionedIkev2()
+                    }
+                } catch (error: Exception) {
+                    postWebMessage("ثبت پروفایل در Android ناموفق بود: " + error.javaClass.simpleName)
+                }
+            }
+        }
+    }
+
+    private fun toggleIkev2() {
+        if (ikev2Connected || ikev2Starting) {
+            stopIkev2()
+            return
+        }
+        val config = (application as NetPulseApplication).loadedIkev2Config
+        if (config == null) showIkev2ProfileDialog() else persistAndProvisionIkev2(config)
+    }
+
+    private fun startProvisionedIkev2() {
+        val manager = vpnManager()
+        if (manager == null || !isIkev2Supported()) {
+            postWebMessage("IKEv2 به Android 11 یا جدیدتر و قابلیت IPsec دستگاه نیاز دارد.")
+            return
+        }
+        if (!VpnEngineCoordinator.acquire(VpnEngineCoordinator.Engine.IKEV2)) {
+            postWebMessage("یک موتور VPN دیگر در حال استفاده از تنها اسلات VPN اندروید است. ابتدا آن را قطع کن.")
+            return
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                manager.startProvisionedVpnProfileSession()
+            } else {
+                @Suppress("DEPRECATION")
+                manager.startProvisionedVpnProfile()
+            }
+            ikev2Starting = true
+            ikev2Connected = false
+            ikev2PollCount = 0
+            postWebMessage("درخواست اتصال IKEv2 به Android ارسال شد؛ در حال بررسی وضعیت تونل…")
+            refreshHandler.removeCallbacks(ikev2StateTick)
+            refreshHandler.postDelayed(ikev2StateTick, 800L)
+            publishNativeState()
+        } catch (error: Exception) {
+            VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.IKEV2)
+            ikev2Starting = false
+            ikev2Connected = false
+            postWebMessage("شروع تونل IKEv2 ناموفق بود: " + error.javaClass.simpleName)
+            publishNativeState()
+        }
+    }
+
+    private fun stopIkev2() {
+        refreshHandler.removeCallbacks(ikev2StateTick)
+        try {
+            vpnManager()?.stopProvisionedVpnProfile()
+            ikev2Connected = false
+            ikev2Starting = false
+            VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.IKEV2)
+            postWebMessage("درخواست قطع تونل IKEv2 ارسال شد.")
+        } catch (error: Exception) {
+            postWebMessage("قطع تونل IKEv2 ناموفق بود: " + error.javaClass.simpleName)
+        }
+        publishNativeState()
+    }
+
+    private fun refreshIkev2State() {
+        if (!isIkev2Supported()) {
+            if (ikev2Connected || ikev2Starting) {
+                ikev2Connected = false
+                ikev2Starting = false
+                VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.IKEV2)
+            }
+            publishNativeState()
+            return
+        }
+
+        val state = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            runCatching { vpnManager()?.provisionedVpnProfileState?.state }.getOrNull()
+        } else {
+            null
+        }
+
+        if (state != null) {
+            when (state) {
+                VpnProfileState.STATE_CONNECTED -> {
+                    ikev2Connected = true
+                    ikev2Starting = false
+                    VpnEngineCoordinator.acquire(VpnEngineCoordinator.Engine.IKEV2)
+                }
+                VpnProfileState.STATE_FAILED -> {
+                    ikev2Connected = false
+                    ikev2Starting = false
+                    VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.IKEV2)
+                    postWebMessage("تونل IKEv2 با خطای پلتفرم Android متوقف شد.")
+                }
+                VpnProfileState.STATE_DISCONNECTED -> {
+                    if (ikev2Connected) {
+                        ikev2Connected = false
+                        ikev2Starting = false
+                        VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.IKEV2)
+                        postWebMessage("اتصال IKEv2 قطع شد.")
+                    }
+                }
+            }
+        } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            val capabilities = getSystemService(ConnectivityManager::class.java)
+                .getNetworkCapabilities(getSystemService(ConnectivityManager::class.java).activeNetwork)
+            val vpnActive = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
+            if (vpnActive && (ikev2Starting || ikev2Connected)) {
+                ikev2Connected = true
+                ikev2Starting = false
+                VpnEngineCoordinator.acquire(VpnEngineCoordinator.Engine.IKEV2)
+            } else if (!vpnActive && ikev2Connected) {
+                ikev2Connected = false
+                ikev2Starting = false
+                VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.IKEV2)
+            }
+        }
+
+        if (ikev2Starting) {
+            ikev2PollCount++
+            if (ikev2PollCount >= IKEV2_CONNECT_TIMEOUT_POLLS) {
+                ikev2Starting = false
+                ikev2Connected = false
+                VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.IKEV2)
+                postWebMessage("وضعیت اتصال IKEv2 پس از ۳۰ ثانیه تأیید نشد؛ تنظیمات سرور و شبکه را بررسی کن.")
+            } else {
+                refreshHandler.removeCallbacks(ikev2StateTick)
+                refreshHandler.postDelayed(ikev2StateTick, 1000L)
+            }
+        } else if (ikev2Connected) {
+            refreshHandler.removeCallbacks(ikev2StateTick)
+            refreshHandler.postDelayed(ikev2StateTick, 2500L)
+        }
+        publishNativeState()
+    }
+
+    private fun importOpenVpnText(
+        rawProfile: String,
+        credentials: OpenVpnCredentials? = null
+    ) {
+        postWebMessage("در حال خواندن و اعتبارسنجی پروفایل OpenVPN…")
+        worker.execute {
+            val result = runCatching {
+                val imported = OpenVpnProfileImporter.importProfile(rawProfile, credentials)
+                Libbox.checkConfig(imported.json)
+                imported
+            }
+            runOnUiThread {
+                if (isDestroyed) return@runOnUiThread
+                val imported = result.getOrElse { error ->
+                    if (error is OpenVpnCredentialsRequiredException) {
+                        showOpenVpnCredentialsDialog(rawProfile)
+                    } else {
+                        postWebMessage("پروفایل OpenVPN پذیرفته نشد: " + (error.message ?: error.javaClass.simpleName))
+                    }
+                    return@runOnUiThread
+                }
+                val app = application as NetPulseApplication
+                app.loadedSingBoxProfile = imported.json
+                app.loadedSingBoxProtocol = imported.protocol
+                app.loadedSingBoxDisplayName = imported.displayName
+                val persisted = app.persistProfiles()
+                updateSingBoxStatus(imported.protocol + " · profile validated")
+                postWebMessage(
+                    imported.protocol + " آماده اتصال شد." +
+                        if (persisted) " پروفایل با رمزگذاری ذخیره شد." else " ذخیره امن انجام نشد."
+                )
+            }
+        }
+    }
+
+    private fun showOpenVpnCredentialsDialog(rawProfile: String) {
+        val form = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(6), dp(18), dp(6))
+        }
+        val user = EditText(this).apply { hint = "OpenVPN username" }
+        val pass = EditText(this).apply {
+            hint = "OpenVPN password"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        form.addView(user)
+        form.addView(pass)
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("ورود اطلاعات OpenVPN")
+            .setMessage("این پروفایل از احراز هویت نام کاربری و رمز عبور استفاده می‌کند.")
+            .setView(form)
+            .setNegativeButton("انصراف", null)
+            .setPositiveButton("ادامه", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val credentials = OpenVpnCredentials(user.text.toString(), pass.text.toString())
+                try {
+                    credentials.validate()
+                    dialog.dismiss()
+                    importOpenVpnText(rawProfile, credentials)
+                } catch (error: Exception) {
+                    Toast.makeText(this, error.message ?: "OpenVPN credentials are invalid", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+        dialog.show()
+    }
+
+    private fun looksLikeOpenVpnProfile(value: String): Boolean {
+        val trimmed = value.trimStart()
+        return trimmed.startsWith("<ca>", ignoreCase = true) ||
+            Regex("(?im)^\\s*(?:client|remote|dev\\s+tun|proto\\s+(?:udp|tcp))\\b").containsMatchIn(value)
+    }
+
     private fun confirmClearSavedProfiles() {
         if (SingBoxVpnService.isRunning || singBoxStarting) {
             postWebMessage("برای پاک‌کردن پروفایل‌ها ابتدا همه تونل‌های VPN را قطع کن.")
@@ -1426,6 +1779,8 @@ class MainActivity : Activity() {
         private const val REQUEST_VPN_PERMISSION = 710
         private const val REQUEST_SINGBOX_PROFILE = 712
         private const val REQUEST_SINGBOX_VPN_PERMISSION = 713
+        private const val REQUEST_IKEV2_PERMISSION = 714
+        private const val IKEV2_CONNECT_TIMEOUT_POLLS = 30
         private const val MAX_PROFILE_BYTES = 2 * 1024 * 1024
         private const val REFRESH_PREFS = "netpulse_refresh_rate"
         private const val GAMING_PREFS = "netpulse_gaming"
