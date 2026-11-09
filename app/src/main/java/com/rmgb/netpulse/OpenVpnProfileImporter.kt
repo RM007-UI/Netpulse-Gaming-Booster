@@ -86,6 +86,7 @@ internal object OpenVpnProfileImporter {
         var pingInterval = ""
         var pingRestart = ""
         var renegotiate = ""
+        var renegotiateDisabled = false
         var explicitExitNotify = 0
         var dataCiphers = emptyList<String>()
         var dataCipherFallback = ""
@@ -147,19 +148,31 @@ internal object OpenVpnProfileImporter {
                     keyDirection = normalizeKeyDirection(args[0])
                 }
                 "tls-auth", "tls-crypt", "tls-crypt-v2" -> {
-                    require(args.isEmpty()) { "External $key key files are not supported; use an inline <$key> block" }
                     val block = blocks[key]?.takeIf(String::isNotBlank)
                         ?: throw IllegalArgumentException("Inline <$key> block is missing")
-                    require(controlWrapKey == null) { "Only one TLS control-channel wrapping mode can be used" }
-                    controlWrapType = when (key) {
-                        "tls-auth" -> "tls_auth"
-                        "tls-crypt" -> "tls_crypt"
-                        else -> "tls_crypt_v2"
+                    if (args.isNotEmpty()) {
+                        require(args.first() == "[inline]" && args.size <= 2) {
+                            "External $key key files are not supported; use an inline <$key> block"
+                        }
+                        if (key == "tls-auth" && args.size == 2) {
+                            keyDirection = normalizeKeyDirection(args[1])
+                        } else {
+                            require(args.size == 1 || key == "tls-auth") { "Unexpected arguments for $key" }
+                        }
                     }
-                    controlWrapKey = block
-                    if (key == "tls-auth" && keyDirection.isBlank()) {
-                        // OpenVPN's implicit key direction is bidirectional.
-                        keyDirection = ""
+                    if (controlWrapKey == null) {
+                        controlWrapType = when (key) {
+                            "tls-auth" -> "tls_auth"
+                            "tls-crypt" -> "tls_crypt"
+                            else -> "tls_crypt_v2"
+                        }
+                        controlWrapKey = block
+                    } else {
+                        require(controlWrapType == when (key) {
+                            "tls-auth" -> "tls_auth"
+                            "tls-crypt" -> "tls_crypt"
+                            else -> "tls_crypt_v2"
+                        }) { "Conflicting TLS control-wrap configuration" }
                     }
                 }
                 "verify-x509-name" -> {
@@ -217,7 +230,10 @@ internal object OpenVpnProfileImporter {
                     }
                 }
                 "route" -> {
-                    require(args.size >= 2) { "OpenVPN route directive is incomplete" }
+                    require(args.size in 2..3) { "OpenVPN route directive is incomplete" }
+                    require(args.getOrNull(2).isNullOrBlank() || args[2].equals("vpn_gateway", true)) {
+                        "OpenVPN route gateway override is not supported"
+                    }
                     val prefix = ipv4NetworkPrefix(args[0], args[1])
                     explicitRoutes += prefix
                 }
@@ -249,7 +265,8 @@ internal object OpenVpnProfileImporter {
                 }
                 "reneg-sec" -> {
                     one(tokens, 2, key)
-                    renegotiate = durationSeconds(args[0], key)
+                    if (args[0] == "0") renegotiateDisabled = true
+                    else renegotiate = durationSeconds(args[0], key)
                 }
                 "explicit-exit-notify" -> {
                     one(tokens, 2, key)
@@ -371,7 +388,9 @@ internal object OpenVpnProfileImporter {
             .put("redirect_gateway", redirectGateway)
             .put("redirect_gateway_flags", JSONArray(redirectFlags.toList()))
             .put("route_no_pull", routeNoPull)
-            .put("block_ipv6", blockIpv6)
+            // If the profile captures IPv4 default traffic but does not provide an
+            // IPv6 tunnel route, block IPv6 rather than silently leaking it outside VPN.
+            .put("block_ipv6", blockIpv6 || (redirectGateway && "ipv6" !in redirectFlags))
             .put("mtu", mtu)
 
         if (username.isNotBlank()) endpoint.put("username", username)
@@ -383,6 +402,7 @@ internal object OpenVpnProfileImporter {
         if (pingInterval.isNotBlank()) endpoint.put("ping_interval", pingInterval)
         if (pingRestart.isNotBlank()) endpoint.put("ping_restart", pingRestart)
         if (renegotiate.isNotBlank()) endpoint.put("renegotiate_interval", renegotiate)
+        if (renegotiateDisabled) endpoint.put("renegotiate_disabled", true)
         if (explicitExitNotify > 0) endpoint.put("explicit_exit_notify", explicitExitNotify)
         if (explicitRoutes.isNotEmpty()) endpoint.put("routes", JSONArray(explicitRoutes.toList()))
         if (pullFilters.length() > 0) endpoint.put("pull_filters", pullFilters)
