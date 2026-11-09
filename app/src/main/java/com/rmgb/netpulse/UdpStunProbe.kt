@@ -17,6 +17,7 @@ data class UdpStunStats(
     val medianMs: Double?,
     val maxMs: Double?,
     val variationMs: Double?,
+    val jitterMs: Double?,
     val failurePercent: Double
 )
 
@@ -96,7 +97,19 @@ object UdpStunProbe {
         }
     }
 
-    private fun summarize(samples: List<Double?>): UdpStunStats {
+    private fun summarize(samples: List<Double?>): UdpStunStats =
+        UdpStunSummary.from(samples)
+}
+
+/**
+ * Summarizes round-trip samples. jitterMs uses the RFC 3550 smoothed
+ * absolute-difference estimator over consecutive successful RTT samples.
+ * failurePercent is the fraction of probes without a valid STUN response;
+ * it is a diagnostic timeout rate, not game-server packet loss.
+ */
+object UdpStunSummary {
+    fun from(samples: List<Double?>): UdpStunStats {
+        require(samples.isNotEmpty()) { "At least one UDP probe sample is required" }
         val successful = samples.filterNotNull()
         val sorted = successful.sorted()
         val median = when {
@@ -107,6 +120,10 @@ object UdpStunProbe {
         val variation = if (successful.size < 2) null else {
             successful.zipWithNext { first, second -> abs(second - first) }.average()
         }
+        var jitter: Double? = null
+        successful.zipWithNext { first, second -> abs(second - first) }.forEach { difference ->
+            jitter = if (jitter == null) difference else jitter!! + (difference - jitter!!) / 16.0
+        }
         return UdpStunStats(
             attempts = samples.size,
             successful = successful.size,
@@ -114,6 +131,7 @@ object UdpStunProbe {
             medianMs = median,
             maxMs = sorted.lastOrNull(),
             variationMs = variation,
+            jitterMs = jitter,
             failurePercent = (samples.size - successful.size) * 100.0 / samples.size
         )
     }
