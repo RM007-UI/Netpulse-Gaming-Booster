@@ -31,6 +31,15 @@ class GamingProfileConfiguratorTest {
         assertEquals("com.new.game", packages.getString(0))
     }
 
+    @Test fun rejectsTunWithoutAutomaticAndroidRouting() {
+        assertThrows(IllegalArgumentException::class.java) {
+            GamingProfileConfigurator.withGameOnlyRouting(
+                """{"inbounds":[{"type":"tun","auto_route":false}]}""",
+                setOf("com.example.game")
+            )
+        }
+    }
+
     @Test fun rejectsProfilesWithoutTunInbound() {
         assertThrows(IllegalArgumentException::class.java) {
             GamingProfileConfigurator.withGameOnlyRouting(
