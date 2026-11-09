@@ -22,6 +22,7 @@ class NetPulseApplication : Application() {
     @Volatile var pendingSingBoxServiceProfile: String? = null
     @Volatile var loadedSingBoxProtocol: String? = null
     @Volatile var loadedSingBoxDisplayName: String? = null
+    @Volatile var loadedIkev2Config: Ikev2ProfileConfig? = null
 
     private lateinit var profileStore: SecureProfileStore
 
@@ -66,7 +67,8 @@ class NetPulseApplication : Application() {
                     wireGuardConfig = loadedWireGuardText,
                     singBoxProfile = loadedSingBoxProfile,
                     singBoxProtocol = loadedSingBoxProtocol,
-                    singBoxDisplayName = loadedSingBoxDisplayName
+                    singBoxDisplayName = loadedSingBoxDisplayName,
+                    ikev2Config = loadedIkev2Config?.toJson()
                 )
             )
         }.onFailure { error ->
@@ -85,6 +87,7 @@ class NetPulseApplication : Application() {
             pendingSingBoxServiceProfile = null
             loadedSingBoxProtocol = null
             loadedSingBoxDisplayName = null
+            loadedIkev2Config = null
         }.onFailure { error ->
             Log.w("NetPulse", "encrypted profile clear failed (${error.javaClass.simpleName})")
         }.isSuccess
@@ -105,6 +108,14 @@ class NetPulseApplication : Application() {
                 }
                 .onFailure { error ->
                     Log.w("NetPulse", "saved WireGuard profile rejected (${error.javaClass.simpleName})")
+                }
+        }
+
+        stored.ikev2Config?.let { raw ->
+            runCatching { Ikev2ProfileConfig.fromJson(raw) }
+                .onSuccess { loadedIkev2Config = it }
+                .onFailure { error ->
+                    Log.w("NetPulse", "saved IKEv2 profile rejected (${error.javaClass.simpleName})")
                 }
         }
 
