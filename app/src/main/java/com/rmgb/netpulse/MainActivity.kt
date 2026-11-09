@@ -64,10 +64,18 @@ class MainActivity : Activity() {
             if (intent.action != SingBoxVpnService.ACTION_STATE) return
             singBoxConnected = intent.getBooleanExtra(SingBoxVpnService.EXTRA_CONNECTED, false)
             singBoxStarting = false
+            val startupError = intent.getStringExtra(SingBoxVpnService.EXTRA_ERROR)
             if (!::singBoxButton.isInitialized || !::singBoxStatus.isInitialized) return
             singBoxButton.isEnabled = true
             singBoxButton.text = if (singBoxConnected) "Disconnect sing-box" else "Connect sing-box"
-            singBoxStatus.text = if (singBoxConnected) "sing-box connected" else "sing-box disconnected"
+            singBoxStatus.text = when {
+                singBoxConnected -> "sing-box connected"
+                startupError != null -> "sing-box failed · " + startupError
+                else -> "sing-box disconnected"
+            }
+            if (startupError != null) {
+                postWebMessage("راه‌اندازی موتور sing-box ناموفق بود: " + startupError)
+            }
             publishNativeState()
         }
     }
