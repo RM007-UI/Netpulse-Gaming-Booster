@@ -2558,23 +2558,9 @@ class MainActivity : Activity() {
     }
 
     override fun onStop() {
-        // Usage Access sampling is intentionally foreground-only. Stop Handler
-        // polling as soon as the activity leaves the foreground and publish a
-        // null active-game state so the local session recorder closes cleanly.
-        refreshHandler.removeCallbacks(gameDetectionTick)
-        usageEventCursorMs = 0L
-        if (activeGamePackage != null) {
-            activeGamePackage = null
-            activeGameLabel = null
-            activeGameUid = -1
-            activeGameDownloadBps = null
-            activeGameUploadBps = null
-            activeGameRxLast = -1L
-            activeGameTxLast = -1L
-            activeGameSampleAtMs = 0L
-            usageEventCursorMs = 0L
-            publishNativeState()
-        }
+        // The optional Usage Access poller must keep running while a game is
+        // foregrounded and NetPulse itself is behind it. It is user-opt-in and
+        // remains bounded by process lifetime; Android may still reclaim the process.
         if (singBoxReceiverRegistered) {
             unregisterReceiver(singBoxStateReceiver)
             singBoxReceiverRegistered = false
