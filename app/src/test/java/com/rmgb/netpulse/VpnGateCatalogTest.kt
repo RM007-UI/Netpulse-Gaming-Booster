@@ -84,6 +84,23 @@ class VpnGateCatalogTest {
     }
 
     @Test
+    fun usesTopLevelProtoWhenRemoteOmitsItsTransportToken() {
+        val configWithoutRemoteProto = config.replace(
+            "remote 198.51.100.10 1194 udp",
+            "remote 198.51.100.10 1194"
+        )
+        val parsed = VpnGateCatalog.parse(csv(configWithoutRemoteProto))
+        assertEquals(1, parsed.size)
+        assertEquals(
+            "OpenVPN UDP",
+            OpenVpnProfileImporter.importProfile(
+                parsed.single().config,
+                OpenVpnCredentials("vpn", "vpn")
+            ).protocol
+        )
+    }
+
+    @Test
     fun parsesQuotedCommaWithinCsvField() {
         val parsed = VpnGateCatalog.parseCsvLine("a,\"hello, world\",c")
         assertEquals(listOf("a", "hello, world", "c"), parsed)
