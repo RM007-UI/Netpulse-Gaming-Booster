@@ -79,11 +79,13 @@ assert.match(activity, /TCP_PROBE_ATTEMPTS = 6/);
 assert.match(js, /function loadGamingApps\(/);
 assert.match(js, /function onNetPulseLatencyStats\(/);
 assert.ok(activity.includes("UdpStunProbe.measure"));
+assert.match(activity, /"jitterMs", stats.jitterMs/);
+assert.match(fs.readFileSync("app/src/main/java/com/rmgb/netpulse/UdpStunProbe.kt", "utf8"), /jitterMs: Double\?/);
 assert.ok(activity.includes("physicalNetwork.getAllByName"));
 assert.ok(activity.includes("val vpnStats = UdpStunProbe.measure("));
 assert.ok(js.includes("function runUdpComparison("));
 assert.ok(js.includes("function onNetPulseUdpComparison("));
-for (const id of ["startUdpCompare", "udpComparisonStatus", "udpDirectMedian", "udpVpnMedian", "udpDelta", "udpDirectLoss", "udpVpnLoss"]) {
+for (const id of ["startUdpCompare", "udpComparisonStatus", "udpDirectMedian", "udpVpnMedian", "udpDelta", "udpDirectLoss", "udpVpnLoss", "udpDirectJitter", "udpVpnJitter"]) {
   assert.ok(ids.has(id), `UDP comparison UI element missing: ${id}`);
 }
 assert.match(activity, /TrafficRateCalculator\(\)/);
