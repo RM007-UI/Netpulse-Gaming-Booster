@@ -45,8 +45,15 @@ assert.match(activity, /@JavascriptInterface\s+fun getGamingAppCatalog\(\): Stri
 assert.match(activity, /@JavascriptInterface\s+fun getServerCatalog\(\): String/);
 assert.match(activity, /SingBoxServerCatalog\.select/);
 assert.match(js, /function loadServers\(/);
-for (const id of ["serverCatalog", "serverCatalogCount", "serverCatalogHint"]) {
-  assert.ok(ids.has(id), `Server-management UI element missing: ${id}`);
+assert.ok(js.includes("drawLiveChart('analyticsDown',historyDown)"));
+assert.ok(js.includes("drawLiveChart('analyticsUp',historyUp)"));
+assert.match(html, /LIVE · داده واقعی دستگاه/);
+assert.match(html, /data-pref="motion"/);
+assert.match(html, /data-pref="notifications"/);
+assert.match(js, /function applyUiPreferences\(/);
+assert.match(js, /readPref\('np-pref-notifications'\)/);
+for (const id of ["serverCatalog", "serverCatalogCount", "serverCatalogHint", "analyticsDown", "analyticsUp"]) {
+  assert.ok(ids.has(id), `Server/analytics UI element missing: ${id}`);
 }
 for (const id of ["gameModeButton", "gamingAppList", "selectedGameCount", "probeMin", "probeMedian", "probeMax", "probeVariation", "probeFailures"]) {
   assert.ok(ids.has(id), `Gaming/diagnostic UI element missing: ${id}`);
