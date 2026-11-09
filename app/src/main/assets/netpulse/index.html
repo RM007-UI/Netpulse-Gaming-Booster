@@ -45,8 +45,16 @@ main{min-width:0;padding:27px 34px 38px}.topbar{display:flex;align-items:center;
 <article class="card" style="margin-top:14px">
  <div class="card-head"><div><div class="card-title">Gaming Mode · تونل اختصاصی بازی</div><div class="card-sub">انتخاب برنامه‌هایی که از VPN عبور می‌کنند</div></div><span class="tag" id="selectedGameCount">۰ برنامه</span></div>
  <div style="padding:12px 17px 17px">
-  <div class="setting-row"><div><b>Game-only routing</b><small>فقط برنامه‌های انتخاب‌شده و ترافیک آزمایشی NetPulse از تونل sing-box عبور می‌کنند؛ بقیه از اینترنت عادی دستگاه استفاده می‌کنند.</small></div><button class="btn" id="gameModeButton" onclick="toggleGamingMode()">خاموش</button></div>
-  <p class="engine-message" id="gameModeHint">ابتدا فهرست برنامه‌ها را باز کن، بازی‌ها را انتخاب و ذخیره کن. این قابلیت فعلاً برای موتور sing-box است.</p>
+  <div class="setting-row">
+<div><b>Game-only routing</b><small>فقط برنامه‌های انتخاب‌شده از تونل عبور می‌کنند؛ WireGuard و sing-box پشتیبانی می‌شوند. IKEv2 همچنان تمام‌دستگاه است.</small></div>
+<button class="btn" id="gameModeButton" onclick="toggleGamingMode()">خاموش</button>
+</div>
+<div class="setting-row">
+<div><b>تشخیص خودکار بازی</b><small id="gameDetectionState">اختیاری؛ با مجوز Usage Access نام بازی پیش‌زمینه روی همین دستگاه تشخیص داده می‌شود.</small></div>
+<button class="btn" id="gameDetectionButton" onclick="nativeAction('toggleAutoGameDetection')">فعال‌سازی</button>
+</div>
+<div class="engine-message" id="activeGameState">بازی پیش‌زمینه شناسایی نشده است.</div>
+<p class="engine-message" id="gameModeHint">ابتدا فهرست برنامه‌ها را باز کن، بازی‌ها را انتخاب و ذخیره کن. این قابلیت فعلاً برای موتور sing-box است.</p>
   <div class="actions"><button class="btn" onclick="loadGamingApps()">▣ بارگذاری برنامه‌های نصب‌شده</button><button class="btn primary" onclick="saveGamingApps()">ذخیره انتخاب‌ها</button></div>
   <div id="gamingAppList" class="game-app-list"><p class="engine-message">فهرست برنامه‌ها هنوز بارگذاری نشده است.</p></div>
   <p class="engine-message">مصرف هر برنامه از شمارنده UID اندروید خوانده می‌شود و ممکن است روی بعضی رام‌ها در دسترس نباشد. بعد از تغییر انتخاب‌ها، تونل sing-box را قطع و دوباره وصل کن.</p>
@@ -55,7 +63,7 @@ main{min-width:0;padding:27px 34px 38px}.topbar{display:flex;align-items:center;
 <section class="view" id="view-servers">
 <div class="view-intro">
 <div><h2>سرورها و نقاط پایش</h2><p>مدیریت نودهای موجود در پروفایل واردشده و انتخاب مسیر پیش‌فرض اتصال.</p></div>
-<button class="btn primary" onclick="loadServers()">↻ بروزرسانی فهرست</button>
+<div class="actions"><button class="btn" onclick="loadServers()">↻ بروزرسانی فهرست</button><button class="btn primary" onclick="nativeAction('autoSelectServer')">✦ انتخاب خودکار سریع‌ترین مسیر</button></div>
 </div>
 <div class="grid panel-grid">
 <div class="panel-card"><div class="pc-top">TCP latency</div><strong id="serverLatency">—</strong><small>اتصال به 1.1.1.1:443</small></div>
@@ -65,7 +73,7 @@ main{min-width:0;padding:27px 34px 38px}.topbar{display:flex;align-items:center;
 <article class="card" style="margin-top:14px">
 <div class="card-head"><div><div class="card-title">سرورهای پروفایل</div><div class="card-sub">نودها و گروه‌های قابل انتخاب از فایل sing-box</div></div><span class="tag" id="serverCatalogCount">۰ نود</span></div>
 <div id="serverCatalog" class="server-list"><div class="engine-message">برای نمایش نودها، یک پروفایل sing-box وارد کن و فهرست را بروزرسانی کن.</div></div>
-<div class="engine-message" id="serverCatalogHint">انتخاب سرور فقط مسیر پیش‌فرض پروفایل را تغییر می‌دهد؛ قوانین مسیریابی اختصاصی آن حفظ می‌شوند. برای اعمال انتخاب تازه، sing-box را پس از قطع اتصال دوباره وصل کن.</div>
+<div class="engine-message" id="serverCatalogHint">انتخاب دستی، مسیر پیش‌فرض را تغییر می‌دهد. «انتخاب خودکار» یک گروه URLTest می‌سازد تا sing-box با درخواست HTTP دوره‌ای، سلامت و تأخیر عمومی نودها را بسنجد؛ این معیار پینگ بازی نیست. برای اعمال تغییر، اتصال را دوباره برقرار کن.</div>
 </article>
 <article class="card" style="margin-top:14px">
 <div class="card-head"><div><div class="card-title">انتخاب خودکار نود</div><div class="card-sub">فعال‌سازی گروه URLTest موجود در پروفایل؛ انتخاب عضو بر عهده موتور sing-box است.</div></div><span class="tag">sing-box URLTest</span></div>
