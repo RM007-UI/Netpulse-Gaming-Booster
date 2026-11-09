@@ -34,7 +34,7 @@ new vm.Script(js, { filename: "netpulse/index.html" });
 const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]));
 const referencedIds = [...new Set([...js.matchAll(/\$\('#([\w-]+)'\)/g)].map(m => m[1]))];
 for (const id of referencedIds) assert.ok(ids.has(id), `HTML selector points to missing element: ${id}`);
-const actions = ["importWireGuard", "toggleWireGuard", "importSingBox", "toggleSingBox", "applyRefreshRate", "restoreRefreshRate", "checkRoot", "refresh", "testLatency", "testUdpRoutes", "toggleGamingMode", "saveGamingApps", "selectServer"];
+const actions = ["importWireGuard", "toggleWireGuard", "importSingBox", "toggleSingBox", "applyRefreshRate", "restoreRefreshRate", "checkRoot", "refresh", "testLatency", "testUdpRoutes", "toggleGamingMode", "saveGamingApps", "selectServer", "setLiveRefresh"];
 for (const action of actions) {
   assert.ok(html.includes(`nativeAction('${action}'`) || js.includes(`nativeAction('${action}'`), `UI action missing: ${action}`);
   assert.ok(activity.includes(`"${action}" ->`), `Native bridge handler missing: ${action}`);
@@ -44,6 +44,8 @@ assert.match(activity, /@JavascriptInterface\s+fun perform\(action: String, valu
 assert.match(activity, /@JavascriptInterface\s+fun getGamingAppCatalog\(\): String/);
 assert.match(activity, /@JavascriptInterface\s+fun getServerCatalog\(\): String/);
 assert.match(activity, /SingBoxServerCatalog\.select/);
+assert.match(activity, /private fun setLiveRefresh\(/);
+assert.match(activity, /liveRefreshEnabled\) refreshHandler\.postDelayed\(this, 1000L\)/);
 assert.match(js, /function loadServers\(/);
 assert.ok(js.includes("drawLiveChart('analyticsDown',historyDown)"));
 assert.ok(js.includes("drawLiveChart('analyticsUp',historyUp)"));
