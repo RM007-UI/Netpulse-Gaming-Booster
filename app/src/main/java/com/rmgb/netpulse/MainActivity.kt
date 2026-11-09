@@ -1400,6 +1400,10 @@ class MainActivity : Activity() {
             postWebMessage("حجم پروفایل بیشتر از ۲ مگابایت است.")
             return
         }
+        if (looksLikeOpenVpnProfile(input)) {
+            importOpenVpnText(input)
+            return
+        }
         postWebMessage("در حال شناسایی و اعتبارسنجی پروفایل…")
         worker.execute {
             try {
@@ -1544,6 +1548,19 @@ class MainActivity : Activity() {
     @Deprecated("Handled for compatibility with the current minimal Activity scaffold")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_IKEV2_PERMISSION) {
+            ikev2ConsentPending = false
+            if (resultCode == RESULT_OK) {
+                startProvisionedIkev2()
+            } else {
+                ikev2Starting = false
+                ikev2Connected = false
+                VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.IKEV2)
+                postWebMessage("مجوز اتصال IKEv2 از سوی کاربر تأیید نشد.")
+                publishNativeState()
+            }
+            return
+        }
         if (requestCode == REQUEST_SINGBOX_VPN_PERMISSION) {
             if (resultCode == RESULT_OK) startSingBoxService()
             return
@@ -1564,6 +1581,10 @@ class MainActivity : Activity() {
                     if (bytes.size > MAX_PROFILE_BYTES) throw IllegalArgumentException("Profile exceeds the 2 MiB import limit")
                     val content = ProfileTextDecoder.decodeUtf8(bytes)
                     if (content.isBlank()) throw IllegalArgumentException("Profile is empty")
+                    if (looksLikeOpenVpnProfile(content)) {
+                        runOnUiThread { if (!isDestroyed) importOpenVpnText(content) }
+                        return@execute
+                    }
                     val imported = SingBoxProfileImporter.importProfile(content)
                     Libbox.checkConfig(imported.json)
                     val app = application as NetPulseApplication
