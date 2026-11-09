@@ -6,7 +6,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class VpnGateCatalogTest {
-    private val config = """
+    private val sampleProfile = """
         client
         dev tun
         proto udp
@@ -27,8 +27,8 @@ class VpnGateCatalogTest {
         </ca>
     """.trimIndent()
 
-    private fun csv(config: String = config): String {
-        val encoded = java.util.Base64.getEncoder().encodeToString(config.toByteArray())
+    private fun csv(profile: String = sampleProfile): String {
+        val encoded = java.util.Base64.getEncoder().encodeToString(profile.toByteArray())
         return """
             *vpn_servers
             #HostName,IP,Score,Ping,Speed,CountryLong,CountryShort,NumVpnSessions,Uptime,TotalUsers,TotalTraffic,LogType,Operator,Message,OpenVPN_ConfigData_Base64
@@ -55,8 +55,8 @@ class VpnGateCatalogTest {
 
     @Test
     fun sortsByReportedPingThenSpeedAndDeduplicates() {
-        val fast = config.replace("198.51.100.10", "198.51.100.11")
-        val slow = config.replace("198.51.100.10", "198.51.100.12")
+        val fast = sampleProfile.replace("198.51.100.10", "198.51.100.11")
+        val slow = sampleProfile.replace("198.51.100.10", "198.51.100.12")
         fun row(host: String, ip: String, ping: Int, speed: Int, profile: String) =
             listOf(host, ip, "1", ping.toString(), speed.toString(), "Japan", "JP", "1", "500", "2", "3", "1", "owner", "node",
                 java.util.Base64.getEncoder().encodeToString(profile.toByteArray())).joinToString(",")
@@ -79,13 +79,13 @@ class VpnGateCatalogTest {
         } catch (expected: IllegalArgumentException) {
             assertTrue(expected.message.orEmpty().contains("header"))
         }
-        val wrongHost = config.replace("198.51.100.10", "203.0.113.5")
+        val wrongHost = sampleProfile.replace("198.51.100.10", "203.0.113.5")
         assertTrue(VpnGateCatalog.parse(csv(wrongHost)).isEmpty())
     }
 
     @Test
     fun usesTopLevelProtoWhenRemoteOmitsItsTransportToken() {
-        val configWithoutRemoteProto = config.replace(
+        val configWithoutRemoteProto = sampleProfile.replace(
             "remote 198.51.100.10 1194 udp",
             "remote 198.51.100.10 1194"
         )
