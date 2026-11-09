@@ -229,6 +229,7 @@ class MainActivity : Activity() {
                     "toggleGamingMode" -> setGamingOnlyMode(value)
                     "saveGamingApps" -> saveGamingApps(value)
                     "selectServer" -> selectSingBoxServer(value)
+                    "clearProfiles" -> confirmClearSavedProfiles()
                     else -> postWebMessage("این عملیات هنوز پشتیبانی نمی‌شود.")
                 }
             }
@@ -952,6 +953,39 @@ class MainActivity : Activity() {
                 }
             }
         }
+    }
+
+    private fun confirmClearSavedProfiles() {
+        if (connected || SingBoxVpnService.isRunning || singBoxStarting) {
+            postWebMessage("برای پاک‌کردن پروفایل‌ها ابتدا همه تونل‌های VPN را قطع کن.")
+            return
+        }
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("پاک‌کردن پروفایل‌های ذخیره‌شده")
+            .setMessage("پروفایل‌های WireGuard و sing-box، کلید رمزگذاری آن‌ها و فهرست بازی‌های انتخاب‌شده از این دستگاه پاک می‌شوند. این کار قابل بازگشت نیست.")
+            .setNegativeButton("انصراف", null)
+            .setPositiveButton("پاک‌کردن") { _, _ ->
+                val app = application as NetPulseApplication
+                if (app.clearStoredProfiles()) {
+                    loadedConfig = null
+                    connected = false
+                    singBoxConnected = false
+                    singBoxStarting = false
+                    gamingPreferences.edit().clear().apply()
+                    VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.WIREGUARD)
+                    VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.SING_BOX)
+                    status.text = "No profile loaded"
+                    connectButton.isEnabled = false
+                    singBoxStatus.text = "No sing-box profile loaded"
+                    singBoxButton.isEnabled = false
+                    publishNativeState()
+                    postWebMessage("پروفایل‌ها و کلید رمزگذاری آن‌ها پاک شدند.")
+                } else {
+                    postWebMessage("پاک‌کردن اطلاعات ذخیره‌شده ناموفق بود.")
+                }
+            }
+            .show()
     }
 
     private fun importSingBoxText(rawText: String?) {
