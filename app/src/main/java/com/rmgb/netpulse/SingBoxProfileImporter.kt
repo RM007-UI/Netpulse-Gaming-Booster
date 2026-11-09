@@ -267,7 +267,7 @@ internal object SingBoxProfileImporter {
             .put("tls", tlsObject(uri.host, params))
 
         val obfs = params["obfs-password"] ?: params["obfs_password"]
-            ?: params["obfsParam"] ?: params["obfs_param"]
+            ?: params["obfsParam"] ?: params["obfs_param"] ?: params["obfs"]
         obfs?.takeIf(String::isNotBlank)?.let { outbound.put("obfs", it) }
         params["network"]?.takeIf(String::isNotBlank)?.let { network ->
             require(network in setOf("tcp", "udp")) { "Unsupported Hysteria network type" }
