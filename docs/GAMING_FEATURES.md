@@ -19,3 +19,11 @@ These values describe TCP connection setup to the probe endpoint. They are not I
 NetPulse does not claim to lower ping, increase FPS, prioritize game packets, or change Android's scheduler. A VPN can change routing and may improve or worsen latency depending on the server, operator routing and network conditions. DNS changes mainly affect name resolution and do not continuously reduce in-match latency.
 
 The implementation deliberately avoids unsafe automatic MTU changes, arbitrary packet marking, hidden bypass behavior and fabricated network-quality scores. User-selected app routing and measured diagnostics are exposed directly, with their limitations stated in the UI.
+
+## Direct versus VPN UDP comparison
+
+The Speed screen can compare five UDP STUN Binding request/response samples over two explicitly selected Android Network handles: the physical network captured immediately before sing-box establishes its TUN, and the VPN Network itself. Both paths target the same resolved IPv4 address for `stun.l.google.com:19302`. The physical network performs the DNS lookup so that DNS resolution is not included in either timing set.
+
+This is available only while sing-box is connected and Game-only routing is enabled. The app adds its own package to the temporary per-app allowlist so its diagnostic datagrams can traverse the VPN Network; selected game packages remain included. Turning Game-only off restores the imported profile's normal routing when the tunnel is next connected.
+
+The test uses STUN Binding messages over UDP and validates the response type, magic cookie and 96-bit transaction ID before recording a sample. It reports median/min/max response time, sample variation and unanswered/invalid attempts for each path, plus the median difference. It does not measure a specific game's server, gameplay packet loss, or match latency. Google WebRTC examples use `stun.l.google.com:19302` as a STUN endpoint; STUN Binding request/response structure and transaction-ID validation follow RFC 8489.
