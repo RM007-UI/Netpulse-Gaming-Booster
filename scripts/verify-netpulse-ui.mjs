@@ -189,5 +189,6 @@ assert.match(activity, /settings\.allowContentAccess = false/);
 assert.match(activity, /settings\.allowUniversalAccessFromFileURLs = false/);
 assert.match(activity, /settings\.blockNetworkLoads = true/);
 assert.match(activity, /file:\/\/\/android_asset\/netpulse\/index\.html/);
+assert.match(html, /v0\.6\.1/);
 console.log("PASS 5/5 — mobile navigation, local storage fallback and WebView isolation verified");
 console.log("NetPulse UI regression checks: 5/5 passed");
