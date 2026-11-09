@@ -113,6 +113,16 @@ assert.match(activity, /override fun onResume\(\)[\s\S]*?refreshHandler\.post\(n
 assert.match(activity, /if \(isIkev2PlatformActive\(\)\)/);
 assert.match(activity, /private fun hasAnyActiveVpnNetwork\(\)/);
 assert.match(activity, /private fun isIkev2StatusUnverified\(\)/);
+assert.match(activity, /private fun autoSelectFastestServer\(\)/);
+assert.match(activity, /type == "urltest"/);
+assert.match(activity, /private fun runGameServerComparison\(rawValue: String\?\)/);
+assert.match(activity, /TCP connect time/);
+assert.match(html, /id="autoSelectNode"/);
+assert.match(html, /id="endpointHost"/);
+assert.match(html, /id="endpointPort"/);
+assert.match(html, /function runEndpointTest\(\)/);
+assert.match(html, /function onNetPulseEndpointStats\(stats\)/);
+
 assert.match(activity, /stopProvisionedVpnProfile\(\)/);
 assert.match(html, /s\.ikev2StatusUnverified\?'قطع پروفایل IKEv2'/);
 assert.match(openVpnImporter, /put\("final", "netpulse-openvpn"\)/);
