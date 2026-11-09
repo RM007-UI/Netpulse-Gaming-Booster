@@ -215,6 +215,10 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        if (liveRefreshEnabled) {
+            refreshHandler.removeCallbacks(networkTick)
+            refreshHandler.post(networkTick)
+        }
         refreshIkev2State()
     }
 
@@ -1152,6 +1156,13 @@ class MainActivity : Activity() {
             postWebMessage("IKEv2 به Android 11 یا جدیدتر و قابلیت IPsec دستگاه نیاز دارد.")
             return
         }
+        if (connected || SingBoxVpnService.isRunning || singBoxStarting ||
+            VpnEngineCoordinator.currentOwner() == VpnEngineCoordinator.Engine.WIREGUARD ||
+            VpnEngineCoordinator.currentOwner() == VpnEngineCoordinator.Engine.SING_BOX
+        ) {
+            postWebMessage("ابتدا WireGuard یا sing-box را قطع کن؛ اندروید هم‌زمان فقط یک VPN فعال دارد.")
+            return
+        }
         if (!VpnEngineCoordinator.acquire(VpnEngineCoordinator.Engine.IKEV2)) {
             postWebMessage("یک موتور VPN دیگر در حال استفاده از تنها اسلات VPN اندروید است. ابتدا آن را قطع کن.")
             return
@@ -1346,6 +1357,8 @@ class MainActivity : Activity() {
             val state = runCatching { vpnManager()?.provisionedVpnProfileState?.state }.getOrNull()
             state == VpnProfileState.STATE_CONNECTED || state == VpnProfileState.STATE_CONNECTING
         } else {
+            // Android 11/12 do not expose VpnProfileState. Conservatively treat an
+            // active platform VPN plus a locally saved IKEv2 profile as occupied.
             val hasSavedProfile = (application as NetPulseApplication).loadedIkev2Config != null
             val capabilities = getSystemService(ConnectivityManager::class.java)
                 .getNetworkCapabilities(getSystemService(ConnectivityManager::class.java).activeNetwork)
@@ -1531,6 +1544,13 @@ class MainActivity : Activity() {
                     return@runOnUiThread
                 }
 
+                if (ikev2Connected || ikev2Starting || isIkev2PlatformActive()) {
+                    singBoxStarting = false
+                    singBoxButton.isEnabled = true
+                    singBoxButton.text = "Connect sing-box"
+                    postWebMessage("ابتدا تونل IKEv2 را قطع کن؛ اندروید هم‌زمان فقط یک VPN فعال دارد.")
+                    return@runOnUiThread
+                }
                 if (!VpnEngineCoordinator.acquire(VpnEngineCoordinator.Engine.SING_BOX)) {
                     singBoxStarting = false
                     singBoxButton.isEnabled = true
@@ -1698,6 +1718,10 @@ class MainActivity : Activity() {
     }
 
     private fun connect(config: Config) {
+        if (ikev2Connected || ikev2Starting || isIkev2PlatformActive()) {
+            postWebMessage("ابتدا تونل IKEv2 را قطع کن؛ اندروید هم‌زمان فقط یک VPN فعال دارد.")
+            return
+        }
         if (!VpnEngineCoordinator.acquire(VpnEngineCoordinator.Engine.WIREGUARD)) {
             status.text = "Another VPN engine is active. Disconnect it first."
             Toast.makeText(this, "Another VPN engine is active", Toast.LENGTH_LONG).show()
