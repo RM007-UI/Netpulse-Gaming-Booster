@@ -956,11 +956,28 @@ class MainActivity : Activity() {
     }
 
     private fun confirmClearSavedProfiles() {
-        if (connected || SingBoxVpnService.isRunning || singBoxStarting) {
+        if (SingBoxVpnService.isRunning || singBoxStarting) {
             postWebMessage("برای پاک‌کردن پروفایل‌ها ابتدا همه تونل‌های VPN را قطع کن.")
             return
         }
+        postWebMessage("در حال بررسی وضعیت WireGuard…")
+        worker.execute {
+            val wireGuardIsUp = runCatching {
+                backend.getState(wireGuardTunnel) == Tunnel.State.UP
+            }.getOrDefault(connected)
 
+            runOnUiThread {
+                if (isDestroyed) return@runOnUiThread
+                if (wireGuardIsUp || connected || SingBoxVpnService.isRunning || singBoxStarting) {
+                    postWebMessage("برای پاک‌کردن پروفایل‌ها ابتدا همه تونل‌های VPN را قطع کن.")
+                    return@runOnUiThread
+                }
+                showClearProfilesConfirmation()
+            }
+        }
+    }
+
+    private fun showClearProfilesConfirmation() {
         android.app.AlertDialog.Builder(this)
             .setTitle("پاک‌کردن پروفایل‌های ذخیره‌شده")
             .setMessage("پروفایل‌های WireGuard و sing-box، کلید رمزگذاری آن‌ها و فهرست بازی‌های انتخاب‌شده از این دستگاه پاک می‌شوند. این کار قابل بازگشت نیست.")
