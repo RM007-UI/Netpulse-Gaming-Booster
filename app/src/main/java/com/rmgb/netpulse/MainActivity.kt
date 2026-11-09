@@ -2343,6 +2343,14 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         finishUsageAccessSetup()
+        if (isAutoGameDetectionEnabled() && !isUsageAccessGranted()) {
+            gamingPreferences.edit().putBoolean(AUTO_GAME_DETECTION_KEY, false).apply()
+            activeGamePackage = null
+            activeGameLabel = null
+            activeGameUid = -1
+            activeGameDownloadBps = null
+            activeGameUploadBps = null
+        }
         refreshHandler.removeCallbacks(networkTick)
         if (liveRefreshEnabled) refreshHandler.post(networkTick)
         refreshHandler.removeCallbacks(gameDetectionTick)
