@@ -84,6 +84,36 @@ class VpnGateCatalogTest {
     }
 
     @Test
+    fun activatesCommentedVpnGateAuthDirectiveForInAppCredentials() {
+        val publicProfile = sampleProfile.replace("auth-user-pass", "#auth-user-pass")
+        val normalized = VpnGateCatalog.ensureInAppUserPass(publicProfile)
+        assertTrue(Regex("(?m)^\\s*auth-user-pass\\s*$").containsMatchIn(normalized))
+        val imported = OpenVpnProfileImporter.importProfile(
+            normalized,
+            OpenVpnCredentials("vpn", "vpn")
+        )
+        assertEquals("OpenVPN UDP", imported.protocol)
+        assertTrue(normalized.contains("<ca>"))
+    }
+
+    @Test
+    fun removesExternalCredentialFilePathFromPublicProfile() {
+        val publicProfile = sampleProfile.replace("auth-user-pass", "auth-user-pass /sdcard/credentials.txt")
+        val normalized = VpnGateCatalog.ensureInAppUserPass(publicProfile)
+        assertTrue(Regex("(?m)^auth-user-pass$").containsMatchIn(normalized))
+        assertFalse(normalized.contains("/sdcard/credentials.txt"))
+        OpenVpnProfileImporter.importProfile(normalized, OpenVpnCredentials("vpn", "vpn"))
+    }
+
+    @Test
+    fun preservesMultilineCertificateBlocksWhenNormalizingProfile() {
+        val normalized = VpnGateCatalog.ensureInAppUserPass(sampleProfile.replace("\n", "\r\n"))
+        assertTrue(normalized.contains("\n<ca>\n"))
+        assertTrue(normalized.contains("-----BEGIN CERTIFICATE-----"))
+        OpenVpnProfileImporter.importProfile(normalized, OpenVpnCredentials("vpn", "vpn"))
+    }
+
+    @Test
     fun usesTopLevelProtoWhenRemoteOmitsItsTransportToken() {
         val configWithoutRemoteProto = sampleProfile.replace(
             "remote 198.51.100.10 1194 udp",
