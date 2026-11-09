@@ -42,10 +42,29 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
             return START_NOT_STICKY
         }
         synchronized(lifecycleLock) {
-            if (started || starting || stopping.get()) return START_NOT_STICKY
+            if (started || starting) return START_NOT_STICKY
+            // A stopped Service instance may receive a new start before Android
+            // creates a replacement instance. Re-arm its lifecycle under the same lock.
+            stopping.set(false)
             starting = true
         }
-        startForeground(NOTIFICATION_ID, buildNotification("Starting sing-box…"))
+        try {
+            startForeground(NOTIFICATION_ID, buildNotification("Starting sing-box…"))
+        } catch (error: Exception) {
+            synchronized(lifecycleLock) {
+                starting = false
+                stopping.set(true)
+                VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.SING_BOX)
+            }
+            Log.e(TAG, "sing-box foreground startup failed (${error.javaClass.simpleName})")
+            sendBroadcast(
+                Intent(ACTION_STATE).setPackage(packageName)
+                    .putExtra(EXTRA_CONNECTED, false)
+                    .putExtra(EXTRA_ERROR, error.javaClass.simpleName)
+            )
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
         Thread({
             synchronized(lifecycleLock) {
                 try {
@@ -66,6 +85,11 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
                 } catch (error: Exception) {
                     Log.e(TAG, "sing-box startup failed (${error.javaClass.simpleName})")
                     stopEngine()
+                    sendBroadcast(
+                        Intent(ACTION_STATE).setPackage(packageName)
+                            .putExtra(EXTRA_CONNECTED, false)
+                            .putExtra(EXTRA_ERROR, error.javaClass.simpleName)
+                    )
                     stopSelf(startId)
                 } finally {
                     starting = false
@@ -405,6 +429,7 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
         const val EXTRA_PROFILE = "com.rmgb.netpulse.extra.SINGBOX_PROFILE"
         const val ACTION_STATE = "com.rmgb.netpulse.action.SINGBOX_STATE"
         const val EXTRA_CONNECTED = "com.rmgb.netpulse.extra.CONNECTED"
+        const val EXTRA_ERROR = "com.rmgb.netpulse.extra.ERROR"
         private const val TAG = "NetPulseSingBox"
         private const val CHANNEL_ID = "netpulse_vpn"
         private const val NOTIFICATION_ID = 4102
