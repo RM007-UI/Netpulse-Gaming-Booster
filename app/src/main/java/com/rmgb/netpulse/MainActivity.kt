@@ -2506,6 +2506,22 @@ class MainActivity : Activity() {
     }
 
     override fun onStop() {
+        // Usage Access sampling is intentionally foreground-only. Stop Handler
+        // polling as soon as the activity leaves the foreground and publish a
+        // null active-game state so the local session recorder closes cleanly.
+        refreshHandler.removeCallbacks(gameDetectionTick)
+        if (activeGamePackage != null) {
+            activeGamePackage = null
+            activeGameLabel = null
+            activeGameUid = -1
+            activeGameDownloadBps = null
+            activeGameUploadBps = null
+            activeGameRxLast = -1L
+            activeGameTxLast = -1L
+            activeGameSampleAtMs = 0L
+            usageEventCursorMs = 0L
+            publishNativeState()
+        }
         if (singBoxReceiverRegistered) {
             unregisterReceiver(singBoxStateReceiver)
             singBoxReceiverRegistered = false
