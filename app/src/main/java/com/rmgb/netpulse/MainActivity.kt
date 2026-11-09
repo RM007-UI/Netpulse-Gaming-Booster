@@ -78,6 +78,8 @@ class MainActivity : Activity() {
     private var singBoxStarting = false
     private var singBoxReceiverRegistered = false
     @Volatile private var activeGamePackage: String? = null
+    @Volatile private var activeGameLabel: String? = null
+    @Volatile private var activeGameUid = -1
     @Volatile private var activeGameDownloadBps: Long? = null
     @Volatile private var activeGameUploadBps: Long? = null
     private var activeGameRxLast = -1L
@@ -333,9 +335,7 @@ class MainActivity : Activity() {
             .put("autoGameDetectionEnabled", isAutoGameDetectionEnabled())
             .put("usageAccessGranted", isUsageAccessGranted())
             .put("activeGamePackage", activeGamePackage ?: JSONObject.NULL)
-            .put("activeGameLabel", activeGamePackage?.let { pkg ->
-                launchableApps().firstOrNull { it.packageName == pkg }?.label
-            } ?: JSONObject.NULL)
+            .put("activeGameLabel", activeGameLabel ?: JSONObject.NULL)
             .put("activeGameSelected", activeGamePackage in selectedGamingPackages())
             .put("activeGameDownloadMbps", activeGameDownloadBps?.let { it * 8.0 / 1_000_000.0 } ?: JSONObject.NULL)
             .put("activeGameUploadMbps", activeGameUploadBps?.let { it * 8.0 / 1_000_000.0 } ?: JSONObject.NULL)
@@ -843,6 +843,8 @@ class MainActivity : Activity() {
             val detectedPackage = app?.takeIf { it.isGame || it.packageName in selectedGamingPackages() }?.packageName
             if (detectedPackage != activeGamePackage) {
                 activeGamePackage = detectedPackage
+                activeGameLabel = app?.label
+                activeGameUid = app?.uid ?: -1
                 activeGameRxLast = -1L
                 activeGameTxLast = -1L
                 activeGameSampleAtMs = 0L
@@ -862,7 +864,7 @@ class MainActivity : Activity() {
     }
 
     private fun updateActiveGameTraffic() {
-        val appPackage = activeGamePackage ?: run {
+        if (activeGamePackage == null || activeGameUid < 0) {
             activeGameRxLast = -1L
             activeGameTxLast = -1L
             activeGameSampleAtMs = 0L
@@ -870,9 +872,7 @@ class MainActivity : Activity() {
             activeGameUploadBps = null
             return
         }
-        val uid = runCatching {
-            packageManager.getApplicationInfo(appPackage, 0).uid
-        }.getOrNull() ?: return
+        val uid = activeGameUid
         val rx = TrafficStats.getUidRxBytes(uid)
         val tx = TrafficStats.getUidTxBytes(uid)
         val now = SystemClock.elapsedRealtime()
@@ -2394,6 +2394,8 @@ class MainActivity : Activity() {
         }
         refreshHandler.removeCallbacksAndMessages(null)
         activeGamePackage = null
+        activeGameLabel = null
+        activeGameUid = -1
         worker.shutdown()
         super.onDestroy()
     }
