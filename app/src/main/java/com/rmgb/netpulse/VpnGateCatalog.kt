@@ -141,7 +141,7 @@ object VpnGateCatalog {
      * Any external credential-file path is discarded instead of being opened.
      */
     internal fun ensureInAppUserPass(profile: String): String {
-        val lines = profile.replace("\\r\\n", "\\n").replace('\\r', '\\n').lines().toMutableList()
+        val lines = profile.replace("\r\n", "\n").replace('\r', '\n').lines().toMutableList()
         var inBlock = false
         var authDirectiveIndex: Int? = null
         var firstInlineBlockIndex: Int? = null
@@ -167,11 +167,11 @@ object VpnGateCatalog {
             // Keep the directive but remove a path argument: credentials stay in
             // NetPulse's encrypted profile store, never in a public filename.
             lines[authDirectiveIndex] = "auth-user-pass"
-            return lines.joinToString("\\n")
+            return lines.joinToString("\n")
         }
         val insertAt = firstInlineBlockIndex ?: lines.size
         lines.add(insertAt, "auth-user-pass")
-        return lines.joinToString("\\n")
+        return lines.joinToString("\n")
     }
 
     private val INLINE_BLOCK_OPEN = Regex("^<[a-zA-Z0-9_-]+>$")
