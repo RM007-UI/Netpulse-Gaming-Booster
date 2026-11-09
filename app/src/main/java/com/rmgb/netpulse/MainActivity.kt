@@ -193,6 +193,9 @@ class MainActivity : Activity() {
         fun getGamingAppCatalog(): String = gamingAppCatalogJson()
 
         @JavascriptInterface
+        fun getServerCatalog(): String = serverCatalogJson()
+
+        @JavascriptInterface
         fun perform(action: String, value: String?) {
             runOnUiThread {
                 when (action) {
@@ -216,6 +219,7 @@ class MainActivity : Activity() {
                     "testUdpRoutes" -> runUdpRouteComparison()
                     "toggleGamingMode" -> setGamingOnlyMode(value)
                     "saveGamingApps" -> saveGamingApps(value)
+                    "selectServer" -> selectSingBoxServer(value)
                     else -> postWebMessage("این عملیات هنوز پشتیبانی نمی‌شود.")
                 }
             }
@@ -838,6 +842,68 @@ class MainActivity : Activity() {
     private fun updateSingBoxStatus(message: String) {
         singBoxStatus.text = message
         publishNativeState()
+    }
+
+    private fun serverCatalogJson(): String {
+        val profile = (application as NetPulseApplication).loadedSingBoxProfile ?: return "[]"
+        return runCatching {
+            JSONArray().apply {
+                SingBoxServerCatalog.list(profile).forEach { entry ->
+                    put(
+                        JSONObject()
+                            .put("tag", entry.tag)
+                            .put("type", entry.type)
+                            .put("server", entry.server ?: JSONObject.NULL)
+                            .put("port", entry.port ?: JSONObject.NULL)
+                            .put("selected", entry.selected)
+                            .put("group", entry.group)
+                            .put("memberCount", entry.memberCount)
+                    )
+                }
+            }.toString()
+        }.getOrDefault("[]")
+    }
+
+    private fun selectSingBoxServer(rawTag: String?) {
+        val tag = rawTag?.trim().orEmpty()
+        if (tag.isBlank()) {
+            postWebMessage("شناسه سرور معتبر نیست.")
+            return
+        }
+        if (SingBoxVpnService.isRunning || singBoxStarting) {
+            postWebMessage("برای تغییر سرور، ابتدا اتصال sing-box را قطع کن.")
+            return
+        }
+
+        worker.execute {
+            try {
+                val app = application as NetPulseApplication
+                val current = app.loadedSingBoxProfile
+                    ?: throw IllegalStateException("ابتدا یک پروفایل sing-box وارد کن.")
+                val updated = SingBoxServerCatalog.select(current, tag)
+                Libbox.checkConfig(updated)
+                val selected = SingBoxServerCatalog.list(updated).firstOrNull { it.tag == tag }
+                    ?: throw IllegalStateException("سرور انتخاب‌شده پیدا نشد.")
+
+                // Keep the source in process memory and change only the profile's default route.
+                app.loadedSingBoxProfile = updated
+                app.loadedSingBoxProtocol = selected.type.uppercase(Locale.ROOT)
+                app.loadedSingBoxDisplayName = selected.tag
+
+                runOnUiThread {
+                    if (!isDestroyed) {
+                        publishNativeState()
+                        postWebMessage("مسیر پیش‌فرض روی «" + selected.tag + "» قرار گرفت. برای اعمال تغییر، sing-box را وصل کن.")
+                    }
+                }
+            } catch (error: Exception) {
+                runOnUiThread {
+                    if (!isDestroyed) {
+                        postWebMessage("تغییر سرور انجام نشد: " + (error.message ?: error.javaClass.simpleName))
+                    }
+                }
+            }
+        }
     }
 
     private fun importSingBoxText(rawText: String?) {
