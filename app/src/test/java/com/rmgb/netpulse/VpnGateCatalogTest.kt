@@ -89,7 +89,7 @@ class VpnGateCatalogTest {
         val normalized = VpnGateCatalog.ensureInAppUserPass(publicProfile)
         val parsed = VpnGateCatalog.parse(csv(publicProfile))
         assertEquals(1, parsed.size)
-        assertTrue(parsed.single().config.contains("\\nauth-user-pass\\n"))
+        assertTrue(parsed.single().config.contains("\nauth-user-pass\n"))
         assertTrue(Regex("(?m)^\\s*auth-user-pass\\s*$").containsMatchIn(normalized))
         val imported = OpenVpnProfileImporter.importProfile(
             normalized,
