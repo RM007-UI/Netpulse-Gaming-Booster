@@ -59,7 +59,7 @@ assert.match(js, /function renderLogs\(/);
 assert.match(js, /const MAX_LOG_EVENTS=200/);
 assert.match(js, /message\.textContent=String\(event\.message\|\|''\)/);
 assert.match(js, /writePref\(LOG_STORAGE_KEY,JSON\.stringify\(bounded\)\)/);
-assert.match(html, /v0\.5\.0/);
+assert.match(html, /v0.5.1/);
 assert.ok(js.includes("drawLiveChart('analyticsDown',historyDown)"));
 assert.ok(js.includes("drawLiveChart('analyticsUp',historyUp)"));
 assert.match(html, /LIVE · داده واقعی دستگاه/);
@@ -153,7 +153,7 @@ assert.match(protocolCatalog, /ikev2_ipsec.*EngineState\.AVAILABLE/);
 for (const id of ["settingsIkev2", "ikev2Toggle", "ikev2Help"]) {
   assert.ok(ids.has(id), `IKEv2 settings control missing: ${id}`);
 }
-assert.match(html, /v0\.5\.0/);
+assert.match(html, /v0.5.1/);
 console.log("PASS 3/5 — JavaScript bridge, live telemetry, encrypted profile storage and VPN safety gates are wired");
 
 // PASS 4 — Android 15 system bars and cutout insets are applied to the WebView viewport.
