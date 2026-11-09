@@ -135,7 +135,7 @@ object VpnGateCatalog {
             !profile.contains("-----BEGIN CERTIFICATE-----") ||
             !profile.contains("auth-user-pass")
         ) return false
-        val defaultProtocol = Regex("(?im)^\\s*proto\\s+(udp6?|tcp-client|tcp4-client|tcp6-client)\\s*$")
+        val defaultProtocol = Regex("(?im)^\\s*proto\\s+(udp|udp4|udp6|tcp|tcp-client|tcp4-client|tcp6-client)\\s*$")
             .find(profile)?.groupValues?.getOrNull(1)?.lowercase(Locale.ROOT).orEmpty()
         val remotes = Regex("(?im)^\\s*remote\\s+(\\S+)\\s+(\\d+)(?:\\s+(\\S+))?\\s*$")
             .findAll(profile).toList()
@@ -148,7 +148,7 @@ object VpnGateCatalog {
                 (remoteHost.equals(expectedIp, true) ||
                     remoteHost.equals(expectedHost, true) ||
                     remoteHost.equals("$expectedHost.opengw.net", true)) &&
-                protocol in setOf("udp", "tcp", "tcp-client", "tcp4-client", "tcp6-client")
+                protocol in setOf("udp", "udp4", "udp6", "tcp", "tcp-client", "tcp4-client", "tcp6-client")
         }
     }
 
