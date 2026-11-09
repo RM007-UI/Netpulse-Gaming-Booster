@@ -41,7 +41,7 @@ object UdpStunProbe {
         require(attempts in 1..10) { "UDP probe attempts must be between 1 and 10" }
         require(timeoutMs in 250..5000) { "UDP probe timeout is outside the supported range" }
 
-        val samples = ArrayList<Long?>(attempts)
+        val samples = ArrayList<Double?>(attempts)
         repeat(attempts) { index ->
             samples += probeOnce(network, serverAddress, timeoutMs)
             if (index < attempts - 1 && pauseMs > 0) {
@@ -60,7 +60,7 @@ object UdpStunProbe {
         network: Network,
         serverAddress: InetAddress,
         timeoutMs: Int
-    ): Long? {
+    ): Double? {
         val transactionId = ByteArray(12).also(random::nextBytes)
         val request = StunMessageCodec.createBindingRequest(transactionId)
 
