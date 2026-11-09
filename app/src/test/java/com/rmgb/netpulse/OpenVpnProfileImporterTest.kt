@@ -41,6 +41,8 @@ class OpenVpnProfileImporterTest {
         assertEquals("example-secret", endpoint.getString("password"))
         assertTrue(endpoint.getBoolean("redirect_gateway"))
         assertEquals("1.2", endpoint.getJSONObject("tls").getString("version_min"))
+        assertEquals("netpulse-openvpn", json.getJSONObject("route").getString("final"))
+        assertEquals("tun", json.getJSONArray("inbounds").getJSONObject(0).getString("type"))
         assertFalse(json.has("outbound"))
     }
 
