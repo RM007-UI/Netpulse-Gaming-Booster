@@ -31,8 +31,8 @@ class NetPulseApplication : Application() {
                 tempPath = cacheDir.absolutePath
                 debug = false
                 logMaxLines = 0
-                appVersion = "2"
-                appMarketingVersion = "0.2.0"
+                appVersion = "5"
+                appMarketingVersion = "0.4.0"
             }
             Libbox.setLocale(Locale.getDefault().toLanguageTag())
             Libbox.setup(options)
