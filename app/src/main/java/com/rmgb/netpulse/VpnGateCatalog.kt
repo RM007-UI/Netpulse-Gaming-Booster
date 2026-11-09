@@ -94,10 +94,16 @@ object VpnGateCatalog {
             if (!validHost(host) || !validIpLiteral(ip) || encoded.isBlank()) continue
             val decoded = runCatching { java.util.Base64.getMimeDecoder().decode(encoded) }.getOrNull() ?: continue
             if (decoded.isEmpty() || decoded.size > MAX_CONFIG_BYTES) continue
-            val profile = decoded.toString(Charsets.UTF_8)
+            val rawProfile = decoded.toString(Charsets.UTF_8)
+            // VPN Gate's generated .ovpn files commonly contain a commented
+            // "#auth-user-pass" template line. The in-app importer correctly ignores
+            // comments, so supplying vpn/vpn alone is not enough: it sees no auth
+            // directive and rejects the shared credentials. Normalize the public
+            // profile to an active, in-app credential prompt without any file path.
+            val profile = ensureInAppUserPass(rawProfile)
             if (!isCompatibleOpenVpnProfile(profile, ip, host)) continue
-            // Do not show rows whose embedded profile the in-app importer cannot parse.
-            // This prevents a public directory entry from becoming a broken one-tap option.
+            // Only list relays whose normalized profile is accepted by the exact
+            // importer used by the connection flow.
             val importable = runCatching {
                 OpenVpnProfileImporter.importProfile(profile, OpenVpnCredentials("vpn", "vpn"))
             }.isSuccess
@@ -128,6 +134,48 @@ object VpnGateCatalog {
             )
             .take(80)
     }
+
+    /**
+     * Converts an auth-user-pass directive into the in-app credential form.
+     * OpenVPN directives inside inline certificate/key blocks are never inspected.
+     * Any external credential-file path is discarded instead of being opened.
+     */
+    internal fun ensureInAppUserPass(profile: String): String {
+        val lines = profile.replace("\\r\\n", "\\n").replace('\\r', '\\n').lines().toMutableList()
+        var inBlock = false
+        var authDirectiveIndex: Int? = null
+        var firstInlineBlockIndex: Int? = null
+        for (index in lines.indices) {
+            val trimmed = lines[index].trim()
+            if (!inBlock) {
+                if (INLINE_BLOCK_OPEN.matches(trimmed)) {
+                    if (firstInlineBlockIndex == null) firstInlineBlockIndex = index
+                    inBlock = true
+                    continue
+                }
+                if (trimmed.startsWith("#") || trimmed.startsWith(";") || trimmed.isEmpty()) continue
+                val tokens = trimmed.split(Regex("\\s+"), limit = 2)
+                if (tokens.firstOrNull()?.equals("auth-user-pass", ignoreCase = true) == true) {
+                    authDirectiveIndex = index
+                    break
+                }
+            } else if (INLINE_BLOCK_CLOSE.matches(trimmed)) {
+                inBlock = false
+            }
+        }
+        if (authDirectiveIndex != null) {
+            // Keep the directive but remove a path argument: credentials stay in
+            // NetPulse's encrypted profile store, never in a public filename.
+            lines[authDirectiveIndex] = "auth-user-pass"
+            return lines.joinToString("\\n")
+        }
+        val insertAt = firstInlineBlockIndex ?: lines.size
+        lines.add(insertAt, "auth-user-pass")
+        return lines.joinToString("\\n")
+    }
+
+    private val INLINE_BLOCK_OPEN = Regex("^<[a-zA-Z0-9_-]+>$")
+    private val INLINE_BLOCK_CLOSE = Regex("^</[a-zA-Z0-9_-]+>$")
 
     private fun isCompatibleOpenVpnProfile(profile: String, expectedIp: String, expectedHost: String): Boolean {
         if (profile.toByteArray(Charsets.UTF_8).size > MAX_CONFIG_BYTES) return false
