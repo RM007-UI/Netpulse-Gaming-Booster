@@ -98,7 +98,7 @@ assert.match(activity, /Settings\.ACTION_USAGE_ACCESS_SETTINGS/);
 assert.match(activity, /private fun detectForegroundGame\(\)/);
 assert.match(activity, /private val gameDetectionTick = object : Runnable/);
 assert.match(activity, /optional Usage Access poller must keep running while a game is/);
-const onStopBlock = activity.match(/override fun onStop\(\)[\\s\\S]*?override fun onResume\(\)/)?.[0] || "";
+const onStopBlock = activity.match(/override fun onStop\(\)[\s\S]*?override fun onResume\(\)/)?.[0] || "";
 assert.ok(onStopBlock.length > 0, "Activity stop/resume lifecycle block must exist");
 assert.doesNotMatch(onStopBlock, /removeCallbacks\(gameDetectionTick\)/);
 assert.match(html, /const GAME_SESSION_HISTORY_KEY=/);
