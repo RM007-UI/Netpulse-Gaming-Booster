@@ -34,8 +34,14 @@ class ProtocolCatalogTest {
         assertEquals(EngineState.AVAILABLE, ProtocolCatalog.options.single { it.id == "naive" }.engineState)
     }
 
-    @Test fun openVpnAndIkev2AreNotFalselyMarkedAsIntegrated() {
-        assertTrue(ProtocolCatalog.options.single { it.id == "openvpn_udp" }.engineState != EngineState.AVAILABLE)
-        assertTrue(ProtocolCatalog.options.single { it.id == "ikev2_ipsec" }.engineState != EngineState.AVAILABLE)
+    @Test fun openVpnAndIkev2EnginesAreAdvertisedWithTheirRealPlatformRequirements() {
+        val openVpnUdp = ProtocolCatalog.options.single { it.id == "openvpn_udp" }
+        val openVpnTcp = ProtocolCatalog.options.single { it.id == "openvpn_tcp" }
+        val ikev2 = ProtocolCatalog.options.single { it.id == "ikev2_ipsec" }
+        assertEquals(EngineState.AVAILABLE, openVpnUdp.engineState)
+        assertEquals(EngineState.AVAILABLE, openVpnTcp.engineState)
+        assertTrue(openVpnUdp.description.contains("sing-box"))
+        assertEquals(EngineState.AVAILABLE, ikev2.engineState)
+        assertTrue(ikev2.description.contains("Android 11"))
     }
 }
