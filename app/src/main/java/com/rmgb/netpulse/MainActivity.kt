@@ -416,6 +416,110 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun runGameServerComparison(rawTarget: String?) {
+        if (!SingBoxVpnService.isRunning) {
+            postWebMessage("برای مقایسه مقصد بازی، ابتدا sing-box را وصل کن.")
+            return
+        }
+        if (!isGamingOnlyEnabled()) {
+            postWebMessage("برای مقایسه مسیر مستقیم و VPN، ابتدا Game-only را فعال کن تا سوکت آزمایشی NetPulse در تونل باشد.")
+            return
+        }
+
+        val target = runCatching { JSONObject(rawTarget ?: "{}") }.getOrElse {
+            postWebMessage("مشخصات مقصد آزمایشی معتبر نیست.")
+            return
+        }
+        val host = target.optString("host").trim()
+        val port = target.optInt("port", -1)
+        if (host.isBlank() || host.length > 253 || host.any(Char::isWhitespace) ||
+            host.contains("://") || host.contains('/') || host.contains('@') ||
+            port !in 1..65535
+        ) {
+            postWebMessage("نام میزبان یا پورت TCP معتبر نیست.")
+            return
+        }
+
+        val manager = getSystemService(ConnectivityManager::class.java)
+        @Suppress("DEPRECATION")
+        val networks = manager.allNetworks.toList()
+        val vpnNetwork = networks.firstOrNull { network ->
+            val capabilities = manager.getNetworkCapabilities(network)
+            capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true &&
+                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        }
+        val physicalNetwork = SingBoxVpnService.underlyingNetworkForDiagnostics
+            ?.takeIf { manager.getNetworkCapabilities(it)?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) != true }
+            ?: networks.firstOrNull { network ->
+                val capabilities = manager.getNetworkCapabilities(network)
+                capabilities != null &&
+                    !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            }
+
+        if (vpnNetwork == null || physicalNetwork == null) {
+            postWebMessage("شبکه فیزیکی یا رابط VPN برای مقایسه مقصد پیدا نشد.")
+            return
+        }
+
+        postWebMessage("در حال سنجش TCP مقصد $host:$port از اینترنت مستقیم و VPN…")
+        worker.execute {
+            val outcome = runCatching {
+                // Resolve once over the physical network so both paths test the exact same IP.
+                val address = physicalNetwork.getAllByName(host).firstOrNull()
+                    ?: throw IllegalStateException("مقصد به IP تبدیل نشد.")
+                val direct = TcpEndpointProbe.measure(
+                    physicalNetwork,
+                    address,
+                    port,
+                    attempts = GAME_SERVER_PROBE_ATTEMPTS,
+                    timeoutMs = GAME_SERVER_PROBE_TIMEOUT_MS,
+                    pauseMs = GAME_SERVER_PROBE_PAUSE_MS
+                )
+                val vpn = TcpEndpointProbe.measure(
+                    vpnNetwork,
+                    address,
+                    port,
+                    attempts = GAME_SERVER_PROBE_ATTEMPTS,
+                    timeoutMs = GAME_SERVER_PROBE_TIMEOUT_MS,
+                    pauseMs = GAME_SERVER_PROBE_PAUSE_MS
+                )
+                JSONObject()
+                    .put("ok", true)
+                    .put("host", host)
+                    .put("address", address.hostAddress)
+                    .put("port", port)
+                    .put("direct", tcpStatsJson(direct))
+                    .put("vpn", tcpStatsJson(vpn))
+                    .toString()
+            }
+            val payload = outcome.getOrElse { error ->
+                JSONObject()
+                    .put("ok", false)
+                    .put("message", error.message ?: error.javaClass.simpleName)
+                    .toString()
+            }
+            runOnUiThread {
+                if (isDestroyed || !::webView.isInitialized) return@runOnUiThread
+                webView.evaluateJavascript(
+                    "window.netPulseGameServerComparison && window.netPulseGameServerComparison($payload);",
+                    null
+                )
+            }
+        }
+    }
+
+    private fun tcpStatsJson(stats: TcpProbeStats): JSONObject =
+        JSONObject()
+            .put("attempts", stats.attempts)
+            .put("successful", stats.successful)
+            .put("minMs", stats.minMs ?: JSONObject.NULL)
+            .put("medianMs", stats.medianMs ?: JSONObject.NULL)
+            .put("maxMs", stats.maxMs ?: JSONObject.NULL)
+            .put("variationMs", stats.variationMs ?: JSONObject.NULL)
+            .put("failurePercent", stats.failurePercent)
+
     private fun runUdpRouteComparison() {
         if (!SingBoxVpnService.isRunning) {
             postWebMessage("برای مقایسه مسیر UDP ابتدا موتور sing-box را وصل کن.")
@@ -2215,5 +2319,8 @@ class MainActivity : Activity() {
         private const val UDP_PROBE_ATTEMPTS = 5
         private const val UDP_PROBE_TIMEOUT_MS = 1200
         private const val UDP_PROBE_PAUSE_MS = 80L
+        private const val GAME_SERVER_PROBE_ATTEMPTS = 10
+        private const val GAME_SERVER_PROBE_TIMEOUT_MS = 1800
+        private const val GAME_SERVER_PROBE_PAUSE_MS = 100L
     }
 }
