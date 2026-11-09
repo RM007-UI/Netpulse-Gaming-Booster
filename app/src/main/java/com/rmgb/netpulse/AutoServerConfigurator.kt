@@ -10,7 +10,7 @@ import org.json.JSONObject
  */
 object AutoServerConfigurator {
     const val AUTO_TAG = "netpulse-auto-urltest"
-    private const val TEST_URL = "https://www.gstatic.com/generate_204"
+    const val TEST_URL = "https://www.gstatic.com/generate_204"
 
     fun useFastestAvailable(profileJson: String): String {
         val root = JSONObject(profileJson)
