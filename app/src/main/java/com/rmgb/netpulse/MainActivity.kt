@@ -213,6 +213,7 @@ class MainActivity : Activity() {
                         postWebMessage("اطلاعات دستگاه بروزرسانی شد.")
                     }
                     "testLatency" -> runTcpLatencyTest()
+                    "testUdpRoutes" -> runUdpRouteComparison()
                     "toggleGamingMode" -> setGamingOnlyMode(value)
                     "saveGamingApps" -> saveGamingApps(value)
                     else -> postWebMessage("این عملیات هنوز پشتیبانی نمی‌شود.")
@@ -329,6 +330,98 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun runUdpRouteComparison() {
+        if (!SingBoxVpnService.isRunning) {
+            postWebMessage("برای مقایسه مسیر UDP ابتدا موتور sing-box را وصل کن.")
+            return
+        }
+        if (!isGamingOnlyEnabled()) {
+            postWebMessage("برای مقایسه منصفانه مسیرها، Game-only را فعال کن؛ ترافیک آزمایشی NetPulse نیز در این حالت از تونل عبور می‌کند.")
+            return
+        }
+
+        val manager = getSystemService(ConnectivityManager::class.java)
+        @Suppress("DEPRECATION")
+        val networks = manager.allNetworks.toList()
+        val vpnNetwork = networks.firstOrNull { network ->
+            val capabilities = manager.getNetworkCapabilities(network)
+            capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true &&
+                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        }
+        val physicalNetwork = SingBoxVpnService.underlyingNetworkForDiagnostics
+            ?.takeIf { network ->
+                manager.getNetworkCapabilities(network)
+                    ?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) != true
+            }
+            ?: networks.firstOrNull { network ->
+                val capabilities = manager.getNetworkCapabilities(network)
+                capabilities != null &&
+                    !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            }
+
+        if (vpnNetwork == null || physicalNetwork == null) {
+            postWebMessage("شبکه فیزیکی یا رابط VPN برای مقایسه UDP پیدا نشد. اتصال sing-box را بررسی کن.")
+            return
+        }
+
+        postWebMessage("در حال مقایسه ۵ نمونه UDP مستقیم با ۵ نمونه از مسیر sing-box…")
+        worker.execute {
+            val outcome = runCatching {
+                val serverAddress = physicalNetwork.getAllByName(UdpStunProbe.SERVER_HOST)
+                    .firstOrNull { it is java.net.Inet4Address }
+                    ?: physicalNetwork.getAllByName(UdpStunProbe.SERVER_HOST).firstOrNull()
+                    ?: throw IllegalStateException("STUN endpoint could not be resolved on the physical network")
+
+                val directStats = UdpStunProbe.measure(
+                    physicalNetwork,
+                    serverAddress,
+                    attempts = UDP_PROBE_ATTEMPTS,
+                    timeoutMs = UDP_PROBE_TIMEOUT_MS,
+                    pauseMs = UDP_PROBE_PAUSE_MS
+                )
+                val vpnStats = UdpStunProbe.measure(
+                    vpnNetwork,
+                    serverAddress,
+                    attempts = UDP_PROBE_ATTEMPTS,
+                    timeoutMs = UDP_PROBE_TIMEOUT_MS,
+                    pauseMs = UDP_PROBE_PAUSE_MS
+                )
+                JSONObject()
+                    .put("ok", true)
+                    .put("host", UdpStunProbe.SERVER_HOST)
+                    .put("port", UdpStunProbe.SERVER_PORT)
+                    .put("direct", udpStatsJson(directStats))
+                    .put("vpn", udpStatsJson(vpnStats))
+                    .toString()
+            }
+            val payload = outcome.getOrElse { error ->
+                JSONObject()
+                    .put("ok", false)
+                    .put("message", error.message ?: error.javaClass.simpleName)
+                    .toString()
+            }
+            runOnUiThread {
+                if (isDestroyed || !::webView.isInitialized) return@runOnUiThread
+                webView.evaluateJavascript(
+                    "window.netPulseUdpComparison && window.netPulseUdpComparison($payload);",
+                    null
+                )
+            }
+        }
+    }
+
+    private fun udpStatsJson(stats: UdpStunStats): JSONObject =
+        JSONObject()
+            .put("attempts", stats.attempts)
+            .put("successful", stats.successful)
+            .put("minMs", stats.minMs ?: JSONObject.NULL)
+            .put("medianMs", stats.medianMs ?: JSONObject.NULL)
+            .put("maxMs", stats.maxMs ?: JSONObject.NULL)
+            .put("variationMs", stats.variationMs ?: JSONObject.NULL)
+            .put("failurePercent", stats.failurePercent)
+
     private data class LaunchableApp(
         val packageName: String,
         val label: String,
@@ -420,7 +513,7 @@ class MainActivity : Activity() {
         gamingPreferences.edit().putBoolean(GAMING_ONLY_KEY, enabled).apply()
         publishNativeState()
         postWebMessage(
-            if (enabled) "حالت Game-only فعال شد؛ فقط برنامه‌های انتخاب‌شده از تونل sing-box عبور می‌کنند."
+            if (enabled) "حالت Game-only فعال شد؛ بازی‌های انتخاب‌شده و ترافیک تست NetPulse از تونل sing-box عبور می‌کنند."
             else "حالت Game-only خاموش شد؛ مسیر پیش‌فرض پروفایل sing-box اعمال می‌شود."
         )
     }
@@ -804,7 +897,9 @@ class MainActivity : Activity() {
         if (profile.isNullOrBlank()) return
         val profileForStart = try {
             if (isGamingOnlyEnabled()) {
-                GamingProfileConfigurator.withGameOnlyRouting(profile, selectedGamingPackages())
+                // Include NetPulse itself only for its diagnostic sockets, so the
+                // VPN-bound UDP probe can actually traverse this per-app allowlist.
+                GamingProfileConfigurator.withGameOnlyRouting(profile, selectedGamingPackages() + packageName)
             } else {
                 profile
             }
@@ -1086,5 +1181,8 @@ class MainActivity : Activity() {
         private const val TCP_PROBE_ATTEMPTS = 6
         private const val TCP_PROBE_TIMEOUT_MS = 1500
         private const val TCP_PROBE_PAUSE_MS = 120L
+        private const val UDP_PROBE_ATTEMPTS = 5
+        private const val UDP_PROBE_TIMEOUT_MS = 1200
+        private const val UDP_PROBE_PAUSE_MS = 80L
     }
 }
