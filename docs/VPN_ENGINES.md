@@ -4,60 +4,68 @@
 
 | Engine | Runtime | Import format | Android requirement | Routing scope |
 |---|---|---|---|---|
-| WireGuard | Official WireGuard Android tunnel library | WireGuard .conf | Android 8+ (app baseline) | Full device |
-| sing-box | Pinned libbox 1.14.4 in NetPulse VpnService | sing-box JSON, supported proxy share links, supported .ovpn TLS profiles | Android 8+ (app baseline) | Full device or Game-only per-app |
-| OpenVPN UDP/TCP | sing-box openvpn-client endpoint | Conservative TLS-mode .ovpn subset | Android 8+ (through sing-box) | Full device or Game-only per-app |
-| IKEv2 / IPsec | Android platform VpnManager | NetPulse IKEv2 form | Android 11+ plus android.software.ipsec_tunnels | Full device |
+| WireGuard | Official WireGuard Android tunnel library | WireGuard .conf | Android 8+ | Full device or Game-only package allowlist |
+| sing-box | Pinned libbox 1.14.4 in NetPulse VpnService | sing-box JSON, supported proxy share links, supported .ovpn TLS profiles | Android 8+ | Full device or Game-only package allowlist |
+| OpenVPN UDP/TCP | sing-box openvpn-client endpoint | Conservative TLS-mode .ovpn subset | Android 8+ through sing-box | Same as sing-box |
+| IKEv2 / IPsec | Android platform VpnManager | NetPulse IKEv2 form | Android 11+ and android.software.ipsec_tunnels | Full device |
 
-Android provides one active VPN slot per user. NetPulse's coordinator prevents its own WireGuard, sing-box, and IKEv2 controls from intentionally starting competing tunnels. The system remains the authority for external VPN apps and the final connection consent.
+Android provides one active VPN slot per user. NetPulse's coordinator prevents its own WireGuard, sing-box and IKEv2 controls from intentionally starting competing tunnels. Android remains the authority for external VPN apps and VPN consent.
+
+## WireGuard Game-only
+
+NetPulse builds a copied WireGuard Config with includedApplications set to the selected package list. The imported peer and interface configuration stays unchanged. Android sends only those selected apps through the WireGuard VpnService; non-selected apps keep their ordinary Android route. The feature requires at least one installed selected package and is applied when the tunnel starts.
+
+WireGuard uses one peer configuration for the entire selected app group. It does not assign a different peer to every application.
+
+## sing-box Game-only and per-game routes
+
+The app requires a TUN inbound with auto_route enabled. It applies include_package to a copied profile and clears stale exclude_package entries because Android VpnService.Builder cannot combine an include and exclude app list. The resulting config is rechecked with libbox.
+
+Per-game outbound assignment uses package_name route rules with action=route and outbound=<tag>. Rules are prepended so an app-specific assignment has priority over the profile's existing route rules. The chosen outbound must exist in the current profile. Existing rules remain preserved after the per-game rules.
+
+NetPulse itself is included in the sing-box allowlist for its own diagnostics. This inclusion does not add unrelated apps to the tunnel.
+
+## Automatic foreground-game detection
+
+Usage Access is an optional special access granted by the user in Android Settings. NetPulse reads UsageEvents foreground transitions and maps package names to launcher-visible installed applications. It does not read screen content, keystrokes or messages. UID-level RX/TX counters are sampled locally while a detected game is active and are shown only where Android exposes them.
+
+Detection runs while the app process remains alive. Android may stop background processes; the feature is therefore not a guaranteed always-on service. It does not automatically connect, disconnect or replace VPNs.
+
+## URLTest relay selection
+
+The Servers screen can create or update the netpulse-auto-urltest sing-box urltest group when at least two concrete server outbounds are present. It uses a periodic HTTP health-check URL, interval and tolerance. The sing-box core evaluates each outbound and chooses a suitable route after the VPN starts.
+
+This measures reachability and latency to the configured HTTP health-check URL through each proxy. It is not latency to the actual game server. Existing route rules can still override the default final outbound.
 
 ## OpenVPN importer
 
-NetPulse converts compatible TLS-mode .ovpn files into a sing-box 1.14.4 endpoint. The import path accepts:
+NetPulse converts compatible TLS-mode .ovpn files into a sing-box 1.14.4 endpoint. The importer accepts UDP and TCP remotes, inline CA certificates, optional paired client certificate/private-key blocks, TLS control wrapping, username/password, common cipher, MTU/MSS, keepalive, route, redirect-gateway, route-nopull and pull-filter settings. It configures the sing-box OpenVPN DNS adapter for resolvers pushed by the server and sets the profile's default route to the OpenVPN endpoint.
 
-- UDP and TCP remotes, including multiple remote entries.
-- Inline CA certificates.
-- Optional paired inline client certificate and private key.
-- Inline tls-auth, tls-crypt, and tls-crypt-v2 control wrapping.
-- Username/password authentication entered in the app, or inline credentials.
-- Common TLS minimum, data cipher, auth, MTU, MSS, keepalive, route, redirect-gateway, route-nopull and pull-filter settings.
-- DNS resolution through the resolvers pushed by the OpenVPN server, using sing-box's OpenVPN DNS server adapter.
-- IPv6 blocking when a default IPv4 tunnel is requested without an IPv6 route, to avoid silently leaking IPv6 traffic outside the tunnel.
-
-The generated route points to the OpenVPN endpoint itself. A profile is not considered ready until libbox accepts the generated JSON.
-
-This is not a full OpenVPN directive interpreter. External file paths, PKCS#12 bundles, static-key mode, shell scripts, plugins, management interfaces, compression, external credential files and unsupported directives are rejected rather than ignored. Authentication flows that require interactive challenge/response beyond basic username/password are not implemented. Use a simplified TLS-mode profile or a complete compatible sing-box JSON config when a directive is outside the supported subset.
+External file references, PKCS#12 bundles, static-key mode, scripts/plugins, management interfaces, compression, external auth files and unsupported directives are rejected rather than silently ignored. This is a conservative subset of OpenVPN, not a full directive interpreter.
 
 ## Native IKEv2
 
-IKEv2 does not use the sing-box engine. NetPulse provisions a platform Ikev2VpnProfile through Android VpnManager, handles the system consent activity, starts/stops the provisioned session and polls platform state where the Android API exposes it.
+IKEv2 uses Android's VpnManager and Ikev2VpnProfile, not the sing-box engine. NetPulse provisions the profile, handles system consent, starts/stops the session and polls platform state where exposed. It supports EAP-MSCHAPv2 and PSK. A PEM Root CA can be supplied for EAP; a custom Root CA with PSK is rejected.
 
-Supported authentication modes are:
+IKEv2 remains full-device routing. The current Android IKEv2 profile API does not expose a per-app allowlist equivalent to VpnService.Builder. The app refuses to start IKEv2 while Game-only is enabled.
 
-- EAP-MSCHAPv2 username/password.
-- Pre-shared key (PSK).
+Android 11 and 12 do not expose the same detailed provisioned-profile state as later versions. NetPulse reports an unverified active VPN conservatively and does not label an unknown VPN as its own IKEv2 tunnel.
 
-A PEM Root CA can be supplied for EAP authentication. The Android platform API does not support attaching a custom root CA to the PSK profile path, so that combination is rejected. Credentials are serialized only into the encrypted profile store.
+## Diagnostics
 
-The feature is not exposed on devices that do not report IPsec tunnel support. On Android 11 and 12, the public API does not provide the same detailed provisioned-profile state that later Android versions expose; the dashboard therefore reports uncertainty conservatively where it cannot determine the owning VPN.
+The game-target test measures TCP connection-establishment time to a user-specified host and port via the physical Network and VPN Network. It reuses one resolved IP so the direct and VPN results are comparable. It reports successful attempts, median, sequential variation and failed connects; it is not a generic UDP test.
 
-## Per-app gaming mode
+The UDP test uses STUN Binding request/response samples. RFC 3550-style jitter is estimated from consecutive successful RTT samples. STUN timeout ratio is not actual game packet loss.
 
-Game-only is implemented through Android VpnService.Builder package allowlisting and applies only to sing-box. NetPulse itself is temporarily added to the allowlist for its own diagnostics. WireGuard and native IKEv2 are full-device tunnel engines in this app.
+No generic third-party API can discover every proprietary game server or interpret every game's UDP protocol. Game-specific UDP ping and in-match packet loss require a compatible server-side echo/measurement endpoint or official game telemetry.
 
-Changing the game allowlist requires disconnecting and reconnecting sing-box. Unsupported or contradictory per-app route configurations are rejected instead of silently changing their meaning.
+## Security and verification
 
-## Security and limitations
-
-- VPN profiles are stored with AES-256-GCM and a non-exportable Android Keystore key in the app's private no-backup directory.
-- Profiles are validated before persistence and when restored.
-- Profile secrets are not written to diagnostic logs or exposed to dashboard JavaScript.
+- Profiles are stored with AES-256-GCM and a non-exportable Android Keystore key in the app's private no-backup directory.
+- Profiles are validated before persistence and on restore.
+- Credentials are not exposed to the WebView bridge or diagnostic log.
 - Android backup is disabled.
-- No public VPN endpoints or credentials are bundled.
-- The debug build is not a substitute for physical-device acceptance testing.
+- The regression suite verifies JavaScript, DOM IDs, native bridge actions, game-routing helpers and endpoint probe wiring.
+- CI builds the debug APK, runs Kotlin unit tests, checks the pinned libbox AAR checksum and inspects the Android binding API.
 
-## Verification status
-
-The automated pipeline runs the five-pass UI/bridge regression suite, Kotlin/JVM unit tests, debug APK assembly, pinned libbox AAR checksum verification and Android API inspection. These checks establish that the project compiles, tests pass and the artifact is built from the pinned libbox dependency. They do not prove that every VPN server, carrier, OEM firmware or Android foreground-service policy works on a physical device.
-
-Device acceptance should cover VPN consent, connect/disconnect cycles, Android 11-15 service behavior, IPv4/IPv6, DNS, cellular/Wi-Fi handoff, Game-only isolation, credential persistence, external VPN conflicts and actual gameplay.
+Automated checks do not replace physical-device acceptance. Verify VPN consent, service lifecycle, Android 11-15 behavior, IPv4/IPv6, DNS, Wi-Fi/mobile handoff, Game-only package isolation, server selection, UID traffic counters, external VPN conflicts and real gameplay on actual devices.
