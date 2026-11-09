@@ -2510,6 +2510,7 @@ class MainActivity : Activity() {
         // polling as soon as the activity leaves the foreground and publish a
         // null active-game state so the local session recorder closes cleanly.
         refreshHandler.removeCallbacks(gameDetectionTick)
+        usageEventCursorMs = 0L
         if (activeGamePackage != null) {
             activeGamePackage = null
             activeGameLabel = null
