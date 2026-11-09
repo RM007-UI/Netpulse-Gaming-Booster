@@ -26,6 +26,9 @@ object GamingProfileConfigurator {
             val inbound = inbounds.optJSONObject(index) ?: continue
             if (!inbound.optString("type").equals("tun", ignoreCase = true)) continue
             tunCount++
+            require(inbound.optBoolean("auto_route", false)) {
+                "The TUN inbound must enable auto_route for Android per-app routing"
+            }
 
             val include = JSONArray()
             selectedPackages.sorted().forEach(include::put)
