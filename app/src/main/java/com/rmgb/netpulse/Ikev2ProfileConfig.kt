@@ -43,6 +43,9 @@ data class Ikev2ProfileConfig(
             Ikev2AuthMethod.PRE_SHARED_KEY -> {
                 require(preSharedKey.length in 8..512) { "IKEv2 pre-shared key must contain between 8 and 512 characters" }
                 require(username.isEmpty() && password.isEmpty()) { "Do not combine a PSK with EAP credentials" }
+                require(serverRootCaPem.isBlank()) {
+                    "A custom root CA is supported only with EAP authentication in the Android IKEv2 API"
+                }
             }
         }
         if (serverRootCaPem.isNotBlank()) parseRootCertificate(serverRootCaPem)
