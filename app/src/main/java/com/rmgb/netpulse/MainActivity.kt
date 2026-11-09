@@ -1012,60 +1012,85 @@ class MainActivity : Activity() {
     }
 
     private fun startSingBoxService(profile: String? = (application as NetPulseApplication).loadedSingBoxProfile) {
-        if (profile.isNullOrBlank()) return
-        val profileForStart = try {
-            if (isGamingOnlyEnabled()) {
-                // Android VpnService.Builder rejects packages that were removed since
-                // the user last saved the allowlist. Prune stale selections before TUN setup.
-                val requested = selectedGamingPackages()
-                val installed = launchableApps().map { it.packageName }.toSet()
-                val validSelection = requested.intersect(installed)
-                if (validSelection != requested) {
-                    gamingPreferences.edit().putStringSet(GAMING_PACKAGES_KEY, validSelection).apply()
-                    publishNativeState()
-                    postWebMessage("بعضی برنامه‌های حذف‌شده از فهرست بازی پاک شدند.")
+        if (profile.isNullOrBlank() || singBoxStarting) return
+
+        // Profile transformation and libbox validation can be expensive for large
+        // JSON configs. Keep both off the UI thread so the dashboard remains responsive.
+        singBoxStarting = true
+        singBoxButton.isEnabled = false
+        singBoxButton.text = "Validating…"
+        singBoxStatus.text = "Preparing sing-box profile…"
+
+        worker.execute {
+            val prepared = runCatching {
+                val profileForStart = if (isGamingOnlyEnabled()) {
+                    // Android VpnService.Builder rejects packages that were removed since
+                    // the user last saved the allowlist. Prune stale selections before TUN setup.
+                    val requested = selectedGamingPackages()
+                    val installed = launchableApps().map { it.packageName }.toSet()
+                    val validSelection = requested.intersect(installed)
+                    if (validSelection != requested) {
+                        gamingPreferences.edit().putStringSet(GAMING_PACKAGES_KEY, validSelection).apply()
+                        publishNativeState()
+                        postWebMessage("بعضی برنامه‌های حذف‌شده از فهرست بازی پاک شدند.")
+                    }
+                    require(validSelection.isNotEmpty()) {
+                        "No selected game is currently installed. Choose an installed game first."
+                    }
+                    // Include NetPulse itself only for its diagnostic sockets, so the
+                    // VPN-bound UDP probe can actually traverse this per-app allowlist.
+                    GamingProfileConfigurator.withGameOnlyRouting(profile, validSelection + packageName)
+                } else {
+                    profile
                 }
-                require(validSelection.isNotEmpty()) {
-                    "No selected game is currently installed. Choose an installed game first."
-                }
-                // Include NetPulse itself only for its diagnostic sockets, so the
-                // VPN-bound UDP probe can actually traverse this per-app allowlist.
-                GamingProfileConfigurator.withGameOnlyRouting(profile, validSelection + packageName)
-            } else {
-                profile
+                Libbox.checkConfig(profileForStart)
+                profileForStart
             }
-        } catch (error: Exception) {
-            singBoxStatus.text = "Gaming profile setup failed"
-            postWebMessage("حالت بازی روی این پروفایل قابل اعمال نیست: " + (error.message ?: error.javaClass.simpleName))
-            return
-        }
-        try {
-            Libbox.checkConfig(profileForStart)
-        } catch (error: Exception) {
-            singBoxStatus.text = "Profile validation failed"
-            postWebMessage("پروفایل پس از اعمال تنظیمات بازی معتبر نماند.")
-            return
-        }
-        if (!VpnEngineCoordinator.acquire(VpnEngineCoordinator.Engine.SING_BOX)) {
-            singBoxStatus.text = "Another VPN engine is active. Disconnect it first."
-            Toast.makeText(this, "Another VPN engine is active", Toast.LENGTH_LONG).show()
-            return
-        }
-        val intent = Intent(this, SingBoxVpnService::class.java).putExtra(SingBoxVpnService.EXTRA_PROFILE, profileForStart)
-        try {
-            if (android.os.Build.VERSION.SDK_INT >= 26) startForegroundService(intent) else startService(intent)
-            singBoxStarting = true
-            singBoxButton.isEnabled = false
-            singBoxButton.text = "Starting…"
-            singBoxStatus.text = "Starting sing-box…"
-        } catch (error: Exception) {
-            VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.SING_BOX)
-            singBoxConnected = false
-            singBoxStarting = false
-            singBoxButton.isEnabled = true
-            singBoxButton.text = "Connect sing-box"
-            singBoxStatus.text = "sing-box failed to start"
-            Toast.makeText(this, "sing-box could not start", Toast.LENGTH_LONG).show()
+
+            runOnUiThread {
+                if (isDestroyed) return@runOnUiThread
+
+                val profileForStart = prepared.getOrElse { error ->
+                    singBoxStarting = false
+                    singBoxButton.isEnabled = true
+                    singBoxButton.text = "Connect sing-box"
+                    singBoxStatus.text = "Profile validation failed"
+                    postWebMessage(
+                        "پروفایل برای اتصال آماده نشد: " +
+                            (error.message ?: error.javaClass.simpleName)
+                    )
+                    return@runOnUiThread
+                }
+
+                if (!VpnEngineCoordinator.acquire(VpnEngineCoordinator.Engine.SING_BOX)) {
+                    singBoxStarting = false
+                    singBoxButton.isEnabled = true
+                    singBoxButton.text = "Connect sing-box"
+                    singBoxStatus.text = "Another VPN engine is active. Disconnect it first."
+                    Toast.makeText(this, "Another VPN engine is active", Toast.LENGTH_LONG).show()
+                    return@runOnUiThread
+                }
+
+                val intent = Intent(this, SingBoxVpnService::class.java)
+                    .putExtra(SingBoxVpnService.EXTRA_PROFILE, profileForStart)
+                try {
+                    if (android.os.Build.VERSION.SDK_INT >= 26) {
+                        startForegroundService(intent)
+                    } else {
+                        startService(intent)
+                    }
+                    singBoxButton.text = "Starting…"
+                    singBoxStatus.text = "Starting sing-box…"
+                } catch (error: Exception) {
+                    VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.SING_BOX)
+                    singBoxConnected = false
+                    singBoxStarting = false
+                    singBoxButton.isEnabled = true
+                    singBoxButton.text = "Connect sing-box"
+                    singBoxStatus.text = "sing-box failed to start"
+                    postWebMessage("شروع سرویس VPN ناموفق بود: " + error.javaClass.simpleName)
+                }
+            }
         }
     }
 
