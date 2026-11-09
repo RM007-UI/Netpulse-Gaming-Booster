@@ -87,9 +87,7 @@ class MainActivity : Activity() {
     private lateinit var downloadRate: TextView
     private lateinit var uploadRate: TextView
     private lateinit var totalTraffic: TextView
-    private var lastNetworkRx = -1L
-    private var lastNetworkTx = -1L
-    private var lastNetworkSampleAt = 0L
+    private val trafficRateCalculator = TrafficRateCalculator()
     private var networkDownBytesPerSecond = 0L
     private var networkUpBytesPerSecond = 0L
     private lateinit var webView: WebView
@@ -584,29 +582,35 @@ class MainActivity : Activity() {
     }
 
     private fun updateNetworkMetrics() {
-        if (!::networkSummary.isInitialized) return
-
+        // The visible dashboard is a WebView. These legacy native TextViews are not
+        // attached to the current layout, so telemetry calculation must never depend
+        // on their initialization.
         val now = SystemClock.elapsedRealtime()
         val rx = TrafficStats.getTotalRxBytes()
         val tx = TrafficStats.getTotalTxBytes()
-        if (rx >= 0L && tx >= 0L) {
-            val elapsed = now - lastNetworkSampleAt
-            networkDownBytesPerSecond = if (lastNetworkRx >= 0L && elapsed > 0L) {
-                ((rx - lastNetworkRx).coerceAtLeast(0L) * 1000L) / elapsed
-            } else 0L
-            networkUpBytesPerSecond = if (lastNetworkTx >= 0L && elapsed > 0L) {
-                ((tx - lastNetworkTx).coerceAtLeast(0L) * 1000L) / elapsed
-            } else 0L
-            downloadRate.text = formatRate(networkDownBytesPerSecond)
-            uploadRate.text = formatRate(networkUpBytesPerSecond)
-            totalTraffic.text = "↓ " + formatBytes(rx) + "     ↑ " + formatBytes(tx)
-            lastNetworkRx = rx
-            lastNetworkTx = tx
-            lastNetworkSampleAt = now
+        val sample = trafficRateCalculator.sample(rx, tx, now)
+
+        if (sample != null) {
+            networkDownBytesPerSecond = sample.downloadBytesPerSecond
+            networkUpBytesPerSecond = sample.uploadBytesPerSecond
+            if (::downloadRate.isInitialized) {
+                downloadRate.text = formatRate(networkDownBytesPerSecond)
+            }
+            if (::uploadRate.isInitialized) {
+                uploadRate.text = formatRate(networkUpBytesPerSecond)
+            }
+            if (::totalTraffic.isInitialized) {
+                totalTraffic.text = "↓ " + formatBytes(rx) + "     ↑ " + formatBytes(tx)
+            }
         } else {
-            downloadRate.text = "Unavailable"
-            uploadRate.text = "Unavailable"
-            totalTraffic.text = "Traffic counters are not exposed on this device."
+            networkDownBytesPerSecond = 0L
+            networkUpBytesPerSecond = 0L
+            trafficRateCalculator.reset()
+            if (::downloadRate.isInitialized) downloadRate.text = "Unavailable"
+            if (::uploadRate.isInitialized) uploadRate.text = "Unavailable"
+            if (::totalTraffic.isInitialized) {
+                totalTraffic.text = "Traffic counters are not exposed on this device."
+            }
         }
 
         val manager = getSystemService(ConnectivityManager::class.java)
@@ -620,21 +624,28 @@ class MainActivity : Activity() {
         }
         val hasInternet = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
         val validated = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
-        networkBadge.text = when {
-            validated -> "ONLINE"
-            hasInternet -> "CHECK CONNECTION"
-            else -> "OFFLINE"
+
+        if (::networkBadge.isInitialized) {
+            networkBadge.text = when {
+                validated -> "ONLINE"
+                hasInternet -> "CHECK CONNECTION"
+                else -> "OFFLINE"
+            }
+            networkBadge.background = roundedBackground(
+                if (validated) Color.rgb(18, 62, 58) else Color.rgb(64, 48, 34),
+                40f,
+                if (validated) Color.rgb(36, 112, 97) else Color.rgb(116, 83, 50)
+            )
+            networkBadge.setTextColor(
+                if (validated) Color.rgb(112, 242, 198) else Color.rgb(255, 198, 116)
+            )
         }
-        networkBadge.background = roundedBackground(
-            if (validated) Color.rgb(18, 62, 58) else Color.rgb(64, 48, 34),
-            40f,
-            if (validated) Color.rgb(36, 112, 97) else Color.rgb(116, 83, 50)
-        )
-        networkBadge.setTextColor(if (validated) Color.rgb(112, 242, 198) else Color.rgb(255, 198, 116))
-        networkSummary.text = when {
-            validated -> transport + " · internet access verified by Android"
-            hasInternet -> transport + " · internet access is not yet verified"
-            else -> "No validated internet connection detected."
+        if (::networkSummary.isInitialized) {
+            networkSummary.text = when {
+                validated -> transport + " · internet access verified by Android"
+                hasInternet -> transport + " · internet access is not yet verified"
+                else -> "No validated internet connection detected."
+            }
         }
         publishNativeState()
     }
