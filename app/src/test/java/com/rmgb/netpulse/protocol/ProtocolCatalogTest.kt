@@ -28,6 +28,12 @@ class ProtocolCatalogTest {
         assertTrue(socks5.description.contains("sing-box"))
     }
 
+    @Test fun newlySupportedShareLinkProtocolsAreAdvertised() {
+        assertEquals(EngineState.AVAILABLE, ProtocolCatalog.options.single { it.id == "hysteria" }.engineState)
+        assertEquals(EngineState.AVAILABLE, ProtocolCatalog.options.single { it.id == "anytls" }.engineState)
+        assertEquals(EngineState.AVAILABLE, ProtocolCatalog.options.single { it.id == "naive" }.engineState)
+    }
+
     @Test fun openVpnAndIkev2AreNotFalselyMarkedAsIntegrated() {
         assertTrue(ProtocolCatalog.options.single { it.id == "openvpn_udp" }.engineState != EngineState.AVAILABLE)
         assertTrue(ProtocolCatalog.options.single { it.id == "ikev2_ipsec" }.engineState != EngineState.AVAILABLE)
