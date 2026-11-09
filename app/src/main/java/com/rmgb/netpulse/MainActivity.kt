@@ -6,6 +6,15 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.IntentFilter
 import android.net.VpnService
+import android.net.VpnManager
+import android.net.VpnProfileState
+import android.os.Build
+import android.content.pm.PackageManager
+import android.text.InputType
+import android.widget.EditText
+import android.widget.RadioGroup
+import android.widget.RadioButton
+import android.app.AlertDialog
 import android.os.Bundle
 import android.widget.Button
 import android.widget.LinearLayout
@@ -57,6 +66,10 @@ class MainActivity : Activity() {
     private lateinit var singBoxStatus: TextView
     private lateinit var singBoxButton: Button
     @Volatile private var singBoxConnected = false
+    @Volatile private var ikev2Connected = false
+    @Volatile private var ikev2Starting = false
+    private var ikev2ConsentPending = false
+    private var ikev2PollCount = 0
     private var singBoxStarting = false
     private var singBoxReceiverRegistered = false
     private val singBoxStateReceiver = object : BroadcastReceiver() {
@@ -103,6 +116,12 @@ class MainActivity : Activity() {
         override fun run() {
             updateNetworkMetrics()
             if (liveRefreshEnabled) refreshHandler.postDelayed(this, 1000L)
+        }
+    }
+
+    private val ikev2StateTick = object : Runnable {
+        override fun run() {
+            refreshIkev2State()
         }
     }
 
@@ -191,6 +210,12 @@ class MainActivity : Activity() {
 
         initializeRefreshRateControls()
         updateNetworkMetrics()
+        refreshIkev2State()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshIkev2State()
     }
 
     inner class NetPulseBridge {
@@ -230,6 +255,8 @@ class MainActivity : Activity() {
                     "saveGamingApps" -> saveGamingApps(value)
                     "selectServer" -> selectSingBoxServer(value)
                     "clearProfiles" -> confirmClearSavedProfiles()
+                    "configureIkev2" -> showIkev2ProfileDialog()
+                    "toggleIkev2" -> toggleIkev2()
                     else -> postWebMessage("این عملیات هنوز پشتیبانی نمی‌شود.")
                 }
             }
@@ -271,6 +298,11 @@ class MainActivity : Activity() {
             .put("singboxProfileReady", (application as NetPulseApplication).loadedSingBoxProfile != null)
             .put("singboxProtocol", (application as NetPulseApplication).loadedSingBoxProtocol ?: JSONObject.NULL)
             .put("singboxDisplayName", (application as NetPulseApplication).loadedSingBoxDisplayName ?: JSONObject.NULL)
+            .put("ikev2Connected", ikev2Connected)
+            .put("ikev2Starting", ikev2Starting)
+            .put("ikev2ProfileReady", (application as NetPulseApplication).loadedIkev2Config != null)
+            .put("ikev2Server", (application as NetPulseApplication).loadedIkev2Config?.serverAddress ?: JSONObject.NULL)
+            .put("ikev2Supported", isIkev2Supported())
             .put("gameOnlyEnabled", isGamingOnlyEnabled())
             .put("selectedGameCount", selectedGamingPackages().size)
             .put("rootGranted", refreshRootGranted)
