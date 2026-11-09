@@ -7,7 +7,7 @@ NetPulse embeds the Android libbox 1.14.4 AAR and runs sing-box through its own 
 The current path is:
 
 1. The Activity accepts a user-supplied sing-box JSON configuration or one supported share link and checks its size/encoding.
-2. `SingBoxProfileImporter` normalizes supported proxy share links into a TUN profile. `OpenVpnProfileImporter` parses a conservative TLS-mode `.ovpn` subset into a sing-box 1.14.4 `openvpn-client` endpoint and sets the route default to that endpoint. Custom JSON is kept as a full profile; a TUN inbound is added only when one is missing.
+2. `SingBoxProfileImporter` normalizes supported proxy share links into a TUN profile. `OpenVpnProfileImporter` parses a conservative TLS-mode `.ovpn` subset into a sing-box 1.14.4 `openvpn-client` endpoint, configures sing-box's OpenVPN DNS adapter for resolvers pushed by the server, and sets the route default to that endpoint. Custom JSON is kept as a full profile; a TUN inbound is added only when one is missing.
 3. `Libbox.checkConfig` validates the imported profile before it is accepted.
 4. The validated profile is encrypted with AES-256-GCM using a non-exportable Android Keystore key and stored in the app's private no-backup directory. The profile is decrypted and validated again when the app process starts. WireGuard profile text is persisted through the same encrypted store.
 5. The user taps Connect, Android VPN consent is requested if needed, and the app starts its foreground VPN service.
