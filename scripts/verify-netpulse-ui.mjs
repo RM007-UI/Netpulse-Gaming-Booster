@@ -18,6 +18,7 @@ const wireGuardGame = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/WireG
 const tcpEndpoint = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/TcpEndpointProbe.kt", "utf8");
 const udpEchoProbe = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/UdpEchoProbe.kt", "utf8");
 const udpEchoCodec = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/UdpEchoPacketCodec.kt", "utf8");
+const vpnGateCatalog = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/VpnGateCatalog.kt", "utf8");
 const manifest = fs.readFileSync("app/src/main/AndroidManifest.xml", "utf8");
 const scripts = html.split("<script>").slice(1).map(part => part.split("</script>")[0]);
 assert.equal(scripts.length, 1, "Expected one bundled application script");
@@ -55,7 +56,7 @@ const actions = [
   "importWireGuard", "toggleWireGuard", "importSingBox", "toggleSingBox",
   "applyRefreshRate", "restoreRefreshRate", "checkRoot", "refresh",
   "setLiveRefresh", "testLatency", "testUdpRoutes", "testGameServer", "testGameUdpEcho",
-  "toggleGamingMode", "saveGameRoutes", "selectServer", "autoSelectServer",
+  "toggleGamingMode", "saveGameRoutes", "selectServer", "autoSelectServer", "loadPublicVpnServers", "connectPublicVpnServer",
   "toggleAutoGameDetection", "clearProfiles", "configureIkev2", "toggleIkev2"
 ];
 for (const action of actions) {
@@ -82,6 +83,22 @@ assert.match(activity, /loadedSingBoxProfile\.isNullOrBlank\(\) && app\.loadedWi
 assert.match(activity, /WireGuard connected · Game-only/);
 assert.match(wireGuardGame, /includeApplications\(selectedPackages\.sorted\(\)\)/);
 assert.match(wireGuardGame, /addPeers\(config\.getPeers\(\)\)/);
+
+// One-tap community relay mode fetches only the official VPN Gate HTTPS directory.
+assert.match(activity, /private fun loadPublicVpnServers\(\)/);
+assert.match(activity, /VpnGateCatalog\.fetch\(\)/);
+assert.match(activity, /OpenVpnCredentials\("vpn", "vpn"\)/);
+assert.match(activity, /connectAfterImport = true/);
+assert.match(activity, /publicVpnGateServers\.firstOrNull/);
+assert.match(vpnGateCatalog, /https:\/\/www\.vpngate\.net\/api\/iphone\//);
+assert.match(vpnGateCatalog, /instanceFollowRedirects = false/);
+assert.match(vpnGateCatalog, /OpenVPN_ConfigData_Base64/);
+assert.match(html, /id="publicVpnList"/);
+assert.match(html, /id="publicVpnQuickConnect"/);
+assert.match(js, /function loadPublicVpnServers\(\)/);
+assert.match(js, /function netPulseVpnGateServerList\(result\)/);
+assert.match(js, /vpn\.vpngate\.net|VPN Gate/);
+assert.match(activity, /سیاست ثبت گزارش تا ۲ هفته/);
 
 // Automatic relay selection is a real sing-box URLTest group, not a static ping label.
 assert.match(autoServer, /"type", "urltest"/);
@@ -219,5 +236,5 @@ assert.match(activity, /settings\.blockNetworkLoads = true/);
 assert.match(activity, /file:\/\/\/android_asset\/netpulse\/index\.html/);
 assert.match(html, /v0\.6\.2/);
 console.log("PASS 5/5 — mobile navigation, local storage fallback and WebView isolation verified");
-assert.ok(html.includes("v0.6.2"), "Dashboard release badge must match version 0.6.2");
+assert.ok(html.includes("v0.6.3"), "Dashboard release badge must match version 0.6.2");
 console.log("NetPulse UI regression checks: 5/5 passed");
