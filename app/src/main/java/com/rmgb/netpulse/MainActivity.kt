@@ -925,10 +925,14 @@ class MainActivity : Activity() {
                 runOnUiThread {
                     if (!isDestroyed) {
                         publishNativeState()
+                        val saveStatus = if (persisted) {
+                            " ذخیره رمزگذاری‌شده شد."
+                        } else {
+                            " ذخیره امن انجام نشد."
+                        }
                         postWebMessage(
                             "مسیر پیش‌فرض روی «" + selected.tag + "» قرار گرفت." +
-                                if (persisted) " ذخیره رمزگذاری‌شده شد." else " ذخیره امن انجام نشد." +
-                                " برای اعمال تغییر، sing-box را وصل کن."
+                                saveStatus + " برای اعمال تغییر، sing-box را وصل کن."
                         )
                     }
                 }
@@ -1091,12 +1095,12 @@ class MainActivity : Activity() {
                     if (content.isBlank()) throw IllegalArgumentException("Profile is empty")
                     val imported = SingBoxProfileImporter.importProfile(content)
                     Libbox.checkConfig(imported.json)
+                    val app = application as NetPulseApplication
+                    app.loadedSingBoxProfile = imported.json
+                    app.loadedSingBoxProtocol = imported.protocol
+                    app.loadedSingBoxDisplayName = imported.displayName
+                    val persisted = app.persistProfiles()
                     runOnUiThread {
-                        val app = application as NetPulseApplication
-                        app.loadedSingBoxProfile = imported.json
-                        app.loadedSingBoxProtocol = imported.protocol
-                        app.loadedSingBoxDisplayName = imported.displayName
-                        val persisted = app.persistProfiles()
                         updateSingBoxStatus(imported.protocol + " · profile validated")
                         if (!persisted) postWebMessage("پروفایل وارد شد، اما ذخیره امن آن انجام نشد.")
                         singBoxButton.isEnabled = true
