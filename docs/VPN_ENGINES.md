@@ -21,6 +21,7 @@ NetPulse converts compatible TLS-mode .ovpn files into a sing-box 1.14.4 endpoin
 - Inline tls-auth, tls-crypt, and tls-crypt-v2 control wrapping.
 - Username/password authentication entered in the app, or inline credentials.
 - Common TLS minimum, data cipher, auth, MTU, MSS, keepalive, route, redirect-gateway, route-nopull and pull-filter settings.
+- DNS resolution through the resolvers pushed by the OpenVPN server, using sing-box's OpenVPN DNS server adapter.
 - IPv6 blocking when a default IPv4 tunnel is requested without an IPv6 route, to avoid silently leaking IPv6 traffic outside the tunnel.
 
 The generated route points to the OpenVPN endpoint itself. A profile is not considered ready until libbox accepts the generated JSON.
