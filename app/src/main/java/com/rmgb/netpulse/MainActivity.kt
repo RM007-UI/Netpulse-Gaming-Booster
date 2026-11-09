@@ -78,6 +78,11 @@ class MainActivity : Activity() {
     private var singBoxStarting = false
     private var singBoxReceiverRegistered = false
     @Volatile private var activeGamePackage: String? = null
+    @Volatile private var activeGameDownloadBps: Long? = null
+    @Volatile private var activeGameUploadBps: Long? = null
+    private var activeGameRxLast = -1L
+    private var activeGameTxLast = -1L
+    private var activeGameSampleAtMs = 0L
     @Volatile private var usageAccessSetupPending = false
     private var usageEventCursorMs = 0L
     private val gameDetectionTick = object : Runnable {
@@ -332,6 +337,8 @@ class MainActivity : Activity() {
                 launchableApps().firstOrNull { it.packageName == pkg }?.label
             } ?: JSONObject.NULL)
             .put("activeGameSelected", activeGamePackage in selectedGamingPackages())
+            .put("activeGameDownloadMbps", activeGameDownloadBps?.let { it * 8.0 / 1_000_000.0 } ?: JSONObject.NULL)
+            .put("activeGameUploadMbps", activeGameUploadBps?.let { it * 8.0 / 1_000_000.0 } ?: JSONObject.NULL)
             .put("rootGranted", refreshRootGranted)
             .put("refreshRates", JSONArray(supported))
             .put("currentRefreshRate", refresh)
@@ -831,20 +838,65 @@ class MainActivity : Activity() {
         }
         usageEventCursorMs = now
 
-        if (!observedForegroundChange) return
-        val app = candidate?.let { pkg -> launchableApps().firstOrNull { it.packageName == pkg } }
-        val detectedPackage = app?.takeIf { it.isGame || it.packageName in selectedGamingPackages() }?.packageName
-        if (detectedPackage != activeGamePackage) {
-            activeGamePackage = detectedPackage
-            publishNativeState()
-            detectedPackage?.let { pkg ->
-                postWebMessage(
-                    "بازی پیش‌زمینه شناسایی شد: " +
-                        (app?.label ?: pkg) +
-                        if (pkg in selectedGamingPackages()) " · در فهرست Game-only است." else " · هنوز در فهرست Game-only انتخاب نشده است."
-                )
+        if (observedForegroundChange) {
+            val app = candidate?.let { pkg -> launchableApps().firstOrNull { it.packageName == pkg } }
+            val detectedPackage = app?.takeIf { it.isGame || it.packageName in selectedGamingPackages() }?.packageName
+            if (detectedPackage != activeGamePackage) {
+                activeGamePackage = detectedPackage
+                activeGameRxLast = -1L
+                activeGameTxLast = -1L
+                activeGameSampleAtMs = 0L
+                activeGameDownloadBps = null
+                activeGameUploadBps = null
+                publishNativeState()
+                detectedPackage?.let { pkg ->
+                    postWebMessage(
+                        "بازی پیش‌زمینه شناسایی شد: " +
+                            (app?.label ?: pkg) +
+                            if (pkg in selectedGamingPackages()) " · در فهرست Game-only است." else " · هنوز در فهرست Game-only انتخاب نشده است."
+                    )
+                }
             }
         }
+        updateActiveGameTraffic()
+    }
+
+    private fun updateActiveGameTraffic() {
+        val appPackage = activeGamePackage ?: run {
+            activeGameRxLast = -1L
+            activeGameTxLast = -1L
+            activeGameSampleAtMs = 0L
+            activeGameDownloadBps = null
+            activeGameUploadBps = null
+            return
+        }
+        val uid = runCatching {
+            packageManager.getApplicationInfo(appPackage, 0).uid
+        }.getOrNull() ?: return
+        val rx = TrafficStats.getUidRxBytes(uid)
+        val tx = TrafficStats.getUidTxBytes(uid)
+        val now = SystemClock.elapsedRealtime()
+        if (rx < 0L || tx < 0L) {
+            activeGameDownloadBps = null
+            activeGameUploadBps = null
+            publishNativeState()
+            return
+        }
+        val elapsed = now - activeGameSampleAtMs
+        activeGameDownloadBps = if (activeGameRxLast >= 0L && rx >= activeGameRxLast && elapsed > 0L) {
+            ((rx - activeGameRxLast) * 1000L) / elapsed
+        } else {
+            0L
+        }
+        activeGameUploadBps = if (activeGameTxLast >= 0L && tx >= activeGameTxLast && elapsed > 0L) {
+            ((tx - activeGameTxLast) * 1000L) / elapsed
+        } else {
+            0L
+        }
+        activeGameRxLast = rx
+        activeGameTxLast = tx
+        activeGameSampleAtMs = now
+        publishNativeState()
     }
 
     private fun launchableApps(): List<LaunchableApp> {
