@@ -83,7 +83,7 @@ assert.match(activity, /trafficRateCalculator\.sample\(rx, tx, now\)/);
 assert.doesNotMatch(activity, /if \(!::networkSummary\.isInitialized\) return/);
 assert.match(traffic, /fun sample\(rxBytes: Long, txBytes: Long, atElapsedMs: Long\)/);
 assert.match(secureStore, /AndroidKeyStore/);
-assert.match(secureStore, /AES\/GCM\/NoPadding/);
+assert.ok(secureStore.includes("AES/GCM/NoPadding"));
 assert.match(secureStore, /context\.noBackupFilesDir/);
 assert.match(secureStore, /file\.finishWrite\(output\)/);
 assert.match(application, /fun persistProfiles\(\): Boolean/);
