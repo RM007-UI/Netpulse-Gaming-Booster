@@ -307,6 +307,12 @@ class MainActivity : Activity() {
             .put("ikev2ProfileReady", (application as NetPulseApplication).loadedIkev2Config != null)
             .put("ikev2Server", (application as NetPulseApplication).loadedIkev2Config?.serverAddress ?: JSONObject.NULL)
             .put("ikev2Supported", isIkev2Supported())
+            .put(
+                "ikev2StatusUnverified",
+                Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU &&
+                    (application as NetPulseApplication).loadedIkev2Config != null &&
+                    isIkev2PlatformActive() && !ikev2Connected
+            )
             .put("gameOnlyEnabled", isGamingOnlyEnabled())
             .put("selectedGameCount", selectedGamingPackages().size)
             .put("rootGranted", refreshRootGranted)
@@ -906,7 +912,16 @@ class MainActivity : Activity() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "*/*"
-            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("application/json", "text/plain", "application/octet-stream"))
+            putExtra(
+                Intent.EXTRA_MIME_TYPES,
+                arrayOf(
+                    "application/json",
+                    "text/plain",
+                    "application/octet-stream",
+                    "application/x-openvpn-profile",
+                    "application/openvpn-profile"
+                )
+            )
         }
         startActivityForResult(intent, REQUEST_SINGBOX_PROFILE)
     }
@@ -1146,6 +1161,10 @@ class MainActivity : Activity() {
             stopIkev2()
             return
         }
+        if (isIkev2PlatformActive()) {
+            postWebMessage("یک تونل VPN دیگر در Android فعال است؛ ابتدا همان تونل را از تنظیمات سیستم قطع کن.")
+            return
+        }
         val config = (application as NetPulseApplication).loadedIkev2Config
         if (config == null) showIkev2ProfileDialog() else persistAndProvisionIkev2(config)
     }
@@ -1154,6 +1173,10 @@ class MainActivity : Activity() {
         val manager = vpnManager()
         if (manager == null || !isIkev2Supported()) {
             postWebMessage("IKEv2 به Android 11 یا جدیدتر و قابلیت IPsec دستگاه نیاز دارد.")
+            return
+        }
+        if (isIkev2PlatformActive()) {
+            postWebMessage("یک تونل VPN دیگر در Android فعال است؛ ابتدا همان تونل را قطع کن.")
             return
         }
         if (connected || SingBoxVpnService.isRunning || singBoxStarting ||
