@@ -36,7 +36,7 @@ NetPulse is a native Android VPN and gaming-network diagnostics app with a Persi
 - Target SDK: 35.
 - ABI: `arm64-v8a`.
 - JDK 17, Android SDK 35, and Gradle 8.9.
-- Current app version: **0.5.0** (versionCode 7). Run `gradle testDebugUnitTest assembleDebug`.
+- Current app version: **0.5.1** (versionCode 8). Run `gradle testDebugUnitTest assembleDebug`.
 - GitHub Actions runs the five-pass UI regression suite and unit tests, verifies the SHA-256 of the pinned libbox AAR, inspects its Android API, and uploads the `netpulse-debug` APK artifact.
 
 ## Privacy and security
