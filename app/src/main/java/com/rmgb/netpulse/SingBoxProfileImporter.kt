@@ -183,7 +183,7 @@ internal object SingBoxProfileImporter {
         var port = uri?.port ?: -1
         var methodPassword = ""
         if (!host.isNullOrBlank() && port in 1..65535) {
-            val user = decoded(uri.rawUserInfo)
+            val user = decoded(uri?.rawUserInfo)
             methodPassword = if (user.contains(':')) user else decodeBase64(user)
         } else {
             val decodedAuthority = decodeBase64(withoutQuery)
