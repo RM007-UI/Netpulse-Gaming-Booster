@@ -506,6 +506,7 @@ class MainActivity : Activity() {
             .put("medianMs", stats.medianMs ?: JSONObject.NULL)
             .put("maxMs", stats.maxMs ?: JSONObject.NULL)
             .put("variationMs", stats.variationMs ?: JSONObject.NULL)
+            .put("jitterMs", stats.jitterMs ?: JSONObject.NULL)
             .put("failurePercent", stats.failurePercent)
 
     private data class LaunchableApp(
