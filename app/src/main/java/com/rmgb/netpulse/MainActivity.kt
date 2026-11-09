@@ -901,6 +901,18 @@ class MainActivity : Activity() {
 
     private fun setGamingOnlyMode(rawEnabled: String?) {
         val enabled = rawEnabled.equals("true", ignoreCase = true)
+        if (enabled == isGamingOnlyEnabled()) {
+            postWebMessage(if (enabled) "حالت Game-only از قبل فعال است." else "حالت Game-only از قبل خاموش است.")
+            return
+        }
+        if (SingBoxVpnService.isRunning || singBoxStarting || connected || ikev2Connected || ikev2Starting) {
+            postWebMessage("برای تغییر Game-only ابتدا موتور VPN فعال را قطع کن؛ تنظیم جدید فقط هنگام ساخت تونل بعدی اعمال می‌شود.")
+            return
+        }
+        if (enabled && (application as NetPulseApplication).loadedSingBoxProfile.isNullOrBlank()) {
+            postWebMessage("Game-only فقط با موتور sing-box پشتیبانی می‌شود. ابتدا پروفایل sing-box وارد کن.")
+            return
+        }
         if (enabled && selectedGamingPackages().isEmpty()) {
             postWebMessage("ابتدا حداقل یک بازی را از فهرست برنامه‌ها انتخاب و ذخیره کن.")
             return
@@ -908,8 +920,8 @@ class MainActivity : Activity() {
         gamingPreferences.edit().putBoolean(GAMING_ONLY_KEY, enabled).apply()
         publishNativeState()
         postWebMessage(
-            if (enabled) "حالت Game-only فعال شد؛ هنگام اتصال WireGuard یا sing-box فقط برنامه‌های انتخاب‌شده از تونل عبور می‌کنند. IKEv2 همچنان تمام‌دستگاه است."
-            else "حالت Game-only خاموش شد؛ مسیر کامل موتور VPN اعمال می‌شود."
+            if (enabled) "Game-only برای اتصال بعدی sing-box فعال شد؛ فقط برنامه‌های انتخاب‌شده از تونل عبور می‌کنند. WireGuard و IKEv2 در این برنامه تمام‌دستگاه هستند."
+            else "Game-only برای اتصال بعدی sing-box خاموش شد؛ مسیر کامل موتور VPN اعمال می‌شود."
         )
     }
 
@@ -1308,12 +1320,12 @@ class MainActivity : Activity() {
             runOnUiThread {
                 if (isDestroyed) return@runOnUiThread
                 publishNativeState()
+                val nodeCount = SingBoxServerCatalog.list(updated).count { !it.group }
+                val saveStatus = if (persisted) "ذخیره رمزگذاری‌شده شد." else "هشدار: ذخیره امن ناموفق بود."
                 postWebMessage(
-                    "گروه انتخاب خودکار با " +
-                        SingBoxServerCatalog.list(updated).count { !it.group } +
-                        " نود ساخته شد. " +
-                        if (persisted) "ذخیره رمزگذاری‌شده شد. " else "ذخیره امن انجام نشد. " +
-                        "پس از اتصال sing-box، هسته به‌صورت دوره‌ای سرور سالم‌تر و کم‌تأخیرتر را انتخاب می‌کند. این سنجش معیار عمومی HTTP است، نه پینگ سرور بازی."
+                    "گروه انتخاب خودکار با $nodeCount نود ساخته شد. $saveStatus " +
+                        "پس از اتصال sing-box، هسته به‌صورت دوره‌ای سرور سالم‌تر و کم‌تأخیرتر را انتخاب می‌کند. " +
+                        "این سنجش معیار عمومی HTTP است، نه پینگ سرور بازی."
                 )
             }
         }
