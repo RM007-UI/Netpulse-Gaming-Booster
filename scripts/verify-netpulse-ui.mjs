@@ -106,7 +106,7 @@ assert.match(html, /function trackGameSession\(state\)/);
 assert.match(html, /function closeGameSession\(reason,endedAtOverride\)/);
 assert.match(html, /closeGameSession\('sampling-gap',activeGameSession\.lastSampleAt\)/);
 assert.match(html, /state\.activeGameDownloadMbps!==null/);
-assert.match(html, /setTimeout\(\(\)=>URL\.revokeObjectURL\(url\),1500\)/);
+assert.doesNotMatch(html, /URL\.createObjectURL/);
 assert.match(html, /function exportGameSessions\(\)/);
 assert.match(html, /nativeAction\('exportGameSessions',payload\)/);
 assert.doesNotMatch(html, /createObjectURL\(blob\)/);
