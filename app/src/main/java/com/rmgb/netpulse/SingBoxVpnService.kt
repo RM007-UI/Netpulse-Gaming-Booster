@@ -36,7 +36,12 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
     private val connectivity by lazy { getSystemService(ConnectivityManager::class.java) }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val profile = intent?.getStringExtra(EXTRA_PROFILE)
+        val app = application as NetPulseApplication
+        // Avoid putting potentially multi-megabyte JSON into an Intent Binder transaction.
+        // The Activity and Service share this process; the profile is handed off in memory.
+        val profile = app.pendingSingBoxServiceProfile
+            ?: intent?.getStringExtra(EXTRA_PROFILE)
+        app.pendingSingBoxServiceProfile = null
         if (profile.isNullOrBlank()) {
             stopSelf(startId)
             return START_NOT_STICKY
