@@ -14,7 +14,7 @@ object GamingProfileConfigurator {
 
     fun withGameOnlyRouting(profileJson: String, selectedPackages: Set<String>): String {
         require(selectedPackages.isNotEmpty()) { "Select at least one game before enabling game-only routing" }
-        require(selectedPackages.size <= 50) { "At most 50 apps can be selected" }
+        require(selectedPackages.size <= 51) { "Select at most 50 games plus the NetPulse diagnostics app" }
         require(selectedPackages.all { packagePattern.matches(it) }) { "The selected app list contains an invalid package name" }
 
         val root = JSONObject(profileJson)
