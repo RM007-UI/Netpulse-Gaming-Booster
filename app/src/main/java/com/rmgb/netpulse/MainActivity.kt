@@ -749,6 +749,7 @@ class MainActivity : Activity() {
         if (isUsageAccessGranted()) {
             gamingPreferences.edit().putBoolean(AUTO_GAME_DETECTION_KEY, true).apply()
             refreshHandler.removeCallbacks(gameDetectionTick)
+            usageEventCursorMs = 0L
             refreshHandler.post(gameDetectionTick)
             publishNativeState()
             postWebMessage("تشخیص خودکار بازی فعال شد؛ شناسایی برنامه فقط روی همین دستگاه انجام می‌شود.")
@@ -779,6 +780,11 @@ class MainActivity : Activity() {
         if (isAutoGameDetectionEnabled()) {
             gamingPreferences.edit().putBoolean(AUTO_GAME_DETECTION_KEY, false).apply()
             activeGamePackage = null
+            activeGameLabel = null
+            activeGameUid = -1
+            activeGameDownloadBps = null
+            activeGameUploadBps = null
+            usageEventCursorMs = 0L
             refreshHandler.removeCallbacks(gameDetectionTick)
             publishNativeState()
             postWebMessage("تشخیص خودکار بازی خاموش شد.")
@@ -2352,6 +2358,7 @@ class MainActivity : Activity() {
             activeGameUid = -1
             activeGameDownloadBps = null
             activeGameUploadBps = null
+            usageEventCursorMs = 0L
         }
         refreshHandler.removeCallbacks(networkTick)
         if (liveRefreshEnabled) refreshHandler.post(networkTick)
