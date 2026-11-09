@@ -41,7 +41,7 @@ object VpnGateCatalog {
             connection.readTimeout = READ_TIMEOUT_MS
             connection.useCaches = false
             connection.setRequestProperty("Accept", "text/csv,text/plain")
-            connection.setRequestProperty("User-Agent", "NetPulse-Android/0.6.2")
+            connection.setRequestProperty("User-Agent", "NetPulse-Android/0.6.3")
             val status = connection.responseCode
             require(status == HttpURLConnection.HTTP_OK) { "VPN Gate API returned HTTP $status; HTTPS redirects are not followed" }
             require(connection.url.protocol.equals("https", true)) { "VPN Gate directory must be fetched over HTTPS" }
