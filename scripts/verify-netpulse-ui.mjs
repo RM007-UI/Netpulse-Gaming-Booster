@@ -39,7 +39,7 @@ new vm.Script(js, { filename: "netpulse/index.html" });
 const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]));
 const referencedIds = [...new Set([...js.matchAll(/\$\('#([\w-]+)'\)/g)].map(m => m[1]))];
 for (const id of referencedIds) assert.ok(ids.has(id), `HTML selector points to missing element: ${id}`);
-const actions = ["importWireGuard", "toggleWireGuard", "importSingBox", "toggleSingBox", "applyRefreshRate", "restoreRefreshRate", "checkRoot", "refresh", "testLatency", "testUdpRoutes", "toggleGamingMode", "saveGamingApps", "selectServer", "setLiveRefresh"];
+const actions = ["importWireGuard", "toggleWireGuard", "importSingBox", "toggleSingBox", "applyRefreshRate", "restoreRefreshRate", "checkRoot", "refresh", "testLatency", "testUdpRoutes", "toggleGamingMode", "saveGamingApps", "selectServer", "setLiveRefresh", "clearProfiles"];
 for (const action of actions) {
   assert.ok(html.includes(`nativeAction('${action}'`) || js.includes(`nativeAction('${action}'`), `UI action missing: ${action}`);
   assert.ok(activity.includes(`"${action}" ->`), `Native bridge handler missing: ${action}`);
@@ -93,6 +93,9 @@ assert.match(secureStore, /context\.noBackupFilesDir/);
 assert.match(secureStore, /file\.finishWrite\(output\)/);
 assert.match(application, /fun persistProfiles\(\): Boolean/);
 assert.match(application, /private fun restoreProfiles\(\)/);
+assert.match(application, /fun clearStoredProfiles\(\): Boolean/);
+assert.match(activity, /private fun confirmClearSavedProfiles\(\)/);
+assert.match(html, /nativeAction\('clearProfiles'\)/);
 assert.match(application, /Libbox\.checkConfig\(raw\)/);
 assert.match(gamingConfigurator, /auto_route/);
 assert.match(vpnService, /Android 12 and earlier cannot enforce safely/);
