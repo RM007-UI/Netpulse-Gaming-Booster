@@ -1,51 +1,58 @@
 # NetPulse Gaming Booster
 
-NetPulse is a native Android VPN and gaming-network diagnostics app with a Persian RTL dashboard. It combines WireGuard and sing-box, game-only per-app routing, server selection, live traffic telemetry, and network-path measurements.
+NetPulse is an Android VPN and gaming-network diagnostics app with a Persian RTL dashboard. It combines WireGuard and sing-box, OpenVPN profile import, native IKEv2/IPsec, per-app routing, endpoint tests and live device telemetry.
 
 ## Implemented
 
-- **WireGuard:** imports and validates user-provided `.conf` files, then connects through the official Android tunnel library.
-- **sing-box VPN engine:** embeds the pinned Android libbox 1.14.4 engine in a foreground `VpnService`. It validates imported sing-box JSON and supported share links, establishes a TUN interface, and routes traffic through the selected outbound.
-- **Share-link import:** VLESS, VMess, Trojan, Shadowsocks, SOCKS5, Hysteria v1, Hysteria 2, TUIC, AnyTLS, NaiveProxy, and HTTP/HTTPS proxy links. Full sing-box JSON is also accepted for configurations supported by the bundled core.
-- **OpenVPN UDP/TCP:** imports a supported `.ovpn` TLS profile and creates a sing-box 1.14.4 `openvpn-client` endpoint. It also uses DNS resolvers pushed by the VPN server through sing-box's OpenVPN DNS adapter. User/password authentication can be entered in-app; inline CA and optional inline client certificate/key blocks are supported.
-- **Encrypted profile storage:** validated WireGuard, sing-box, and IKEv2 profiles are persisted inside the app's no-backup private directory using AES-256-GCM and a non-exportable Android Keystore key. Profiles are revalidated when restored after process recreation. Credentials are never written to logs.
-- **Server manager:** lists selectable server outbounds and selector/urltest groups from the loaded sing-box profile. Choosing a node updates `route.final` while preserving the rest of the config and its routing rules. Disconnect and reconnect sing-box to apply the new default route.
-- **Game-only routing:** select launcher-visible games/apps. With sing-box, only the selected package allowlist (plus NetPulse for its own UDP diagnostic sockets) is routed through the VPN. Other apps continue using Android's normal network. WireGuard remains full-device routing. The profile must use a TUN inbound with `auto_route: true`; configurations the Android VPN builder cannot enforce are rejected instead of silently weakened.
-- **Network diagnostics:** six TCP connection-establishment samples to `1.1.1.1:443`, plus five direct and five VPN UDP STUN samples to `stun.l.google.com:19302` when sing-box and Game-only mode are active. UDP results include median RTT, RFC 3550-style smoothed RTT jitter, and a probe timeout ratio.
-- **Traffic telemetry:** live device-wide upload/download rates calculated from monotonic Android `TrafficStats` counters, plus per-app UID counters where Android exposes them.
-- **Event history:** connection and diagnostic events are stored locally in a bounded 200-entry history and rendered with safe text-only DOM updates; users can search and clear the history.
-- **Display refresh controller:** lists panel modes and can apply/restore supported refresh rates with Root access. It does not invent unsupported panel modes.
-- **Dashboard:** eight screens for overview, analytics, devices, servers, alerts, speed tests, logs, and settings; navigation adapts to narrow mobile displays and Android system-bar insets.
+- **WireGuard:** validates user-provided .conf profiles and connects through the official Android tunnel library.
+- **sing-box:** embeds the pinned Android libbox 1.14.4 engine inside a foreground VpnService. Supports sing-box JSON and supported share links for VLESS, VMess, Trojan, Shadowsocks, SOCKS5, Hysteria v1/v2, TUIC, AnyTLS, NaiveProxy and HTTP/HTTPS proxy.
+- **OpenVPN UDP/TCP:** converts a supported TLS-mode .ovpn subset into a sing-box openvpn-client endpoint. Supports inline CA and optional client certificate/key, TLS control wrapping, basic username/password and DNS resolvers pushed by the server. Unsupported directives are rejected.
+- **Native IKEv2/IPsec:** uses Android VpnManager on Android 11+ devices advertising IPsec tunnel support, with EAP-MSCHAPv2 or PSK authentication. This is a full-device VPN.
+- **Encrypted profiles:** WireGuard, sing-box and IKEv2 profiles are stored in the app's no-backup private directory using AES-256-GCM and a non-exportable Android Keystore key. Profiles are revalidated after restore. Settings can securely erase the stored file and key after VPNs are stopped.
+- **Server manager:** lists server outbounds and selector/urltest groups. Users can set the default outbound, or create a sing-box URLTest group over at least two supported node outbounds. The sing-box core then periodically tests the configured HTTP health-check URL and picks a suitable endpoint.
+- **Game-only routing:** Android per-app allowlisting is supported by both WireGuard and sing-box. Only selected packages enter that VPN tunnel; unselected apps use Android's normal network. IKEv2 remains full-device.
+- **Per-game route selection:** in sing-box Game-only mode, each selected app can be assigned an outbound or group. NetPulse adds package-name route rules ahead of existing profile rules and validates every chosen tag.
+- **Automatic game detection:** optional Android Usage Access detects which launcher-visible game is in the foreground. The permission is user-controlled; package name and UID counters are read locally and are not uploaded. Detection does not silently start or stop VPN connections.
+- **Live game telemetry:** while detection is enabled and the app process remains alive, NetPulse reads UID-level RX/TX counters when Android exposes them and displays estimated per-app rates. Shared UIDs, OEM restrictions and unavailable counters can limit accuracy.
+- **Network diagnostics:** multi-sample TCP connection timing, direct-vs-VPN UDP STUN comparison, and a custom host/port TCP endpoint comparison over the physical and VPN Network handles.
+- **Event history:** a local, searchable 200-entry diagnostic history.
+- **Display controller:** lists refresh modes reported by the panel and can apply/restore supported rates with Root access.
 
-## Important limitations
+## Important measurement limits
 
-- TCP measurements are connection-establishment times to the named probe endpoint, not ICMP ping.
-- STUN measurements are generic UDP path indicators. The timeout ratio counts unanswered STUN probes and is not a statistically representative game-server packet-loss measurement. Neither STUN RTT nor its smoothed jitter measures the latency or loss of a particular game server or match. The optional user-supplied game endpoint check is TCP connection time, not in-match UDP ping.
-- NetPulse does not promise lower ping, higher FPS, packet prioritization, or a gaming performance gain. A VPN can improve or worsen routing depending on the server and network.
-- OpenVPN import intentionally supports a conservative TLS-mode subset: external file references, PKCS#12 bundles, scripts/plugins, compression, and external `auth-user-pass` files are rejected. Profiles requiring unsupported directives must be simplified or imported through another compatible sing-box JSON config.
-- Native IKEv2 requires Android 11+ and the device feature `android.software.ipsec_tunnels`; unsupported devices keep the control disabled. Android controls IKEv2 as a system VPN, so it cannot run beside another VPN tunnel.
-- Game-only routing requires a sing-box profile with a TUN inbound and `auto_route: true`. TUN routing exclusions on Android 12 and earlier are rejected when the core requests them because Android cannot enforce them safely there.
-- Android's `VpnService.Builder` cannot combine per-app allowlists and denylists; profiles requesting both are rejected.
-- Selecting a sing-box outbound changes the default route. More-specific route rules in a custom profile can still override it.
-- The profile encryption key is stored in Android Keystore. If the app is uninstalled, the keystore is cleared, or the key becomes unavailable, the encrypted profiles cannot be recovered and must be imported again.
-- A physical Android device test is still required for VPN consent, foreground-service behavior, traffic routing, DNS, handoffs, and real gameplay.
+- TCP endpoint tests measure connection-establishment time, not ICMP ping.
+- The custom game endpoint test works only for a host/port that accepts TCP. It reports successes, median, sequential variation and failed connection attempts. Failed TCP connects are not game packet loss.
+- STUN tests measure a generic UDP request/response path. Their timeout ratio is not a statistically representative game-server packet-loss result.
+- URLTest uses the HTTP health-check URL configured in the generated sing-box group. It estimates proxy-node health and is not a measurement of latency to the actual match server.
+- Android does not provide a universal way for a third-party app to discover every game's UDP server, interpret proprietary game packets, or measure in-match packet loss. A protocol-aware game server or in-game telemetry would be needed for those features.
+- NetPulse does not promise lower ping, higher FPS, packet priority or a gaming performance gain. VPN routing can improve or worsen network latency depending on provider, carrier and route.
 
-## Build
+## Compatibility and limitations
 
-- Minimum Android version: Android 8.0 / API 26.
+- Minimum Android: 8.0 / API 26.
 - Target SDK: 35.
-- ABI: `arm64-v8a`.
-- JDK 17, Android SDK 35, and Gradle 8.9.
-- Current app version: **0.5.1** (versionCode 8). Run `gradle testDebugUnitTest assembleDebug`.
-- GitHub Actions runs the five-pass UI regression suite and unit tests, verifies the SHA-256 of the pinned libbox AAR, inspects its Android API, and uploads the `netpulse-debug` APK artifact.
+- Current CI artifact ABI: arm64-v8a.
+- IKEv2 requires Android 11+ and android.software.ipsec_tunnels.
+- OpenVPN import is a conservative TLS subset; external files, PKCS#12 bundles, static-key mode, scripts/plugins, compression, management interfaces and external auth files are rejected.
+- Game-only requires selected, installed packages. Per-game outbound assignment applies only to sing-box; WireGuard uses a single peer configuration for selected apps.
+- Usage Access is optional and must be granted by the user in Android Settings. Without it, automatic foreground-game detection is disabled.
+- Physical Android testing is still required for VPN consent, service lifecycle, DNS, IPv4/IPv6, handoff, per-app isolation and real gameplay.
+
+## Build and verification
+
+- JDK 17, Android SDK 35 and Gradle 8.9.
+- Current app version: **0.6.0** (versionCode 9).
+- Run `gradle testDebugUnitTest assembleDebug`.
+- GitHub Actions runs the five-pass UI/bridge regression suite, Kotlin unit tests, debug APK assembly, pinned libbox AAR SHA-256 verification and Android API inspection.
+- A successful CI build does not replace testing on physical phones and networks.
 
 ## Privacy and security
 
-- VPN access is requested through Android's system consent screen.
-- The app does not bundle public VPN endpoints or credentials.
-- The IKEv2 profile is provisioned through Android's system VPN manager; its credentials are also stored only inside the encrypted app profile store.
-- The sing-box profile is validated before startup and again after Game-only routing is applied.
-- Profile JSON, UUIDs, passwords, private keys, and subscription URLs are not written to diagnostic logs.
-- Imported profiles are stored encrypted with AES-256-GCM; the Keystore key is non-exportable.
-- Android backup is disabled and profile files live in the private no-backup directory.
-- The WebView dashboard is loaded from the app's bundled assets; network loads and universal file-URL access are disabled.
+- VPN consent is requested through Android's system UI.
+- No public VPN endpoints or credentials are bundled.
+- Profile credentials are encrypted at rest with AES-256-GCM and Android Keystore.
+- Usage Access is opt-in and used only to read foreground package transitions; no screen content, keystrokes or application data are read.
+- Game UID traffic counters and event history remain local.
+- Profile secrets are not written to logs or exposed to the WebView bridge.
+- Android backup is disabled and imported profiles live in a private no-backup directory.
+- The dashboard is loaded from bundled assets; WebView network loads and universal file-URL access are disabled.
