@@ -34,7 +34,7 @@ new vm.Script(js, { filename: "netpulse/index.html" });
 const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]));
 const referencedIds = [...new Set([...js.matchAll(/\$\('#([\w-]+)'\)/g)].map(m => m[1]))];
 for (const id of referencedIds) assert.ok(ids.has(id), `HTML selector points to missing element: ${id}`);
-const actions = ["importWireGuard", "toggleWireGuard", "importSingBox", "toggleSingBox", "applyRefreshRate", "restoreRefreshRate", "checkRoot", "refresh", "testLatency", "toggleGamingMode", "saveGamingApps"];
+const actions = ["importWireGuard", "toggleWireGuard", "importSingBox", "toggleSingBox", "applyRefreshRate", "restoreRefreshRate", "checkRoot", "refresh", "testLatency", "testUdpRoutes", "toggleGamingMode", "saveGamingApps"];
 for (const action of actions) {
   assert.ok(html.includes(`nativeAction('${action}'`) || js.includes(`nativeAction('${action}'`), `UI action missing: ${action}`);
   assert.ok(activity.includes(`"${action}" ->`), `Native bridge handler missing: ${action}`);
@@ -50,7 +50,15 @@ assert.match(activity, /TrafficStats\.getUidRxBytes/);
 assert.match(activity, /TCP_PROBE_ATTEMPTS = 6/);
 assert.match(js, /function loadGamingApps\(/);
 assert.match(js, /function onNetPulseLatencyStats\(/);
-console.log("PASS 3/5 — JavaScript syntax, DOM targets, gaming controls and native bridge are valid");
+assert.match(activity, /UdpStunProbe\\.measure/);
+assert.match(activity, /physicalNetwork\\.getAllByName/);
+assert.match(activity, /vpnNetwork, serverAddress/);
+assert.match(js, /function runUdpComparison\\(/);
+assert.match(js, /function onNetPulseUdpComparison\\(/);
+for (const id of ["startUdpCompare", "udpComparisonStatus", "udpDirectMedian", "udpVpnMedian", "udpDelta", "udpDirectLoss", "udpVpnLoss"]) {
+  assert.ok(ids.has(id), `UDP comparison UI element missing: ${id}`);
+}
+console.log("PASS 3/5 — JavaScript syntax, DOM targets, gaming controls, UDP comparison and native bridge are valid");
 
 // PASS 4 — Android 15 system bars and cutout insets are applied to the WebView viewport.
 assert.match(gradle, /targetSdk\s*=\s*35/);
