@@ -1,6 +1,5 @@
 package com.rmgb.netpulse
 
-import android.util.Base64
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertFalse
@@ -29,7 +28,7 @@ class VpnGateCatalogTest {
     """.trimIndent()
 
     private fun csv(config: String = config): String {
-        val encoded = Base64.encodeToString(config.toByteArray(), Base64.NO_WRAP)
+        val encoded = java.util.Base64.getEncoder().encodeToString(config.toByteArray())
         return """
             *vpn_servers
             #HostName,IP,Score,Ping,Speed,CountryLong,CountryShort,NumVpnSessions,Uptime,TotalUsers,TotalTraffic,LogType,Operator,Message,OpenVPN_ConfigData_Base64
@@ -47,6 +46,11 @@ class VpnGateCatalogTest {
         assertEquals(22.0, servers[0].pingMs!!, 0.0)
         assertEquals(120.0, servers[0].speedMbps!!, 0.0)
         assertTrue(servers[0].config.contains("<ca>"))
+        val imported = OpenVpnProfileImporter.importProfile(
+            servers[0].config,
+            OpenVpnCredentials("vpn", "vpn")
+        )
+        assertEquals("OpenVPN UDP", imported.protocol)
     }
 
     @Test
@@ -55,7 +59,7 @@ class VpnGateCatalogTest {
         val slow = config.replace("198.51.100.10", "198.51.100.12")
         fun row(host: String, ip: String, ping: Int, speed: Int, profile: String) =
             listOf(host, ip, "1", ping.toString(), speed.toString(), "Japan", "JP", "1", "500", "2", "3", "1", "owner", "node",
-                Base64.encodeToString(profile.toByteArray(), Base64.NO_WRAP)).joinToString(",")
+                java.util.Base64.getEncoder().encodeToString(profile.toByteArray())).joinToString(",")
         val sample = "*vpn_servers\n#HostName,IP,Score,Ping,Speed,CountryLong,CountryShort,NumVpnSessions,Uptime,TotalUsers,TotalTraffic,LogType,Operator,Message,OpenVPN_ConfigData_Base64\n" +
             row("vpn123456789", "198.51.100.10", 40, 1000000, config) + "\n" +
             row("vpn123456790", "198.51.100.11", 10, 2000000, fast) + "\n" +
