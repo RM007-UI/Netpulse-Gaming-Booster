@@ -78,6 +78,12 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
     override fun openTun(options: TunOptions): Int {
         check(!stopping.get()) { "VPN service is stopping" }
         check(prepare(this) == null) { "VPN permission is missing" }
+        // Capture the physical default network before the TUN interface becomes active.
+        // The UDP diagnostics use this handle for the direct-path baseline.
+        underlyingNetworkForDiagnostics = connectivity.activeNetwork?.takeIf { network ->
+            connectivity.getNetworkCapabilities(network)
+                ?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) != true
+        }
         val builder = Builder().setSession("NetPulse sing-box").setMtu(options.mtu)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val underlyingCapabilities = connectivity.activeNetwork?.let(connectivity::getNetworkCapabilities)
@@ -333,6 +339,7 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
             starting = false
             started = false
             isRunning = false
+            underlyingNetworkForDiagnostics = null
             VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.SING_BOX)
             sendBroadcast(Intent(ACTION_STATE).setPackage(packageName).putExtra(EXTRA_CONNECTED, false))
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) stopForeground(STOP_FOREGROUND_REMOVE)
@@ -370,6 +377,8 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
 
     companion object {
         @Volatile var isRunning: Boolean = false
+            private set
+        @Volatile var underlyingNetworkForDiagnostics: Network? = null
             private set
         const val EXTRA_PROFILE = "com.rmgb.netpulse.extra.SINGBOX_PROFILE"
         const val ACTION_STATE = "com.rmgb.netpulse.action.SINGBOX_STATE"
