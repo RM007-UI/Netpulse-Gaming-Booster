@@ -141,6 +141,7 @@ assert.match(udpEchoCodec, /SecureRandom/);
 assert.match(udpEchoCodec, /MAX_USER_PAYLOAD_BYTES = 48/);
 assert.match(udpEchoCodec, /responseLength < 0/);
 assert.match(js, /function loadUdpGameTargets\(/);
+assert.match(js, /function restoreGameUdpTarget\(\)[\s\S]*?\$\('#gameUdpHost'\)\.value=''/);
 assert.match(js, /function runUdpEchoComparison\(/);
 assert.match(js, /function onNetPulseGameUdpEchoComparison\(/);
 for (const id of ["gameUdpPackage", "gameUdpHost", "gameUdpPort", "gameUdpPayload", "gameUdpProbeButton", "gameUdpDirectMedian", "gameUdpVpnMedian"]) {
