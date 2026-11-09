@@ -80,6 +80,7 @@ class MainActivity : Activity() {
     private lateinit var autoRefreshButton: Button
     private val refreshHandler = Handler(Looper.getMainLooper())
     private var refreshRootGranted = false
+    @Volatile private var liveRefreshEnabled = true
 
     private lateinit var networkBadge: TextView
     private lateinit var networkSummary: TextView
@@ -95,7 +96,7 @@ class MainActivity : Activity() {
     private val networkTick = object : Runnable {
         override fun run() {
             updateNetworkMetrics()
-            refreshHandler.postDelayed(this, 1000L)
+            if (liveRefreshEnabled) refreshHandler.postDelayed(this, 1000L)
         }
     }
 
@@ -215,6 +216,7 @@ class MainActivity : Activity() {
                         updateNetworkMetrics()
                         postWebMessage("اطلاعات دستگاه بروزرسانی شد.")
                     }
+                    "setLiveRefresh" -> setLiveRefresh(value)
                     "testLatency" -> runTcpLatencyTest()
                     "testUdpRoutes" -> runUdpRouteComparison()
                     "toggleGamingMode" -> setGamingOnlyMode(value)
@@ -289,6 +291,19 @@ class MainActivity : Activity() {
             if (!isDestroyed) {
                 webView.evaluateJavascript("window.netPulseMessage && window.netPulseMessage($safe);", null)
             }
+        }
+    }
+
+    private fun setLiveRefresh(rawEnabled: String?) {
+        val enabled = rawEnabled.equals("true", ignoreCase = true)
+        liveRefreshEnabled = enabled
+        refreshHandler.removeCallbacks(networkTick)
+        if (enabled && !isDestroyed) {
+            updateNetworkMetrics()
+            refreshHandler.postDelayed(networkTick, 1000L)
+            postWebMessage("بروزرسانی خودکار شبکه فعال شد.")
+        } else {
+            postWebMessage("بروزرسانی خودکار متوقف شد؛ با زدن بروزرسانی دستی، داده تازه دریافت می‌شود.")
         }
     }
 
@@ -1183,7 +1198,7 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         refreshHandler.removeCallbacks(networkTick)
-        refreshHandler.post(networkTick)
+        if (liveRefreshEnabled) refreshHandler.post(networkTick)
         singBoxConnected = SingBoxVpnService.isRunning
         singBoxStarting = false
         if (::singBoxButton.isInitialized && ::singBoxStatus.isInitialized) {
