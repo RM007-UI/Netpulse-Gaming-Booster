@@ -9,6 +9,7 @@ import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.io.FileNotFoundException
 import java.io.IOException
 import java.security.KeyStore
 import javax.crypto.Cipher
@@ -99,22 +100,29 @@ class SecureProfileStore(context: Context) {
 
     @Synchronized
     fun load(): StoredProfiles? {
-        if (!file.baseFile.exists()) return null
-        val encrypted = file.openRead().use { input ->
-            val output = ByteArrayOutputStream()
-            val buffer = ByteArray(8192)
-            var total = 0
-            while (true) {
-                val read = input.read(buffer)
-                if (read < 0) break
-                total += read
-                require(total <= MAX_ENCRYPTED_BYTES) { "Encrypted profile file exceeds the size limit" }
-                output.write(buffer, 0, read)
+        val encrypted = try {
+            // AtomicFile.openRead() also recovers its backup after an interrupted write.
+            file.openRead().use { input ->
+                val output = ByteArrayOutputStream()
+                val buffer = ByteArray(8192)
+                var total = 0
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    total += read
+                    require(total <= MAX_ENCRYPTED_BYTES) { "Encrypted profile file exceeds the size limit" }
+                    output.write(buffer, 0, read)
+                }
+                output.toByteArray()
             }
-            output.toByteArray()
+        } catch (_: FileNotFoundException) {
+            return null
         }
         val jsonBytes = ProfilePayloadCodec.decrypt(encrypted, getOrCreateKey())
         val json = JSONObject(String(jsonBytes, Charsets.UTF_8))
+        require(json.optInt("version", -1) == versionForJson) {
+            "Saved profile storage version is unsupported"
+        }
         return StoredProfiles(
             wireGuardConfig = json.optStringOrNull("wireguard"),
             singBoxProfile = json.optStringOrNull("singbox"),
