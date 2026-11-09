@@ -418,7 +418,9 @@ function trackGameSession(state){
   closeGameSession('sampling-gap');
   activeGameSession={packageName,label:state.activeGameLabel||packageName,startedAt:now,lastSampleAt:now,sampleCount:0,downloadMbpsSum:0,uploadMbpsSum:0,peakDownloadMbps:0,peakUploadMbps:0,estimatedDownloadBytes:0,estimatedUploadBytes:0};
  }else if(elapsed>=500){
-  const down=Number(state.activeGameDownloadMbps),up=Number(state.activeGameUploadMbps);
+  const hasRates=state.activeGameDownloadMbps!==null&&state.activeGameDownloadMbps!==undefined&&state.activeGameUploadMbps!==null&&state.activeGameUploadMbps!==undefined;
+  const down=hasRates?Number(state.activeGameDownloadMbps):NaN;
+  const up=hasRates?Number(state.activeGameUploadMbps):NaN;
   if(Number.isFinite(down)&&Number.isFinite(up)&&down>=0&&up>=0){
    activeGameSession.sampleCount++;
    activeGameSession.downloadMbpsSum+=down;
