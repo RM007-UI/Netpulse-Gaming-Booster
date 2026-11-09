@@ -43,6 +43,9 @@ class OpenVpnProfileImporterTest {
         assertEquals("1.2", endpoint.getJSONObject("tls").getString("version_min"))
         assertEquals("netpulse-openvpn", json.getJSONObject("route").getString("final"))
         assertEquals("tun", json.getJSONArray("inbounds").getJSONObject(0).getString("type"))
+        val dns = json.getJSONObject("dns")
+        assertEquals("netpulse-openvpn-dns", dns.getString("final"))
+        assertEquals("netpulse-openvpn", dns.getJSONArray("servers").getJSONObject(0).getString("endpoint"))
         assertFalse(json.has("outbound"))
     }
 
