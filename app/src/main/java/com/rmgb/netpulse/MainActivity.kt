@@ -331,6 +331,7 @@ class MainActivity : Activity() {
             .put("activeGameLabel", activeGamePackage?.let { pkg ->
                 launchableApps().firstOrNull { it.packageName == pkg }?.label
             } ?: JSONObject.NULL)
+            .put("activeGameSelected", activeGamePackage in selectedGamingPackages())
             .put("rootGranted", refreshRootGranted)
             .put("refreshRates", JSONArray(supported))
             .put("currentRefreshRate", refresh)
@@ -523,6 +524,201 @@ class MainActivity : Activity() {
 
     private fun isGamingOnlyEnabled(): Boolean =
         gamingPreferences.getBoolean(GAMING_ONLY_KEY, false)
+
+    private fun isAutoGameDetectionEnabled(): Boolean =
+        gamingPreferences.getBoolean(AUTO_GAME_DETECTION_KEY, false)
+
+    private fun gameRouteAssignments(): Map<String, String> = runCatching {
+        val stored = JSONObject(gamingPreferences.getString(GAME_ROUTE_ASSIGNMENTS_KEY, "{}") ?: "{}")
+        stored.keys().asSequence().mapNotNull { key ->
+            stored.optString(key).takeIf(String::isNotBlank)?.let { key to it }
+        }.toMap()
+    }.getOrDefault(emptyMap())
+
+    private fun saveGameRoutes(rawValue: String?) {
+        try {
+            val payload = JSONObject(rawValue ?: "{}")
+            val submitted = payload.optJSONArray("packages") ?: JSONArray()
+            val routes = payload.optJSONObject("routes") ?: JSONObject()
+            require(submitted.length() <= MAX_GAMING_APPS) {
+                "At most $MAX_GAMING_APPS games can be selected"
+            }
+
+            val availablePackages = launchableApps().map { it.packageName }.toSet()
+            val selected = linkedSetOf<String>()
+            for (index in 0 until submitted.length()) {
+                val appPackage = submitted.optString(index).trim()
+                require(appPackage in availablePackages) {
+                    "A selected game is not installed or is no longer visible"
+                }
+                selected += appPackage
+            }
+
+            val availableOutbounds = (application as NetPulseApplication).loadedSingBoxProfile
+                ?.let { profile ->
+                    val root = JSONObject(profile)
+                    val outbounds = root.optJSONArray("outbounds") ?: JSONArray()
+                    (0 until outbounds.length()).mapNotNull { index ->
+                        outbounds.optJSONObject(index)?.optString("tag")?.takeIf(String::isNotBlank)
+                    }.toSet()
+                }.orEmpty()
+
+            val assignments = linkedMapOf<String, String>()
+            val routeKeys = routes.keys()
+            while (routeKeys.hasNext()) {
+                val appPackage = routeKeys.next()
+                val outboundTag = routes.optString(appPackage).trim()
+                require(appPackage in selected) {
+                    "A per-game route can only be assigned to a selected game"
+                }
+                require(outboundTag in availableOutbounds) {
+                    "A selected per-game server is not present in the loaded sing-box profile"
+                }
+                assignments[appPackage] = outboundTag
+            }
+
+            val serializedRoutes = JSONObject()
+            assignments.forEach { (appPackage, outboundTag) ->
+                serializedRoutes.put(appPackage, outboundTag)
+            }
+            gamingPreferences.edit()
+                .putStringSet(GAMING_PACKAGES_KEY, selected)
+                .putString(GAME_ROUTE_ASSIGNMENTS_KEY, serializedRoutes.toString())
+                .apply()
+            if (selected.isEmpty() && isGamingOnlyEnabled()) {
+                gamingPreferences.edit().putBoolean(GAMING_ONLY_KEY, false).apply()
+            }
+            publishNativeState()
+            postWebMessage(
+                if (assignments.isEmpty()) {
+                    "${selected.size} برنامه ذخیره شد؛ مسیر پیش‌فرض sing-box برای همه اعمال می‌شود."
+                } else {
+                    "${selected.size} برنامه و ${assignments.size} مسیر اختصاصی بازی ذخیره شد. برای اعمال، sing-box را قطع و دوباره وصل کن."
+                }
+            )
+        } catch (error: Exception) {
+            postWebMessage("ذخیره تنظیمات بازی ناموفق بود: " + (error.message ?: error.javaClass.simpleName))
+        }
+    }
+
+    private fun isUsageAccessGranted(): Boolean = runCatching {
+        val appOps = getSystemService(AppOpsManager::class.java)
+        appOps.checkOpNoThrow(
+            AppOpsManager.OPSTR_GET_USAGE_STATS,
+            Process.myUid(),
+            packageName
+        ) == AppOpsManager.MODE_ALLOWED
+    }.getOrDefault(false)
+
+    private fun requestGameDetection() {
+        if (isUsageAccessGranted()) {
+            gamingPreferences.edit().putBoolean(AUTO_GAME_DETECTION_KEY, true).apply()
+            refreshHandler.removeCallbacks(gameDetectionTick)
+            refreshHandler.post(gameDetectionTick)
+            publishNativeState()
+            postWebMessage("تشخیص خودکار بازی فعال شد؛ شناسایی برنامه فقط روی همین دستگاه انجام می‌شود.")
+            return
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("اجازه تشخیص بازی")
+            .setMessage(
+                "برای تشخیص برنامه‌ای که در پیش‌زمینه باز است، Android دسترسی Usage Access می‌خواهد. " +
+                    "NetPulse فقط نام بسته برنامه را روی دستگاه می‌خواند؛ محتوای برنامه‌ها جمع‌آوری یا ارسال نمی‌شود. " +
+                    "این دسترسی اختیاری است."
+            )
+            .setNegativeButton("فعلاً نه", null)
+            .setPositiveButton("رفتن به تنظیمات") { _, _ ->
+                usageAccessSetupPending = true
+                runCatching {
+                    startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                }.onFailure {
+                    usageAccessSetupPending = false
+                    postWebMessage("بازکردن تنظیمات Usage Access ناموفق بود.")
+                }
+            }
+            .show()
+    }
+
+    private fun toggleAutoGameDetection() {
+        if (isAutoGameDetectionEnabled()) {
+            gamingPreferences.edit().putBoolean(AUTO_GAME_DETECTION_KEY, false).apply()
+            activeGamePackage = null
+            refreshHandler.removeCallbacks(gameDetectionTick)
+            publishNativeState()
+            postWebMessage("تشخیص خودکار بازی خاموش شد.")
+        } else {
+            requestGameDetection()
+        }
+    }
+
+    private fun finishUsageAccessSetup() {
+        if (!usageAccessSetupPending) return
+        usageAccessSetupPending = false
+        if (isUsageAccessGranted()) {
+            gamingPreferences.edit().putBoolean(AUTO_GAME_DETECTION_KEY, true).apply()
+            usageEventCursorMs = 0L
+            refreshHandler.removeCallbacks(gameDetectionTick)
+            refreshHandler.post(gameDetectionTick)
+            postWebMessage("دسترسی تأیید شد؛ تشخیص خودکار بازی فعال است.")
+        } else {
+            gamingPreferences.edit().putBoolean(AUTO_GAME_DETECTION_KEY, false).apply()
+            postWebMessage("دسترسی Usage Access داده نشد؛ تشخیص خودکار فعال نشد.")
+        }
+        publishNativeState()
+    }
+
+    private fun detectForegroundGame() {
+        if (!isAutoGameDetectionEnabled() || !isUsageAccessGranted()) return
+        val now = System.currentTimeMillis()
+        if (usageEventCursorMs == 0L) usageEventCursorMs = (now - 30_000L).coerceAtLeast(0L)
+        val start = (usageEventCursorMs - 2_000L).coerceAtLeast(0L)
+        val usageManager = getSystemService(UsageStatsManager::class.java) ?: return
+        val events = runCatching { usageManager.queryEvents(start, now) }.getOrNull() ?: return
+        val event = UsageEvents.Event()
+        var candidate = activeGamePackage
+        var observedForegroundChange = false
+        while (events.hasNextEvent()) {
+            events.getNextEvent(event)
+            val eventPackage = event.packageName ?: continue
+            val resumed = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                event.eventType == UsageEvents.Event.ACTIVITY_RESUMED
+            } else {
+                @Suppress("DEPRECATION")
+                event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND
+            }
+            val paused = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                event.eventType == UsageEvents.Event.ACTIVITY_PAUSED ||
+                    event.eventType == UsageEvents.Event.ACTIVITY_STOPPED
+            } else {
+                @Suppress("DEPRECATION")
+                event.eventType == UsageEvents.Event.MOVE_TO_BACKGROUND
+            }
+            if (resumed) {
+                candidate = eventPackage
+                observedForegroundChange = true
+            } else if (paused && candidate == eventPackage) {
+                candidate = null
+                observedForegroundChange = true
+            }
+        }
+        usageEventCursorMs = now
+
+        if (!observedForegroundChange) return
+        val app = candidate?.let { pkg -> launchableApps().firstOrNull { it.packageName == pkg } }
+        val detectedPackage = app?.takeIf { it.isGame || it.packageName in selectedGamingPackages() }?.packageName
+        if (detectedPackage != activeGamePackage) {
+            activeGamePackage = detectedPackage
+            publishNativeState()
+            detectedPackage?.let { pkg ->
+                postWebMessage(
+                    "بازی پیش‌زمینه شناسایی شد: " +
+                        (app?.label ?: pkg) +
+                        if (pkg in selectedGamingPackages()) " · در فهرست Game-only است." else " · هنوز در فهرست Game-only انتخاب نشده است."
+                )
+            }
+        }
+    }
 
     private fun launchableApps(): List<LaunchableApp> {
         val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
