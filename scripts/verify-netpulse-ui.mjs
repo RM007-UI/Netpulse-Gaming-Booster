@@ -5,6 +5,11 @@ import assert from "node:assert/strict";
 const html = fs.readFileSync("app/src/main/assets/netpulse/index.html", "utf8");
 const activity = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/MainActivity.kt", "utf8");
 const gradle = fs.readFileSync("app/build.gradle.kts", "utf8");
+const traffic = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/TrafficRateCalculator.kt", "utf8");
+const secureStore = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/SecureProfileStore.kt", "utf8");
+const application = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/NetPulseApplication.kt", "utf8");
+const vpnService = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/SingBoxVpnService.kt", "utf8");
+const gamingConfigurator = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/GamingProfileConfigurator.kt", "utf8");
 const scripts = html.split("<script>").slice(1).map(part => part.split("</script>")[0]);
 assert.equal(scripts.length, 1, "Expected one bundled application script");
 const js = scripts[0];
@@ -73,7 +78,22 @@ assert.ok(js.includes("function onNetPulseUdpComparison("));
 for (const id of ["startUdpCompare", "udpComparisonStatus", "udpDirectMedian", "udpVpnMedian", "udpDelta", "udpDirectLoss", "udpVpnLoss"]) {
   assert.ok(ids.has(id), `UDP comparison UI element missing: ${id}`);
 }
-console.log("PASS 3/5 — JavaScript syntax, DOM targets, gaming controls, UDP comparison and native bridge are valid");
+assert.match(activity, /TrafficRateCalculator\\(\\)/);
+assert.match(activity, /trafficRateCalculator\\.sample\\(rx, tx, now\\)/);
+assert.doesNotMatch(activity, /if \\(!::networkSummary\\.isInitialized\\) return/);
+assert.match(traffic, /fun sample\\(rxBytes: Long, txBytes: Long, atElapsedMs: Long\\)/);
+assert.match(secureStore, /AndroidKeyStore/);
+assert.match(secureStore, /AES\\/GCM\\/NoPadding/);
+assert.match(secureStore, /context\\.noBackupFilesDir/);
+assert.match(secureStore, /file\\.finishWrite\\(output\\)/);
+assert.match(application, /fun persistProfiles\\(\\): Boolean/);
+assert.match(application, /private fun restoreProfiles\\(\\)/);
+assert.match(application, /Libbox\\.checkConfig\\(raw\\)/);
+assert.match(gamingConfigurator, /auto_route/);
+assert.match(vpnService, /Android 12 and earlier cannot enforce safely/);
+assert.match(vpnService, /cannot combine include_package and exclude_package/);
+assert.match(vpnService, /EXTRA_ERROR/);
+console.log("PASS 3/5 — JavaScript bridge, live telemetry, encrypted profile storage and VPN safety gates are wired");
 
 // PASS 4 — Android 15 system bars and cutout insets are applied to the WebView viewport.
 assert.match(gradle, /targetSdk\s*=\s*35/);
