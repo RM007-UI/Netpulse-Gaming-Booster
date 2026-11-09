@@ -19,6 +19,7 @@ class NetPulseApplication : Application() {
     @Volatile var pendingWireGuardConfig: Config? = null
     @Volatile var loadedWireGuardText: String? = null
     @Volatile var loadedSingBoxProfile: String? = null
+    @Volatile var pendingSingBoxServiceProfile: String? = null
     @Volatile var loadedSingBoxProtocol: String? = null
     @Volatile var loadedSingBoxDisplayName: String? = null
 
@@ -81,6 +82,7 @@ class NetPulseApplication : Application() {
             pendingWireGuardConfig = null
             loadedWireGuardText = null
             loadedSingBoxProfile = null
+            pendingSingBoxServiceProfile = null
             loadedSingBoxProtocol = null
             loadedSingBoxDisplayName = null
         }.onFailure { error ->
