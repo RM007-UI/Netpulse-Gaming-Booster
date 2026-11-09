@@ -73,10 +73,15 @@ data class Ikev2ProfileConfig(
             Ikev2AuthMethod.PRE_SHARED_KEY ->
                 builder.setAuthPsk(preSharedKey.toByteArray(Charsets.UTF_8))
         }
-        builder.setBypassable(false)
-            .setLocalRoutesExcluded(false)
-            .setMaxMtu(1400)
-        if (Build.VERSION.SDK_INT >= 33) builder.setRequiresInternetValidation(true)
+        builder.setBypassable(false).setMaxMtu(1400)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            builder.setLocalRoutesExcluded(false)
+            builder.setRequiresInternetValidation(true)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            builder.setAutomaticIpVersionSelectionEnabled(true)
+            builder.setAutomaticNattKeepaliveTimerEnabled(true)
+        }
         return builder.build()
     }
 
