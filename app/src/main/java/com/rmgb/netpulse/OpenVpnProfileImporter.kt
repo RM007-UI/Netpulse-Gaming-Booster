@@ -422,11 +422,14 @@ internal object OpenVpnProfileImporter {
         routeMetric?.let { endpoint.put("route_metric", it) }
         if (pullFilters.length() > 0) endpoint.put("pull_filters", pullFilters)
 
+        // sing-box endpoints provide both inbound and outbound behavior. Route all
+        // TUN traffic to this endpoint; leaving route.final at "direct" would quietly
+        // accept the OpenVPN profile but send device traffic outside the VPN endpoint.
         val json = JSONObject()
             .put("inbounds", JSONArray().put(defaultTunInbound()))
             .put("endpoints", JSONArray().put(endpoint))
             .put("outbounds", JSONArray().put(JSONObject().put("type", "direct").put("tag", "direct")))
-            .put("route", JSONObject().put("final", "direct").put("auto_detect_interface", true))
+            .put("route", JSONObject().put("final", "netpulse-openvpn").put("auto_detect_interface", true))
         val protocol = when {
             remotes.all { it.network == "tcp" } -> "OpenVPN TCP"
             remotes.all { it.network == "udp" } -> "OpenVPN UDP"
