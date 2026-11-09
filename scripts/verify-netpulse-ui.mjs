@@ -236,5 +236,5 @@ assert.match(activity, /settings\.blockNetworkLoads = true/);
 assert.match(activity, /file:\/\/\/android_asset\/netpulse\/index\.html/);
 assert.match(html, /v0\.6\.2/);
 console.log("PASS 5/5 — mobile navigation, local storage fallback and WebView isolation verified");
-assert.ok(html.includes("v0.6.3"), "Dashboard release badge must match version 0.6.2");
+assert.ok(html.includes("v0.6.3"), "Dashboard release badge must match version 0.6.3");
 console.log("NetPulse UI regression checks: 5/5 passed");
