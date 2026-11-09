@@ -16,6 +16,8 @@ const protocolCatalog = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/pro
 const autoServer = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/AutoServerConfigurator.kt", "utf8");
 const wireGuardGame = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/WireGuardGameRoutingConfigurator.kt", "utf8");
 const tcpEndpoint = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/TcpEndpointProbe.kt", "utf8");
+const udpEchoProbe = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/UdpEchoProbe.kt", "utf8");
+const udpEchoCodec = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/UdpEchoPacketCodec.kt", "utf8");
 const manifest = fs.readFileSync("app/src/main/AndroidManifest.xml", "utf8");
 const scripts = html.split("<script>").slice(1).map(part => part.split("</script>")[0]);
 assert.equal(scripts.length, 1, "Expected one bundled application script");
@@ -52,7 +54,7 @@ for (const id of referencedIds) {
 const actions = [
   "importWireGuard", "toggleWireGuard", "importSingBox", "toggleSingBox",
   "applyRefreshRate", "restoreRefreshRate", "checkRoot", "refresh",
-  "setLiveRefresh", "testLatency", "testUdpRoutes", "testGameServer",
+  "setLiveRefresh", "testLatency", "testUdpRoutes", "testGameServer", "testGameUdpEcho",
   "toggleGamingMode", "saveGameRoutes", "selectServer", "autoSelectServer",
   "toggleAutoGameDetection", "clearProfiles", "configureIkev2", "toggleIkev2"
 ];
@@ -124,6 +126,22 @@ assert.match(js, /function onNetPulseLatencyStats\(/);
 assert.match(js, /function onNetPulseUdpComparison\(/);
 assert.match(js, /direct\.jitterMs/);
 assert.match(js, /vpn\.jitterMs/);
+
+// Per-game UDP Echo tests use an explicit, nonce-protected echo contract and both Android Networks.
+assert.match(activity, /private fun runGameUdpEchoComparison\(rawValue: String\?\)/);
+assert.match(activity, /UdpEchoProbe\.measure/);
+assert.match(activity, /packageName.*selectedGamingPackages/);
+assert.match(udpEchoProbe, /network\.bindSocket\(socket\)/);
+assert.match(udpEchoProbe, /UdpEchoPacketCodec\.isMatchingEcho/);
+assert.match(udpEchoCodec, /SecureRandom/);
+assert.match(udpEchoCodec, /MAX_USER_PAYLOAD_BYTES = 48/);
+assert.match(udpEchoCodec, /responseLength < 0/);
+assert.match(js, /function loadUdpGameTargets\(/);
+assert.match(js, /function runUdpEchoComparison\(/);
+assert.match(js, /function onNetPulseGameUdpEchoComparison\(/);
+for (const id of ["gameUdpPackage", "gameUdpHost", "gameUdpPort", "gameUdpPayload", "gameUdpProbeButton", "gameUdpDirectMedian", "gameUdpVpnMedian"]) {
+  assert.ok(ids.has(id), "Game UDP Echo control missing: " + id);
+}
 
 // Existing reliability, secure-storage and VPN platform gates remain covered.
 assert.match(activity, /TrafficRateCalculator\(\)/);
