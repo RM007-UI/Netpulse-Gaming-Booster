@@ -74,6 +74,7 @@ class MainActivity : Activity() {
     @Volatile private var ikev2Connected = false
     @Volatile private var ikev2Starting = false
     private var ikev2ConsentPending = false
+    private var pendingGameSessionExport: String? = null
     private var ikev2PollCount = 0
     private var singBoxStarting = false
     private var singBoxReceiverRegistered = false
@@ -279,6 +280,7 @@ class MainActivity : Activity() {
                     "toggleAutoGameDetection" -> toggleAutoGameDetection()
                     "testGameServer" -> runGameServerComparison(value)
                     "testGameUdpEcho" -> runGameUdpEchoComparison(value)
+                    "exportGameSessions" -> exportGameSessionHistory(value)
                     "clearProfiles" -> confirmClearSavedProfiles()
                     "configureIkev2" -> showIkev2ProfileDialog()
                     "toggleIkev2" -> toggleIkev2()
@@ -1650,6 +1652,45 @@ class MainActivity : Activity() {
      * The sing-box core performs URLTest probing and keeps its selected member current;
      * this method never pretends a one-off generic probe is a game-server measurement.
      */
+    private fun exportGameSessionHistory(rawJson: String?) {
+        val payload = rawJson?.takeIf { it.toByteArray(Charsets.UTF_8).size <= MAX_GAME_SESSION_EXPORT_BYTES }
+        if (payload.isNullOrBlank() || runCatching { JSONObject(payload) }.isFailure) {
+            postWebMessage("فایل خروجی جلسات معتبر نیست یا حجم آن بیشتر از حد مجاز است.")
+            return
+        }
+        pendingGameSessionExport = payload
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/json"
+            putExtra(Intent.EXTRA_TITLE, "netpulse-game-sessions.json")
+        }
+        try {
+            startActivityForResult(intent, REQUEST_GAME_SESSION_EXPORT)
+        } catch (error: Exception) {
+            pendingGameSessionExport = null
+            postWebMessage("بازکردن انتخاب‌گر فایل ناموفق بود: " + error.javaClass.simpleName)
+        }
+    }
+
+    private fun writeGameSessionExport(uri: android.net.Uri, payload: String) {
+        worker.execute {
+            val result = runCatching {
+                contentResolver.openOutputStream(uri, "wt")?.bufferedWriter(Charsets.UTF_8)?.use { writer ->
+                    writer.write(payload)
+                } ?: throw IllegalStateException("Unable to open selected export destination")
+            }
+            runOnUiThread {
+                if (isDestroyed) return@runOnUiThread
+                if (result.isSuccess) {
+                    postWebMessage("گزارش جلسات بازی با موفقیت ذخیره شد.")
+                } else {
+                    postWebMessage("ذخیره گزارش جلسات ناموفق بود: " +
+                        (result.exceptionOrNull()?.javaClass?.simpleName ?: "unknown error"))
+                }
+            }
+        }
+    }
+
     private fun isIkev2Supported(): Boolean =
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
             packageManager.hasSystemFeature(PackageManager.FEATURE_IPSEC_TUNNELS)
@@ -2291,6 +2332,17 @@ class MainActivity : Activity() {
     @Deprecated("Handled for compatibility with the current minimal Activity scaffold")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_GAME_SESSION_EXPORT) {
+            val payload = pendingGameSessionExport
+            pendingGameSessionExport = null
+            val uri = data?.data
+            if (resultCode == RESULT_OK && uri != null && payload != null) {
+                writeGameSessionExport(uri, payload)
+            } else {
+                postWebMessage("خروجی جلسات لغو شد.")
+            }
+            return
+        }
         if (requestCode == REQUEST_IKEV2_PERMISSION) {
             ikev2ConsentPending = false
             if (resultCode == RESULT_OK) {
@@ -2606,6 +2658,8 @@ class MainActivity : Activity() {
         private const val REQUEST_SINGBOX_PROFILE = 712
         private const val REQUEST_SINGBOX_VPN_PERMISSION = 713
         private const val REQUEST_IKEV2_PERMISSION = 714
+        private const val REQUEST_GAME_SESSION_EXPORT = 715
+        private const val MAX_GAME_SESSION_EXPORT_BYTES = 512 * 1024
         private const val IKEV2_CONNECT_TIMEOUT_POLLS = 30
         private const val MAX_PROFILE_BYTES = 2 * 1024 * 1024
         private const val REFRESH_PREFS = "netpulse_refresh_rate"
