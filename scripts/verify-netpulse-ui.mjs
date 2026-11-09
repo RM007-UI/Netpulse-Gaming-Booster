@@ -57,8 +57,11 @@ const actions = [
   "toggleAutoGameDetection", "clearProfiles", "configureIkev2", "toggleIkev2"
 ];
 for (const action of actions) {
-  assert.ok(js.includes("nativeAction('" + action + "'"), "UI action missing: " + action);
+  assert.ok(html.includes("nativeAction('" + action + "'") || js.includes("nativeAction('" + action + "'"), "UI action missing: " + action);
   assert.ok(activity.includes('"' + action + '" ->'), "Native bridge handler missing: " + action);
+}
+for (const internalAction of ["importSingBoxText", "saveGamingApps", "requestGameDetection"]) {
+  assert.ok(activity.includes('"' + internalAction + '" ->'), "Internal bridge handler missing: " + internalAction);
 }
 
 assert.match(activity, /@JavascriptInterface\s+fun getState\(\): String/);
