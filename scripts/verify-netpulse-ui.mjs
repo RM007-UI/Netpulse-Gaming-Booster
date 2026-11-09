@@ -34,14 +34,23 @@ new vm.Script(js, { filename: "netpulse/index.html" });
 const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]));
 const referencedIds = [...new Set([...js.matchAll(/\$\('#([\w-]+)'\)/g)].map(m => m[1]))];
 for (const id of referencedIds) assert.ok(ids.has(id), `HTML selector points to missing element: ${id}`);
-const actions = ["importWireGuard", "toggleWireGuard", "importSingBox", "toggleSingBox", "applyRefreshRate", "restoreRefreshRate", "checkRoot", "refresh", "testLatency"];
+const actions = ["importWireGuard", "toggleWireGuard", "importSingBox", "toggleSingBox", "applyRefreshRate", "restoreRefreshRate", "checkRoot", "refresh", "testLatency", "toggleGamingMode", "saveGamingApps"];
 for (const action of actions) {
   assert.ok(html.includes(`nativeAction('${action}'`) || js.includes(`nativeAction('${action}'`), `UI action missing: ${action}`);
   assert.ok(activity.includes(`"${action}" ->`), `Native bridge handler missing: ${action}`);
 }
 assert.match(activity, /@JavascriptInterface\s+fun getState\(\): String/);
 assert.match(activity, /@JavascriptInterface\s+fun perform\(action: String, value: String\?\)/);
-console.log("PASS 3/5 — JavaScript syntax, DOM targets and native bridge are valid");
+assert.match(activity, /@JavascriptInterface\s+fun getGamingAppCatalog\(\): String/);
+for (const id of ["gameModeButton", "gamingAppList", "selectedGameCount", "probeMin", "probeMedian", "probeMax", "probeVariation", "probeFailures"]) {
+  assert.ok(ids.has(id), `Gaming/diagnostic UI element missing: ${id}`);
+}
+assert.match(activity, /GamingProfileConfigurator\.withGameOnlyRouting/);
+assert.match(activity, /TrafficStats\.getUidRxBytes/);
+assert.match(activity, /TCP_PROBE_ATTEMPTS = 6/);
+assert.match(js, /function loadGamingApps\(/);
+assert.match(js, /function onNetPulseLatencyStats\(/);
+console.log("PASS 3/5 — JavaScript syntax, DOM targets, gaming controls and native bridge are valid");
 
 // PASS 4 — Android 15 system bars and cutout insets are applied to the WebView viewport.
 assert.match(gradle, /targetSdk\s*=\s*35/);
