@@ -1,6 +1,5 @@
 package com.rmgb.netpulse
 
-import android.util.Base64
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
@@ -93,7 +92,7 @@ object VpnGateCatalog {
             val countryCode = field("countryshort")
             val encoded = field("openvpn_configdata_base64")
             if (!validHost(host) || !validIpLiteral(ip) || encoded.isBlank()) continue
-            val decoded = runCatching { Base64.decode(encoded, Base64.DEFAULT) }.getOrNull() ?: continue
+            val decoded = runCatching { java.util.Base64.getMimeDecoder().decode(encoded) }.getOrNull() ?: continue
             if (decoded.isEmpty() || decoded.size > MAX_CONFIG_BYTES) continue
             val profile = decoded.toString(Charsets.UTF_8)
             if (!isCompatibleOpenVpnProfile(profile, ip, host)) continue
