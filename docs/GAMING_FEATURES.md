@@ -49,3 +49,10 @@ A generic third-party app cannot truthfully measure every game's UDP ping or pac
 ## UI and reliability
 
 The dashboard provides eight RTL screens, responsive navigation, live network charts, game UID estimates, server selection, local event history, refresh-rate controls and secure profile settings. The automated regression suite checks DOM IDs, JavaScript syntax, native bridge actions, Game-only configuration, endpoint probe wiring and engine safety rules.
+
+
+## Per-game UDP echo diagnostics
+
+The Speed screen can keep a diagnostic host, UDP port and optional hex payload for each Game-only-selected application. It compares five nonce-bearing diagnostic datagrams over the physical Android Network and active sing-box VPN Network, resolving the hostname once on the physical network so both paths test the same destination IP. A sample is counted only when the endpoint returns the exact request bytes.
+
+The tool requires a purpose-built UDP echo endpoint; it does not emit arbitrary game packets or infer a response from a silent UDP service. Many commercial game servers do not echo arbitrary datagrams, so this test is not a universal game-server ping or in-match packet-loss measurement. The result is the RTT and timeout behavior to the configured echo service, keyed to the selected game's local profile.
