@@ -300,9 +300,7 @@ class MainActivity : Activity() {
             .put("ikev2Supported", isIkev2Supported())
             .put(
                 "ikev2StatusUnverified",
-                Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU &&
-                    (application as NetPulseApplication).loadedIkev2Config != null &&
-                    isIkev2PlatformActive() && !ikev2Connected
+                isIkev2StatusUnverified()
             )
             .put("gameOnlyEnabled", isGamingOnlyEnabled())
             .put("selectedGameCount", selectedGamingPackages().size)
@@ -1148,7 +1146,9 @@ class MainActivity : Activity() {
     }
 
     private fun toggleIkev2() {
-        if (ikev2Connected || ikev2Starting) {
+        if (ikev2Connected || ikev2Starting || isIkev2StatusUnverified()) {
+            // stopProvisionedVpnProfile only addresses the IKEv2 profile provisioned
+            // by this application; it does not stop another VPN app's service.
             stopIkev2()
             return
         }
@@ -1258,13 +1258,13 @@ class MainActivity : Activity() {
                 }
             }
         } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            val capabilities = getSystemService(ConnectivityManager::class.java)
-                .getNetworkCapabilities(getSystemService(ConnectivityManager::class.java).activeNetwork)
-            val vpnActive = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
-            if (vpnActive && (ikev2Starting || ikev2Connected)) {
-                ikev2Connected = true
+            val vpnActive = hasAnyActiveVpnNetwork()
+            if (vpnActive && ikev2Starting) {
+                // The Android 11/12 API can see a VPN network but cannot reliably
+                // identify its owning provisioned profile. Do not mislabel it as IKEv2.
                 ikev2Starting = false
-                VpnEngineCoordinator.acquire(VpnEngineCoordinator.Engine.IKEV2)
+                ikev2Connected = false
+                postWebMessage("Android 11/12 یک VPN فعال را گزارش می‌کند، اما نوع/مالک آن را مشخص نمی‌کند. وضعیت در داشبورد نامشخص نمایش داده می‌شود.")
             } else if (!vpnActive && ikev2Connected) {
                 ikev2Connected = false
                 ikev2Starting = false
@@ -1365,18 +1365,34 @@ class MainActivity : Activity() {
             Regex("(?im)^\\s*(?:client|remote|dev\\s+tun|proto\\s+(?:udp|tcp))\\b").containsMatchIn(value)
     }
 
+    private fun hasAnyActiveVpnNetwork(): Boolean {
+        val manager = getSystemService(ConnectivityManager::class.java)
+        @Suppress("DEPRECATION")
+        val networks = manager.allNetworks
+        return networks.any { network ->
+            manager.getNetworkCapabilities(network)
+                ?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
+        }
+    }
+
+    private fun isIkev2StatusUnverified(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU &&
+            (application as NetPulseApplication).loadedIkev2Config != null &&
+            hasAnyActiveVpnNetwork() &&
+            !ikev2Connected &&
+            !ikev2Starting
+
     private fun isIkev2PlatformActive(): Boolean {
         if (!isIkev2Supported()) return false
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val state = runCatching { vpnManager()?.provisionedVpnProfileState?.state }.getOrNull()
             state == VpnProfileState.STATE_CONNECTED || state == VpnProfileState.STATE_CONNECTING
         } else {
-            // Android 11/12 do not expose VpnProfileState. Conservatively treat an
-            // active platform VPN plus a locally saved IKEv2 profile as occupied.
-            val hasSavedProfile = (application as NetPulseApplication).loadedIkev2Config != null
-            val capabilities = getSystemService(ConnectivityManager::class.java)
-                .getNetworkCapabilities(getSystemService(ConnectivityManager::class.java).activeNetwork)
-            hasSavedProfile && capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
+            // Android 11/12 do not expose VpnProfileState. If a locally provisioned
+            // IKEv2 profile exists while any VPN network is active, block a new engine
+            // start and report the owner as unknown rather than guessing "connected".
+            (application as NetPulseApplication).loadedIkev2Config != null &&
+                hasAnyActiveVpnNetwork()
         }
     }
 
