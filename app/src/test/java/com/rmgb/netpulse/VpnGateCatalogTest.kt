@@ -61,7 +61,7 @@ class VpnGateCatalogTest {
             listOf(host, ip, "1", ping.toString(), speed.toString(), "Japan", "JP", "1", "500", "2", "3", "1", "owner", "node",
                 java.util.Base64.getEncoder().encodeToString(profile.toByteArray())).joinToString(",")
         val sample = "*vpn_servers\n#HostName,IP,Score,Ping,Speed,CountryLong,CountryShort,NumVpnSessions,Uptime,TotalUsers,TotalTraffic,LogType,Operator,Message,OpenVPN_ConfigData_Base64\n" +
-            row("vpn123456789", "198.51.100.10", 40, 1000000, config) + "\n" +
+            row("vpn123456789", "198.51.100.10", 40, 1000000, sampleProfile) + "\n" +
             row("vpn123456790", "198.51.100.11", 10, 2000000, fast) + "\n" +
             row("vpn123456791", "198.51.100.12", 10, 3000000, slow) + "\n" +
             row("vpn123456791", "198.51.100.12", 10, 3000000, slow) + "\n*end"
