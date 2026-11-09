@@ -115,7 +115,7 @@ assert.match(activity, /Intent\.ACTION_CREATE_DOCUMENT/);
 assert.match(activity, /REQUEST_GAME_SESSION_EXPORT/);
 assert.match(activity, /contentResolver\.openOutputStream\(uri, "wt"\)/);
 assert.match(html, /function clearGameSessions\(\)/);
-assert.match(html, /NetPulse foreground monitoring only/);
+assert.match(html, /NetPulse process-lifetime Usage Access sampling/);
 assert.match(html, /id="gameSessionHistory"/);
 assert.match(html, /id="gameSessionCount"/);
 assert.match(html, /state\.activeGameDownloadMbps!==null/);
