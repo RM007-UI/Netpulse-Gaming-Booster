@@ -27,4 +27,7 @@ dependencies {
     implementation("com.github.singbox-android:libbox:1.14.4")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     testImplementation("junit:junit:4.13.2")
+    // Android's mockable android.jar stubs org.json methods during local JVM tests.
+    // Use the reference JSON implementation so profile-import tests exercise real serialization.
+    testImplementation("org.json:json:20260814")
 }
