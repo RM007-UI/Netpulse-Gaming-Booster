@@ -1,52 +1,44 @@
 # NetPulse Gaming Booster
 
-Native Android network diagnostics, game-oriented routing, and display refresh-rate control.
+NetPulse is a native Android VPN and gaming-network diagnostics app with a Persian RTL dashboard. It combines WireGuard and sing-box, game-only per-app routing, server selection, traffic telemetry, and network-path measurements.
 
-## Current implementation
+## Implemented
 
-- WireGuard userspace tunnel integration using the official embeddable Android tunnel library.
-- Imports a user-provided WireGuard `.conf` profile through Android's document picker.
-- Imports and validates sing-box JSON profiles with libbox; validation only, not yet an active sing-box VPN service.
-- CI verifies the resolved sing-box 1.14.4 AAR against the upstream release SHA-256 before publishing the debug APK.
-- Limits imported profile files to 2 MiB before parsing and rejects malformed UTF-8 instead of silently replacing invalid bytes.
-- Validates profiles before enabling the connection controls.
-- Requests Android VPN consent only when the user taps Connect.
-- Keeps parsed profile material in memory; it is not written to app storage.
-- Includes a rooted display refresh controller for Android/HyperOS: reads the display's supported modes, applies only a mode actually exposed by the panel, verifies the live rate, and restores the settings captured before the first change, and rolls back a failed attempt to the state from immediately before that attempt.
-- The refresh controller uses Android's display-mode preference plus the Android min/peak refresh settings and Xiaomi's HyperOS refresh-rate settings. Root is requested only when the refresh controller checks access.
-- Does not bundle public endpoints, credentials, or sample VPN profiles.
-- Other protocol catalog entries remain marked as planned or requiring integration.
+- **WireGuard:** imports and validates user-provided WireGuard `.conf` files, then connects through the official Android tunnel library.
+- **sing-box VPN engine:** embeds the pinned Android libbox 1.14.4 engine in a foreground `VpnService`. It validates imported sing-box JSON and supported share links, establishes a TUN interface, and routes traffic through the selected outbound.
+- **Share-link import:** VLESS, VMess, Trojan, Shadowsocks, SOCKS5, Hysteria v1, Hysteria 2, TUIC, AnyTLS, NaiveProxy, and HTTP/HTTPS proxy links. Full sing-box JSON is also accepted for configurations supported by the bundled core.
+- **Server manager:** lists selectable server outbounds and selector/urltest groups from the loaded sing-box profile. Choosing a node updates `route.final` while preserving the rest of the config and its routing rules. Disconnect and reconnect sing-box to apply the new default route.
+- **Game-only routing:** select launcher-visible games/apps. With sing-box, only the selected package allowlist (plus NetPulse for its own UDP diagnostic sockets) is routed through the VPN. Other apps continue using Android's normal network. WireGuard remains full-device routing.
+- **Network diagnostics:** six TCP connection-establishment samples to `1.1.1.1:443`, plus five direct and five VPN UDP STUN samples to `stun.l.google.com:19302` when sing-box and Game-only mode are active.
+- **Traffic telemetry:** live device-wide upload/download counters and per-app UID counters where Android exposes them.
+- **Display refresh controller:** lists panel modes and can apply/restore supported refresh rates with Root access. It does not invent unsupported panel modes.
+- **Dashboard:** eight screens for overview, analytics, devices, servers, alerts, speed tests, logs, and settings; navigation adapts to narrow mobile displays and Android system-bar insets.
 
-A successful build verifies compilation and packaging only. VPN functionality still requires provider-issued profiles and device/network testing. Refresh-rate behavior must be verified on the target phone because HyperOS policies can differ between device models and builds.
+## Important limitations
 
-## Display refresh rate
-
-Open **Display Refresh Rate** and grant the root prompt from Magisk/KernelSU when it appears. The app lists the panel's refresh rates at its current resolution. Select an available rate to pin it, or use **Auto** to restore the values captured before the first change. Failed shell operations trigger an automatic rollback, and restoration targets the internal display ID explicitly.
-
-The POCO X7 Pro is specified for up to 120 Hz. The app will not try to invent a 90 Hz hardware mode: 90 Hz is enabled only if the installed display firmware exposes it as a supported mode. A 120 Hz panel setting also does not force an app or game to render 120 FPS.
-
-If the active panel rate does not match the requested rate, the app reports the actual value rather than showing a false success. Battery saver, thermal policy, app-specific limits, and firmware policy can still affect the result.
-
-## Protocol roadmap
-
-- WireGuard: integrated; device-level connection testing remains required.
-- OpenVPN UDP/TCP: integrate a maintained OpenVPN 3-compatible Android engine.
-- VLESS, VMess, Trojan, Shadowsocks: planned through one embedded sing-box engine; see [the integration plan](docs/SING_BOX_INTEGRATION.md).
-- SOCKS5: proxy mode; full-device routing requires a TUN adapter.
-- IKEv2/IPsec: evaluate a maintained implementation before advertising support.
-- DNS: classic DNS, DoH, DoT and DoQ with leak and fallback tests.
-- TCP/UDP/QUIC/HTTP/2/HTTP/3 are transports, not independent VPN engines.
+- TCP measurements are connection-establishment times to the named probe endpoint, not ICMP ping.
+- STUN measurements are generic UDP path indicators. They do not measure the latency or packet loss of a particular game server or match.
+- NetPulse does not promise lower ping, higher FPS, packet prioritization, or a gaming performance gain. A VPN can improve or worsen routing depending on the server and network.
+- OpenVPN UDP/TCP and IKEv2/IPsec are **not integrated**.
+- Game-only routing requires a sing-box profile with a TUN inbound. Unsupported configurations are rejected for that mode.
+- Switching the selected sing-box outbound changes the default route. More-specific route rules in a custom profile can still override it.
+- Imported VPN profiles and their credentials stay in process memory only. They are not written to app storage; after Android kills the app process, import the profile again.
+- A physical Android device test is still required for VPN consent, foreground-service behavior, traffic routing, DNS, handoffs, and real gameplay.
 
 ## Build
 
-GitHub Actions runs `gradle testDebugUnitTest assembleDebug` on pushes and pull requests to `main`. The debug APK is uploaded as the `netpulse-debug` workflow artifact.
+- Minimum Android version: Android 8.0 / API 26.
+- Target SDK: 35.
+- ABI: `arm64-v8a`.
+- JDK 17, Android SDK 35, and Gradle 8.9.
+- Run `gradle testDebugUnitTest assembleDebug`.
+- GitHub Actions also runs the five-pass UI regression checks and verifies the SHA-256 of the pinned libbox AAR before uploading the `netpulse-debug` APK artifact.
 
-Local requirements: JDK 17 and Android SDK 35.
+## Privacy and security
 
-## Safety and privacy
-
-- Uses Android's user-approved `VpnService` permission for VPN tunnels.
-- The refresh controller uses root only to change and restore display preferences.
-- Does not request `QUERY_ALL_PACKAGES`.
-- Disables Android Auto Backup to avoid silently backing up sensitive VPN profile material.
-- Does not log profile contents or bundle fabricated VPN endpoints or credentials.
+- VPN access is requested through Android's system consent screen.
+- The app does not bundle public VPN endpoints or credentials.
+- The sing-box profile is validated before startup and again after Game-only routing is applied.
+- Profile JSON, UUIDs, passwords, private keys, and subscription URLs are not written to diagnostic logs.
+- Android backup is disabled for the application.
+- The WebView dashboard is loaded from the app's bundled assets; network loads and universal file-URL access are disabled.
