@@ -418,16 +418,22 @@ class MainActivity : Activity() {
 
     private fun runGameServerComparison(rawTarget: String?) {
         if (!SingBoxVpnService.isRunning) {
-            postWebMessage("برای مقایسه مقصد بازی، ابتدا sing-box را وصل کن.")
+            val message = "برای مقایسه مقصد بازی، ابتدا sing-box را وصل کن."
+            postWebMessage(message)
+            sendGameServerProbeFailure(message)
             return
         }
         if (!isGamingOnlyEnabled()) {
-            postWebMessage("برای مقایسه مسیر مستقیم و VPN، ابتدا Game-only را فعال کن تا سوکت آزمایشی NetPulse در تونل باشد.")
+            val message = "برای مقایسه مسیر مستقیم و VPN، ابتدا Game-only را فعال کن تا سوکت آزمایشی NetPulse در تونل باشد."
+            postWebMessage(message)
+            sendGameServerProbeFailure(message)
             return
         }
 
         val target = runCatching { JSONObject(rawTarget ?: "{}") }.getOrElse {
-            postWebMessage("مشخصات مقصد آزمایشی معتبر نیست.")
+            val message = "مشخصات مقصد آزمایشی معتبر نیست."
+            postWebMessage(message)
+            sendGameServerProbeFailure(message)
             return
         }
         val host = target.optString("host").trim()
@@ -436,7 +442,9 @@ class MainActivity : Activity() {
             host.contains("://") || host.contains('/') || host.contains('@') ||
             port !in 1..65535
         ) {
-            postWebMessage("نام میزبان یا پورت TCP معتبر نیست.")
+            val message = "نام میزبان یا پورت TCP معتبر نیست."
+            postWebMessage(message)
+            sendGameServerProbeFailure(message)
             return
         }
 
@@ -459,7 +467,9 @@ class MainActivity : Activity() {
             }
 
         if (vpnNetwork == null || physicalNetwork == null) {
-            postWebMessage("شبکه فیزیکی یا رابط VPN برای مقایسه مقصد پیدا نشد.")
+            val message = "شبکه فیزیکی یا رابط VPN برای مقایسه مقصد پیدا نشد."
+            postWebMessage(message)
+            sendGameServerProbeFailure(message)
             return
         }
 
@@ -502,6 +512,18 @@ class MainActivity : Activity() {
             }
             runOnUiThread {
                 if (isDestroyed || !::webView.isInitialized) return@runOnUiThread
+                webView.evaluateJavascript(
+                    "window.netPulseGameServerComparison && window.netPulseGameServerComparison($payload);",
+                    null
+                )
+            }
+        }
+    }
+
+    private fun sendGameServerProbeFailure(message: String) {
+        val payload = JSONObject().put("ok", false).put("message", message).toString()
+        runOnUiThread {
+            if (!isDestroyed && ::webView.isInitialized) {
                 webView.evaluateJavascript(
                     "window.netPulseGameServerComparison && window.netPulseGameServerComparison($payload);",
                     null
