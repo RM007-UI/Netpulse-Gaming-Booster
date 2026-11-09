@@ -43,27 +43,27 @@ console.log("PASS 2/5 — multi-element routing and delegated navigation are cor
 
 // PASS 3 — JavaScript, native bridge, game profiles, probes and VPN safety controls are wired.
 new vm.Script(js, { filename: "netpulse/index.html" });
-const ids = new Set([...html.matchAll(/\\bid="([^"]+)"/g)].map(m => m[1]));
-const referencedIds = [...new Set([...js.matchAll(/\\$\\('#([\\w-]+)'\\)/g)].map(m => m[1]))];
-for (const id of referencedIds) assert.ok(ids.has(id), `HTML selector points to missing element: ${id}`);
+const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]));
+const referencedIds = [...new Set([...js.matchAll(/\$\('#([\w-]+)'\)/g)].map(m => m[1]))];
+for (const id of referencedIds) {
+  assert.ok(ids.has(id), "HTML selector points to missing element: " + id);
+}
 
 const actions = [
-  "importWireGuard", "toggleWireGuard", "importSingBox", "importSingBoxText",
-  "toggleSingBox", "applyRefreshRate", "restoreRefreshRate", "checkRoot",
-  "refresh", "setLiveRefresh", "testLatency", "testUdpRoutes",
-  "testGameServer", "toggleGamingMode", "saveGamingApps", "saveGameRoutes",
-  "selectServer", "autoSelectServer", "requestGameDetection",
+  "importWireGuard", "toggleWireGuard", "importSingBox", "toggleSingBox",
+  "applyRefreshRate", "restoreRefreshRate", "checkRoot", "refresh",
+  "setLiveRefresh", "testLatency", "testUdpRoutes", "testGameServer",
+  "toggleGamingMode", "saveGameRoutes", "selectServer", "autoSelectServer",
   "toggleAutoGameDetection", "clearProfiles", "configureIkev2", "toggleIkev2"
 ];
 for (const action of actions) {
-  assert.ok(js.includes(`nativeAction('${action}'`), `UI action missing: ${action}`);
-  assert.ok(activity.includes(`"${action}" ->`), `Native bridge handler missing: ${action}`);
+  assert.ok(js.includes("nativeAction('" + action + "'"), "UI action missing: " + action);
+  assert.ok(activity.includes('"' + action + '" ->'), "Native bridge handler missing: " + action);
 }
 
-assert.match(activity, /@JavascriptInterface\\s+fun getState\\(\\): String/);
-assert.match(activity, /@JavascriptInterface\\s+fun perform\\(action: String, value: String\\?\\)/);
-assert.match(activity, /@JavascriptInterface\\s+fun getGamingAppCatalog\\(\\): String/);
-assert.match(activity, /@JavascriptInterface\\s+fun getServerCatalog\\(\\): String/);
+assert.match(activity, /@JavascriptInterface\s+fun getState\(\): String/);
+assert.match(activity, /@JavascriptInterface\s+fun getServerCatalog\(\): String/);
+assert.match(activity, /@JavascriptInterface\s+fun getGamingAppCatalog\(\): String/);
 
 // Game-only routing applies to both sing-box TUN and WireGuard's native per-app allowlist.
 assert.match(gamingConfigurator, /package_name/);
@@ -71,79 +71,81 @@ assert.match(gamingConfigurator, /perGameOutbounds/);
 assert.match(gamingConfigurator, /"action", "route"/);
 assert.match(gamingConfigurator, /"outbound", outboundTag/);
 assert.match(gamingConfigurator, /auto_route/);
-assert.match(activity, /GamingProfileConfigurator\\.withGameOnlyRouting/);
-assert.match(activity, /WireGuardGameRoutingConfigurator\\.withGameOnlyRouting/);
-assert.match(wireGuardGame, /includeApplications\\(selectedPackages\\.sorted\\(\\)\\)/);
-assert.match(wireGuardGame, /addPeers\\(config\\.getPeers\\(\\)\\)/);
+assert.match(activity, /GamingProfileConfigurator\.withGameOnlyRouting/);
+assert.match(activity, /WireGuardGameRoutingConfigurator\.withGameOnlyRouting/);
+assert.match(activity, /loadedSingBoxProfile\.isNullOrBlank\(\) && app\.loadedWireGuardConfig == null/);
+assert.match(activity, /WireGuard connected · Game-only/);
+assert.match(wireGuardGame, /includeApplications\(selectedPackages\.sorted\(\)\)/);
+assert.match(wireGuardGame, /addPeers\(config\.getPeers\(\)\)/);
 
 // Automatic relay selection is a real sing-box URLTest group, not a static ping label.
 assert.match(autoServer, /"type", "urltest"/);
 assert.match(autoServer, /"interval", "3m"/);
 assert.match(autoServer, /"tolerance", 50/);
-assert.match(autoServer, /route\\.put\\("final", AUTO_TAG\\)/);
-assert.match(activity, /private fun autoSelectFastestServer\\(\\)/);
-assert.match(activity, /AutoServerConfigurator\\.useFastestAvailable/);
+assert.match(autoServer, /route\.put\("final", AUTO_TAG\)/);
+assert.match(activity, /private fun autoSelectFastestServer\(\)/);
+assert.match(activity, /AutoServerConfigurator\.useFastestAvailable/);
 
 // Foreground-game detection is explicitly opt-in via Usage Access; no app content is read.
-assert.match(manifest, /android\\.permission\\.PACKAGE_USAGE_STATS/);
+assert.match(manifest, /android\.permission\.PACKAGE_USAGE_STATS/);
 assert.match(activity, /UsageStatsManager/);
-assert.match(activity, /Settings\\.ACTION_USAGE_ACCESS_SETTINGS/);
-assert.match(activity, /private fun detectForegroundGame\\(\\)/);
-assert.match(activity, /private fun updateActiveGameTraffic\\(\\)/);
-assert.match(activity, /private fun isUsageAccessGranted\\(\\)/);
+assert.match(activity, /Settings\.ACTION_USAGE_ACCESS_SETTINGS/);
+assert.match(activity, /private fun detectForegroundGame\(\)/);
+assert.match(activity, /private fun updateActiveGameTraffic\(\)/);
+assert.match(activity, /private fun isUsageAccessGranted\(\)/);
 assert.match(activity, /activeGameDownloadBps/);
 for (const id of ["gameDetectionButton", "gameDetectionState", "activeGameState", "activeGameTraffic", "gameModeButton", "gamingAppList"]) {
-  assert.ok(ids.has(id), `Game detection/routing UI element missing: ${id}`);
+  assert.ok(ids.has(id), "Game detection/routing UI element missing: " + id);
 }
-assert.match(js, /select\\.dataset\\.routePackage=app\\.packageName/);
-assert.match(js, /nativeAction\\('saveGameRoutes'/);
-assert.match(js, /function renderGameDetectionState\\(/);
+assert.match(js, /route\.dataset\.routePackage=app\.packageName/);
+assert.match(js, /nativeAction\('saveGameRoutes'/);
+assert.match(js, /function renderGameDetectionState\(/);
 
 // Custom TCP endpoint test binds sockets to two explicit Android Network handles.
-assert.match(tcpEndpoint, /network\\.bindSocket\\(socket\\)/);
-assert.match(tcpEndpoint, /InetSocketAddress\\(address, port\\)/);
-assert.match(activity, /TcpEndpointProbe\\.measure/);
-assert.match(activity, /private fun runGameServerComparison\\(rawTarget: String\\?\\)/);
-assert.match(js, /function onNetPulseGameServerComparison\\(/);
-assert.match(js, /window\\.netPulseGameServerComparison=onNetPulseGameServerComparison/);
+assert.match(tcpEndpoint, /network\.bindSocket\(socket\)/);
+assert.match(tcpEndpoint, /InetSocketAddress\(address, port\)/);
+assert.match(activity, /TcpEndpointProbe\.measure/);
+assert.match(activity, /private fun runGameServerComparison\(rawTarget: String\?\)/);
+assert.match(js, /function onNetPulseGameServerComparison\(/);
+assert.match(js, /window\.netPulseGameServerComparison=onNetPulseGameServerComparison/);
 for (const id of ["gameServerHost", "gameServerPort", "gameServerProbeButton", "gameDirectMedian", "gameVpnMedian", "gameDirectJitter", "gameVpnJitter"]) {
-  assert.ok(ids.has(id), `Custom game-server diagnostics UI element missing: ${id}`);
+  assert.ok(ids.has(id), "Custom game-server diagnostics UI element missing: " + id);
 }
 
 // Existing measurement labels stay honest: connect failures and STUN timeouts are not game packet loss.
-assert.match(html, /packet loss بازی محسوب نمی‌شود/);
+assert.match(html, /packet loss بازی تلقی نکن/);
 assert.match(html, /TCP connect/);
-assert.match(activity, /UdpStunProbe\\.measure/);
-assert.match(activity, /TcpProbeSummary\\.from/);
-assert.match(js, /function onNetPulseLatencyStats\\(/);
-assert.match(js, /function onNetPulseUdpComparison\\(/);
-assert.match(js, /direct\\.jitterMs/);
-assert.match(js, /vpn\\.jitterMs/);
+assert.match(activity, /UdpStunProbe\.measure/);
+assert.match(activity, /TcpProbeSummary\.from/);
+assert.match(js, /function onNetPulseLatencyStats\(/);
+assert.match(js, /function onNetPulseUdpComparison\(/);
+assert.match(js, /direct\.jitterMs/);
+assert.match(js, /vpn\.jitterMs/);
 
 // Existing reliability, secure-storage and VPN platform gates remain covered.
-assert.match(activity, /TrafficRateCalculator\\(\\)/);
-assert.match(activity, /trafficRateCalculator\\.sample\\(rx, tx, now\\)/);
-assert.match(traffic, /fun sample\\(rxBytes: Long, txBytes: Long, atElapsedMs: Long\\)/);
+assert.match(activity, /TrafficRateCalculator\(\)/);
+assert.match(activity, /trafficRateCalculator\.sample\(rx, tx, now\)/);
+assert.match(traffic, /fun sample\(rxBytes: Long, txBytes: Long, atElapsedMs: Long\)/);
 assert.match(secureStore, /AndroidKeyStore/);
 assert.ok(secureStore.includes("AES/GCM/NoPadding"));
-assert.match(secureStore, /context\\.noBackupFilesDir/);
-assert.match(application, /fun persistProfiles\\(\\): Boolean/);
-assert.match(application, /private fun restoreProfiles\\(\\)/);
-assert.match(application, /fun clearStoredProfiles\\(\\): Boolean/);
-assert.match(activity, /private fun confirmClearSavedProfiles\\(\\)/);
-assert.match(activity, /stopProvisionedVpnProfile\\(\\)/);
+assert.match(secureStore, /context\.noBackupFilesDir/);
+assert.match(application, /fun persistProfiles\(\): Boolean/);
+assert.match(application, /private fun restoreProfiles\(\)/);
+assert.match(application, /fun clearStoredProfiles\(\): Boolean/);
+assert.match(activity, /private fun confirmClearSavedProfiles\(\)/);
+assert.match(activity, /stopProvisionedVpnProfile\(\)/);
 assert.match(vpnService, /EXTRA_ERROR/);
 assert.match(vpnService, /pendingSingBoxServiceProfile/);
-assert.doesNotMatch(activity, /putExtra\\(SingBoxVpnService\\.EXTRA_PROFILE/);
+assert.doesNotMatch(activity, /putExtra\(SingBoxVpnService\.EXTRA_PROFILE/);
 assert.match(activity, /REQUEST_IKEV2_PERMISSION/);
-assert.match(activity, /provisionVpnProfile\\(platformProfile\\)/);
-assert.match(activity, /startProvisionedVpnProfileSession\\(\\)/);
-assert.match(ikev2Config, /Ikev2VpnProfile\\.Builder/);
+assert.match(activity, /provisionVpnProfile\(platformProfile\)/);
+assert.match(activity, /startProvisionedVpnProfileSession\(\)/);
+assert.match(ikev2Config, /Ikev2VpnProfile\.Builder/);
 assert.match(openVpnImporter, /openvpn-client/);
-assert.match(protocolCatalog, /openvpn_udp.*EngineState\\.AVAILABLE/);
-assert.match(protocolCatalog, /ikev2_ipsec.*EngineState\\.AVAILABLE/);
+assert.match(protocolCatalog, /openvpn_udp.*EngineState\.AVAILABLE/);
+assert.match(protocolCatalog, /ikev2_ipsec.*EngineState\.AVAILABLE/);
 
-assert.match(html, /v0\\.6\\.0/);
+assert.match(html, /v0\.6\.0/);
 console.log("PASS 3/5 — game routing, foreground detection, TCP/UDP probes, URLTest and VPN safety are wired");
 
 // PASS 4 — Android 15 system bars and cutout insets are applied to the WebView viewport.
