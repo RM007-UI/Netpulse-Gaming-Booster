@@ -1172,6 +1172,48 @@ class MainActivity : Activity() {
         }.getOrDefault("[]")
     }
 
+    private fun autoSelectFastestServer() {
+        if (SingBoxVpnService.isRunning || singBoxStarting) {
+            postWebMessage("برای ساخت گروه انتخاب خودکار، ابتدا sing-box را قطع کن.")
+            return
+        }
+        val app = application as NetPulseApplication
+        val current = app.loadedSingBoxProfile
+        if (current.isNullOrBlank()) {
+            postWebMessage("ابتدا یک پروفایل sing-box با حداقل دو سرور وارد کن.")
+            return
+        }
+        postWebMessage("در حال ساخت گروه انتخاب خودکار بر اساس تست دوره‌ای مسیر سرورها…")
+        worker.execute {
+            val result = runCatching {
+                AutoServerConfigurator.useFastestAvailable(current).also(Libbox::checkConfig)
+            }
+            val updated = result.getOrElse { error ->
+                runOnUiThread {
+                    if (!isDestroyed) postWebMessage(
+                        "انتخاب خودکار ساخته نشد: " + (error.message ?: error.javaClass.simpleName)
+                    )
+                }
+                return@execute
+            }
+            app.loadedSingBoxProfile = updated
+            app.loadedSingBoxProtocol = "URLTest"
+            app.loadedSingBoxDisplayName = AutoServerConfigurator.AUTO_TAG
+            val persisted = app.persistProfiles()
+            runOnUiThread {
+                if (isDestroyed) return@runOnUiThread
+                publishNativeState()
+                postWebMessage(
+                    "گروه انتخاب خودکار با " +
+                        SingBoxServerCatalog.list(updated).count { !it.group } +
+                        " نود ساخته شد. " +
+                        if (persisted) "ذخیره رمزگذاری‌شده شد. " else "ذخیره امن انجام نشد. " +
+                        "پس از اتصال sing-box، هسته به‌صورت دوره‌ای سرور سالم‌تر و کم‌تأخیرتر را انتخاب می‌کند. این سنجش معیار عمومی HTTP است، نه پینگ سرور بازی."
+                )
+            }
+        }
+    }
+
     private fun selectSingBoxServer(rawTag: String?) {
         val tag = rawTag?.trim().orEmpty()
         if (tag.isBlank()) {
@@ -1393,6 +1435,10 @@ class MainActivity : Activity() {
     }
 
     private fun startProvisionedIkev2() {
+        if (isGamingOnlyEnabled()) {
+            postWebMessage("IKEv2 بومی در Android فقط تونل تمام‌دستگاه می‌سازد؛ برای Game-only از WireGuard یا sing-box استفاده کن.")
+            return
+        }
         val manager = vpnManager()
         if (manager == null || !isIkev2Supported()) {
             postWebMessage("IKEv2 به Android 11 یا جدیدتر و قابلیت IPsec دستگاه نیاز دارد.")
@@ -1998,8 +2044,30 @@ class MainActivity : Activity() {
         status.text = "Starting WireGuard…"
         worker.execute {
             try {
-                backend.setState(wireGuardTunnel, Tunnel.State.UP, config)
-                runOnUiThread { connectButton.isEnabled = true }
+                val configForStart = if (isGamingOnlyEnabled()) {
+                    val requested = selectedGamingPackages()
+                    val installed = launchableApps().map { it.packageName }.toSet()
+                    val validSelection = requested.intersect(installed)
+                    require(validSelection.isNotEmpty()) {
+                        "No selected game is currently installed. Choose an installed game first."
+                    }
+                    if (validSelection != requested) {
+                        gamingPreferences.edit().putStringSet(GAMING_PACKAGES_KEY, validSelection).apply()
+                    }
+                    WireGuardGameRoutingConfigurator.withGameOnlyRouting(config, validSelection)
+                } else {
+                    config
+                }
+                backend.setState(wireGuardTunnel, Tunnel.State.UP, configForStart)
+                runOnUiThread {
+                    connectButton.isEnabled = true
+                    status.text = if (isGamingOnlyEnabled()) {
+                        "WireGuard connected · Game-only"
+                    } else {
+                        "WireGuard connected"
+                    }
+                    publishNativeState()
+                }
             } catch (error: Exception) {
                 VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.WIREGUARD)
                 showError("Connection failed", error)
@@ -2066,8 +2134,13 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        finishUsageAccessSetup()
         refreshHandler.removeCallbacks(networkTick)
         if (liveRefreshEnabled) refreshHandler.post(networkTick)
+        refreshHandler.removeCallbacks(gameDetectionTick)
+        if (isAutoGameDetectionEnabled() && isUsageAccessGranted()) {
+            refreshHandler.post(gameDetectionTick)
+        }
         refreshIkev2State()
         singBoxConnected = SingBoxVpnService.isRunning
         singBoxStarting = false
@@ -2112,6 +2185,7 @@ class MainActivity : Activity() {
             (application as NetPulseApplication).wireGuardStateListener = null
         }
         refreshHandler.removeCallbacksAndMessages(null)
+        activeGamePackage = null
         worker.shutdown()
         super.onDestroy()
     }
@@ -2128,6 +2202,9 @@ class MainActivity : Activity() {
         private const val GAMING_PREFS = "netpulse_gaming"
         private const val GAMING_PACKAGES_KEY = "selected_packages"
         private const val GAMING_ONLY_KEY = "game_only_enabled"
+        private const val GAME_ROUTE_ASSIGNMENTS_KEY = "per_game_outbound_assignments"
+        private const val AUTO_GAME_DETECTION_KEY = "auto_game_detection"
+        private const val GAME_DETECTION_INTERVAL_MS = 2500L
         private const val MAX_GAMING_APPS = 50
         private const val TCP_PROBE_HOST = "1.1.1.1"
         private const val TCP_PROBE_PORT = 443
