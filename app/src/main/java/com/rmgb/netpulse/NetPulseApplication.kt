@@ -73,6 +73,21 @@ class NetPulseApplication : Application() {
         }.isSuccess
     }
 
+    fun clearStoredProfiles(): Boolean {
+        if (!::profileStore.isInitialized) return false
+        return runCatching {
+            profileStore.clear()
+            loadedWireGuardConfig = null
+            pendingWireGuardConfig = null
+            loadedWireGuardText = null
+            loadedSingBoxProfile = null
+            loadedSingBoxProtocol = null
+            loadedSingBoxDisplayName = null
+        }.onFailure { error ->
+            Log.w("NetPulse", "encrypted profile clear failed (${error.javaClass.simpleName})")
+        }.isSuccess
+    }
+
     private fun restoreProfiles() {
         val stored = runCatching { profileStore.load() }
             .onFailure { error ->
