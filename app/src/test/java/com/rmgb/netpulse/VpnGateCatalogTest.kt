@@ -67,8 +67,8 @@ class VpnGateCatalogTest {
             row("vpn123456791", "198.51.100.12", 10, 3000000, slow) + "\n*end"
         val servers = VpnGateCatalog.parse(sample)
         assertEquals(3, servers.size)
-        assertEquals("vpn123456790", servers[0].hostName)
-        assertEquals("vpn123456791", servers[1].hostName)
+        assertEquals("vpn123456791", servers[0].hostName)
+        assertEquals("vpn123456790", servers[1].hostName)
     }
 
     @Test
