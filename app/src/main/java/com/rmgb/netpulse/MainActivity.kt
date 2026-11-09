@@ -743,6 +743,7 @@ class MainActivity : Activity() {
 
     private fun gamingAppCatalogJson(): String {
         val selected = selectedGamingPackages()
+        val routeAssignments = gameRouteAssignments()
         val apps = JSONArray()
         launchableApps().forEach { app ->
             val rx = TrafficStats.getUidRxBytes(app.uid)
@@ -753,6 +754,7 @@ class MainActivity : Activity() {
                     .put("label", app.label)
                     .put("isGame", app.isGame)
                     .put("selected", app.packageName in selected)
+                    .put("routeTag", routeAssignments[app.packageName] ?: JSONObject.NULL)
                     .put("rxFormatted", formatBytes(rx))
                     .put("txFormatted", formatBytes(tx))
             )
@@ -774,7 +776,14 @@ class MainActivity : Activity() {
             if (selected.isEmpty() && isGamingOnlyEnabled()) {
                 gamingPreferences.edit().putBoolean(GAMING_ONLY_KEY, false).apply()
             }
-            gamingPreferences.edit().putStringSet(GAMING_PACKAGES_KEY, selected).apply()
+            val retainedRoutes = JSONObject()
+            gameRouteAssignments().filterKeys { it in selected }.forEach { (pkg, tag) ->
+                retainedRoutes.put(pkg, tag)
+            }
+            gamingPreferences.edit()
+                .putStringSet(GAMING_PACKAGES_KEY, selected)
+                .putString(GAME_ROUTE_ASSIGNMENTS_KEY, retainedRoutes.toString())
+                .apply()
             publishNativeState()
             postWebMessage(
                 if (selected.isEmpty()) "فهرست بازی‌ها خالی شد؛ حالت Game-only خاموش است."
@@ -794,8 +803,8 @@ class MainActivity : Activity() {
         gamingPreferences.edit().putBoolean(GAMING_ONLY_KEY, enabled).apply()
         publishNativeState()
         postWebMessage(
-            if (enabled) "حالت Game-only فعال شد؛ بازی‌های انتخاب‌شده و ترافیک تست NetPulse از تونل sing-box عبور می‌کنند."
-            else "حالت Game-only خاموش شد؛ مسیر پیش‌فرض پروفایل sing-box اعمال می‌شود."
+            if (enabled) "حالت Game-only فعال شد؛ هنگام اتصال WireGuard یا sing-box فقط برنامه‌های انتخاب‌شده از تونل عبور می‌کنند. IKEv2 همچنان تمام‌دستگاه است."
+            else "حالت Game-only خاموش شد؛ مسیر کامل موتور VPN اعمال می‌شود."
         )
     }
 
@@ -1774,7 +1783,12 @@ class MainActivity : Activity() {
                     }
                     // Include NetPulse itself only for its diagnostic sockets, so the
                     // VPN-bound UDP probe can actually traverse this per-app allowlist.
-                    GamingProfileConfigurator.withGameOnlyRouting(profile, validSelection + packageName)
+                    val appRoutes = gameRouteAssignments().filterKeys { it in validSelection }
+                    GamingProfileConfigurator.withGameOnlyRouting(
+                        profile,
+                        validSelection + packageName,
+                        appRoutes
+                    )
                 } else {
                     profile
                 }
