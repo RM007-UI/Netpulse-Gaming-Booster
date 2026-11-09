@@ -204,8 +204,48 @@ function applyState(s){if(!s)return;const fmt=v=>v===null||v===undefined?'—':v
 function drawLiveChart(id,a){if(a.length<2)return;const points=a.map((v,i)=>{const x=i*720/(a.length-1),y=180-v*1.7;return (i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1)}).join(' ');$('#'+id).setAttribute('d',points)}
 function renderGamingState(s){const button=$('#gameModeButton');if(button){button.textContent=s.gameOnlyEnabled?'فعال':'خاموش';button.classList.toggle('primary',!!s.gameOnlyEnabled)}const count=$('#selectedGameCount');if(count)count.textContent=(s.selectedGameCount||0)+' برنامه انتخاب‌شده';const hint=$('#gameModeHint');if(hint)hint.textContent=s.gameOnlyEnabled?'حالت فعال است: فقط برنامه‌های انتخاب‌شده از VPN sing-box عبور می‌کنند. برای اعمال تغییر تازه، تونل را قطع و دوباره وصل کن.':'انتخاب برنامه‌ها را ذخیره کن و سپس Game-only را فعال کن. این گزینه فقط روی sing-box اثر دارد.'}
 function loadServers(){const list=$('#serverCatalog');if(!list)return;if(!window.NetPulse){list.textContent='رابط native در دسترس نیست.';return;}try{const entries=JSON.parse(window.NetPulse.getServerCatalog()||'[]');let state={};try{state=JSON.parse(window.NetPulse.getState()||'{}')}catch(error){}list.replaceChildren();$('#serverCatalogCount').textContent=entries.length+' نود';if(!entries.length){const empty=document.createElement('div');empty.className='engine-message';empty.textContent='در پروفایل فعلی نود قابل انتخابی پیدا نشد. ابتدا یک پروفایل sing-box معتبر وارد کن.';list.appendChild(empty);$('#serverCatalogHint').textContent='پروفایل باید حداقل یک outbound سروری یا یک گروه selector/urltest داشته باشد.';return;}entries.forEach(entry=>{const row=document.createElement('div');row.className='server-row';const main=document.createElement('div');main.className='server-row-main';const title=document.createElement('b');title.textContent=entry.tag;const endpoint=document.createElement('small');endpoint.textContent=(entry.type||'unknown').toUpperCase()+' · '+(entry.group?('گروه با '+(entry.memberCount||0)+' عضو'):((entry.server||'میزبان نامشخص')+(entry.port?':'+entry.port:'')));main.append(title,endpoint);const actions=document.createElement('div');actions.className='server-row-actions';const badge=document.createElement('span');badge.className='tag'+(entry.selected?' active-node':'');badge.textContent=entry.selected?'مسیر پیش‌فرض':'آماده انتخاب';const button=document.createElement('button');button.type='button';button.className='btn'+(entry.selected?'':' primary');button.textContent=entry.selected?'انتخاب‌شده':'انتخاب مسیر';button.disabled=!!state.singboxConnected||!!entry.selected;button.addEventListener('click',()=>nativeAction('selectServer',entry.tag));actions.append(badge,button);row.append(main,actions);list.appendChild(row)});$('#serverCatalogHint').textContent=state.singboxConnected?'برای تغییر مسیر ابتدا sing-box را قطع کن. انتخاب جدید پس از اتصال دوباره اعمال می‌شود.':'تغییر مسیر، route.final پروفایل را عوض می‌کند و قوانین خاص route حفظ می‌شوند. برای فعال شدن، sing-box را وصل کن.';}catch(error){list.textContent='خواندن فهرست سرورها ناموفق بود.';$('#serverCatalogCount').textContent='نامشخص';}}
-function loadGamingApps(){const list=$('#gamingAppList');if(!window.NetPulse||!list){toast('رابط native در دسترس نیست.');return;}try{const apps=JSON.parse(window.NetPulse.getGamingAppCatalog()||'[]');list.replaceChildren();if(!apps.length){const empty=document.createElement('p');empty.className='engine-message';empty.textContent='برنامه قابل‌نمایشی پیدا نشد.';list.appendChild(empty);return;}apps.forEach(app=>{const row=document.createElement('label');row.className='game-app-row';const check=document.createElement('input');check.type='checkbox';check.checked=!!app.selected;check.dataset.package=app.packageName;const copy=document.createElement('div');copy.className='game-app-copy';const name=document.createElement('b');name.textContent=app.label||app.packageName;const meta=document.createElement('small');meta.textContent=app.packageName+' · '+(app.isGame?'Android game':'app');copy.append(name,meta);const usage=document.createElement('span');usage.className='game-app-usage';usage.textContent='↓ '+(app.rxFormatted||'—')+' / ↑ '+(app.txFormatted||'—');row.append(check,copy,usage);list.appendChild(row)});toast(apps.length+' برنامه بارگذاری شد. بازی‌ها در ابتدای فهرست قرار دارند.')}catch(error){toast('خواندن فهرست برنامه‌ها ناموفق بود.');}}
-function saveGamingApps(){const list=$('#gamingAppList');if(!list||!window.NetPulse){toast('ابتدا فهرست برنامه‌ها را بارگذاری کن.');return;}const selected=[...list.querySelectorAll('input[data-package]:checked')].map(input=>input.dataset.package);nativeAction('saveGamingApps',JSON.stringify(selected));}
+function loadGamingApps(){
+ const list=$('#gamingAppList');
+ if(!window.NetPulse||!list){toast('رابط native در دسترس نیست.');return;}
+ try{
+  const apps=JSON.parse(window.NetPulse.getGamingAppCatalog()||'[]');
+  const servers=JSON.parse(window.NetPulse.getServerCatalog()||'[]');
+  list.replaceChildren();
+  if(!apps.length){const empty=document.createElement('p');empty.className='engine-message';empty.textContent='برنامه قابل‌نمایشی پیدا نشد.';list.appendChild(empty);return;}
+  apps.forEach(app=>{
+   const row=document.createElement('div');row.className='game-app-row';
+   const check=document.createElement('input');check.type='checkbox';check.checked=!!app.selected;check.dataset.package=app.packageName;
+   const copy=document.createElement('div');copy.className='game-app-copy';
+   const name=document.createElement('b');name.textContent=app.label||app.packageName;
+   const meta=document.createElement('small');meta.textContent=app.packageName+' · '+(app.isGame?'Android game':'app');
+   copy.append(name,meta);
+   const route=document.createElement('select');route.className='game-app-route';route.dataset.routePackage=app.packageName;
+   const defaultOption=document.createElement('option');defaultOption.value='';defaultOption.textContent='مسیر پیش‌فرض';route.appendChild(defaultOption);
+   servers.forEach(server=>{
+    const option=document.createElement('option');option.value=server.tag;
+    option.textContent=(server.group?'گروه · ':'نود · ')+server.tag;
+    route.appendChild(option);
+   });
+   route.value=app.routeTag||'';
+   route.disabled=!app.selected||servers.length===0;
+   check.addEventListener('change',()=>{route.disabled=!check.checked||servers.length===0;});
+   const usage=document.createElement('span');usage.className='game-app-usage';
+   usage.textContent='↓ '+(app.rxFormatted||'—')+' / ↑ '+(app.txFormatted||'—');
+   row.append(check,copy,route,usage);list.appendChild(row);
+  });
+  toast(apps.length+' برنامه بارگذاری شد. برای هرکدام می‌توانی مسیر جداگانه تعیین کنی.');
+ }catch(error){toast('خواندن فهرست برنامه‌ها ناموفق بود.');}
+}
+function saveGamingApps(){
+ const list=$('#gamingAppList');
+ if(!list||!window.NetPulse){toast('ابتدا فهرست برنامه‌ها را بارگذاری کن.');return;}
+ const selected=[...list.querySelectorAll('input[data-package]:checked')].map(input=>input.dataset.package);
+ const routes={};
+ list.querySelectorAll('select[data-route-package]').forEach(select=>{
+  if(select.value&&selected.includes(select.dataset.routePackage))routes[select.dataset.routePackage]=select.value;
+ });
+ nativeAction('saveGameRoutes',JSON.stringify({packages:selected,routes}));
+}
 function toggleGamingMode(){if(!window.NetPulse)return;try{const state=JSON.parse(window.NetPulse.getState());nativeAction('toggleGamingMode',state.gameOnlyEnabled?'false':'true')}catch(error){toast('وضعیت Gaming Mode خوانده نشد.');}}
 function pullState(){try{if(window.NetPulse)applyState(JSON.parse(window.NetPulse.getState()))}catch(e){}}
 function onNetPulseMessage(message){toast(message);const failed=/ناموفق|خطا|معتبر نیست|پیدا نشد|failed|rejected/i.test(String(message));logEvent('Native',message,failed?'ناموفق':'انجام شد');pullState();if($('#view-servers')&&$('#view-servers').classList.contains('active'))loadServers()}
