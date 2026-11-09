@@ -1,6 +1,11 @@
 package com.rmgb.netpulse
 
 import android.app.Activity
+import android.app.AppOpsManager
+import android.app.usage.UsageEvents
+import android.app.usage.UsageStatsManager
+import android.provider.Settings
+import android.os.Process
 import android.content.Intent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -72,6 +77,17 @@ class MainActivity : Activity() {
     private var ikev2PollCount = 0
     private var singBoxStarting = false
     private var singBoxReceiverRegistered = false
+    @Volatile private var activeGamePackage: String? = null
+    @Volatile private var usageAccessSetupPending = false
+    private var usageEventCursorMs = 0L
+    private val gameDetectionTick = object : Runnable {
+        override fun run() {
+            detectForegroundGame()
+            if (isAutoGameDetectionEnabled() && isUsageAccessGranted()) {
+                refreshHandler.postDelayed(this, GAME_DETECTION_INTERVAL_MS)
+            }
+        }
+    }
     private val singBoxStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action != SingBoxVpnService.ACTION_STATE) return
@@ -248,7 +264,12 @@ class MainActivity : Activity() {
                     "testUdpRoutes" -> runUdpRouteComparison()
                     "toggleGamingMode" -> setGamingOnlyMode(value)
                     "saveGamingApps" -> saveGamingApps(value)
+                    "saveGameRoutes" -> saveGameRoutes(value)
                     "selectServer" -> selectSingBoxServer(value)
+                    "autoSelectServer" -> autoSelectFastestServer()
+                    "requestGameDetection" -> requestGameDetection()
+                    "toggleAutoGameDetection" -> toggleAutoGameDetection()
+                    "testGameServer" -> runGameServerComparison(value)
                     "clearProfiles" -> confirmClearSavedProfiles()
                     "configureIkev2" -> showIkev2ProfileDialog()
                     "toggleIkev2" -> toggleIkev2()
@@ -304,6 +325,12 @@ class MainActivity : Activity() {
             )
             .put("gameOnlyEnabled", isGamingOnlyEnabled())
             .put("selectedGameCount", selectedGamingPackages().size)
+            .put("autoGameDetectionEnabled", isAutoGameDetectionEnabled())
+            .put("usageAccessGranted", isUsageAccessGranted())
+            .put("activeGamePackage", activeGamePackage ?: JSONObject.NULL)
+            .put("activeGameLabel", activeGamePackage?.let { pkg ->
+                launchableApps().firstOrNull { it.packageName == pkg }?.label
+            } ?: JSONObject.NULL)
             .put("rootGranted", refreshRootGranted)
             .put("refreshRates", JSONArray(supported))
             .put("currentRefreshRate", refresh)
