@@ -425,7 +425,16 @@ internal object OpenVpnProfileImporter {
         // sing-box endpoints provide both inbound and outbound behavior. Route all
         // TUN traffic to this endpoint; leaving route.final at "direct" would quietly
         // accept the OpenVPN profile but send device traffic outside the VPN endpoint.
+        val vpnDns = JSONObject()
+            .put("type", "openvpn")
+            .put("tag", "netpulse-openvpn-dns")
+            .put("endpoint", "netpulse-openvpn")
+            .put("accept_default_resolvers", true)
+            .put("accept_search_domain", true)
         val json = JSONObject()
+            .put("dns", JSONObject()
+                .put("servers", JSONArray().put(vpnDns))
+                .put("final", "netpulse-openvpn-dns"))
             .put("inbounds", JSONArray().put(defaultTunInbound()))
             .put("endpoints", JSONArray().put(endpoint))
             .put("outbounds", JSONArray().put(JSONObject().put("type", "direct").put("tag", "direct")))
