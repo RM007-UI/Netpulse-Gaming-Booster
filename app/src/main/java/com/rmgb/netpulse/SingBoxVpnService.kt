@@ -138,22 +138,44 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
                 else if (hasV4Address) builder.addRoute("0.0.0.0", 0)
                 if (v6.hasNext()) addPrefixes(v6, true)
                 else if (hasV6Address) builder.addRoute("::", 0)
+
                 fun excludePrefixes(iterator: RoutePrefixIterator) {
                     while (iterator.hasNext()) {
                         val prefix = iterator.next()
-                        builder.excludeRoute(IpPrefix(InetAddress.getByName(prefix.address()), prefix.prefix()))
+                        builder.excludeRoute(
+                            IpPrefix(InetAddress.getByName(prefix.address()), prefix.prefix())
+                        )
                     }
                 }
                 excludePrefixes(options.inet4RouteExcludeAddress)
                 excludePrefixes(options.inet6RouteExcludeAddress)
             } else {
-                addPrefixes(options.inet4RouteRange, true)
-                addPrefixes(options.inet6RouteRange, true)
+                require(
+                    !options.inet4RouteExcludeAddress.hasNext() &&
+                        !options.inet6RouteExcludeAddress.hasNext()
+                ) {
+                    "This sing-box profile uses route exclusions that Android 12 and earlier cannot enforce safely"
+                }
+                val v4 = options.inet4RouteRange
+                val v6 = options.inet6RouteRange
+                if (v4.hasNext()) addPrefixes(v4, true)
+                else if (hasV4Address) builder.addRoute("0.0.0.0", 0)
+                if (v6.hasNext()) addPrefixes(v6, true)
+                else if (hasV6Address) builder.addRoute("::", 0)
             }
+
+            val includePackages = mutableListOf<String>()
             val include = options.includePackage
-            while (include.hasNext()) builder.addAllowedApplication(include.next())
+            while (include.hasNext()) includePackages += include.next()
+            val excludePackages = mutableListOf<String>()
             val exclude = options.excludePackage
-            while (exclude.hasNext()) builder.addDisallowedApplication(exclude.next())
+            while (exclude.hasNext()) excludePackages += exclude.next()
+
+            require(includePackages.isEmpty() || excludePackages.isEmpty()) {
+                "Android VpnService cannot combine include_package and exclude_package in one TUN"
+            }
+            includePackages.distinct().forEach(builder::addAllowedApplication)
+            excludePackages.distinct().forEach(builder::addDisallowedApplication)
         }
         val descriptor = builder.establish() ?: error("Android did not establish the VPN interface")
         synchronized(tunDescriptors) {
