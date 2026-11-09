@@ -297,8 +297,17 @@ function loadUdpGameTargets(){
  }catch(error){select.replaceChildren();const option=document.createElement('option');option.value='';option.textContent='فهرست بازی‌ها خوانده نشد';select.appendChild(option);}
 }
 function restoreGameUdpTarget(){
- const pkg=$('#gameUdpPackage').value;if(!pkg)return;
- try{const saved=JSON.parse(readPref('np-game-udp-'+pkg)||'{}');if(saved.host)$('#gameUdpHost').value=saved.host;if(saved.port)$('#gameUdpPort').value=saved.port;if(saved.payloadHex)$('#gameUdpPayload').value=saved.payloadHex}catch(error){}
+ const pkg=$('#gameUdpPackage').value;
+ $('#gameUdpHost').value='';
+ $('#gameUdpPort').value='7';
+ $('#gameUdpPayload').value='4e50554c5345';
+ if(!pkg)return;
+ try{
+  const saved=JSON.parse(readPref('np-game-udp-'+pkg)||'{}');
+  if(saved.host)$('#gameUdpHost').value=saved.host;
+  if(saved.port)$('#gameUdpPort').value=saved.port;
+  if(saved.payloadHex)$('#gameUdpPayload').value=saved.payloadHex;
+ }catch(error){}
 }
 function runUdpEchoComparison(){
  const packageName=$('#gameUdpPackage').value,host=$('#gameUdpHost').value.trim(),port=Number($('#gameUdpPort').value),payloadHex=$('#gameUdpPayload').value.trim();
