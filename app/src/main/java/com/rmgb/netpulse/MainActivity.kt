@@ -1003,9 +1003,22 @@ class MainActivity : Activity() {
         if (profile.isNullOrBlank()) return
         val profileForStart = try {
             if (isGamingOnlyEnabled()) {
+                // Android VpnService.Builder rejects packages that were removed since
+                // the user last saved the allowlist. Prune stale selections before TUN setup.
+                val requested = selectedGamingPackages()
+                val installed = launchableApps().map { it.packageName }.toSet()
+                val validSelection = requested.intersect(installed)
+                if (validSelection != requested) {
+                    gamingPreferences.edit().putStringSet(GAMING_PACKAGES_KEY, validSelection).apply()
+                    publishNativeState()
+                    postWebMessage("بعضی برنامه‌های حذف‌شده از فهرست بازی پاک شدند.")
+                }
+                require(validSelection.isNotEmpty()) {
+                    "No selected game is currently installed. Choose an installed game first."
+                }
                 // Include NetPulse itself only for its diagnostic sockets, so the
                 // VPN-bound UDP probe can actually traverse this per-app allowlist.
-                GamingProfileConfigurator.withGameOnlyRouting(profile, selectedGamingPackages() + packageName)
+                GamingProfileConfigurator.withGameOnlyRouting(profile, validSelection + packageName)
             } else {
                 profile
             }
