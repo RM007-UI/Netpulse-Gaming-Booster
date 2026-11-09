@@ -22,7 +22,8 @@ data class StoredProfiles(
     val wireGuardConfig: String? = null,
     val singBoxProfile: String? = null,
     val singBoxProtocol: String? = null,
-    val singBoxDisplayName: String? = null
+    val singBoxDisplayName: String? = null,
+    val ikev2Config: String? = null
 )
 
 /**
@@ -127,7 +128,8 @@ class SecureProfileStore(context: Context) {
             wireGuardConfig = json.optStringOrNull("wireguard"),
             singBoxProfile = json.optStringOrNull("singbox"),
             singBoxProtocol = json.optStringOrNull("singbox_protocol"),
-            singBoxDisplayName = json.optStringOrNull("singbox_name")
+            singBoxDisplayName = json.optStringOrNull("singbox_name"),
+            ikev2Config = json.optStringOrNull("ikev2")
         )
     }
 
@@ -139,6 +141,7 @@ class SecureProfileStore(context: Context) {
             .put("singbox", profiles.singBoxProfile ?: JSONObject.NULL)
             .put("singbox_protocol", profiles.singBoxProtocol ?: JSONObject.NULL)
             .put("singbox_name", profiles.singBoxDisplayName ?: JSONObject.NULL)
+            .put("ikev2", profiles.ikev2Config ?: JSONObject.NULL)
         val plaintext = json.toString().toByteArray(Charsets.UTF_8)
         val encrypted = ProfilePayloadCodec.encrypt(plaintext, getOrCreateKey())
         require(encrypted.size <= MAX_ENCRYPTED_BYTES) { "Profile data exceeds the encrypted storage limit" }
