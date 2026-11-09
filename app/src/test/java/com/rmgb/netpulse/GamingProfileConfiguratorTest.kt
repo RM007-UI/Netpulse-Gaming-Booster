@@ -31,6 +31,48 @@ class GamingProfileConfiguratorTest {
         assertEquals("com.new.game", packages.getString(0))
     }
 
+    @Test fun assignsPerGameOutboundsBeforeExistingRouteRules() {
+        val source = """{
+            "inbounds":[{"type":"tun","auto_route":true}],
+            "outbounds":[
+                {"type":"vless","tag":"relay-a","server":"a.example","server_port":443},
+                {"type":"trojan","tag":"relay-b","server":"b.example","server_port":443},
+                {"type":"direct","tag":"direct"}
+            ],
+            "route":{"rules":[{"domain_suffix":["example.org"],"action":"route","outbound":"direct"}],"final":"relay-a"}
+        }"""
+        val result = JSONObject(
+            GamingProfileConfigurator.withGameOnlyRouting(
+                source,
+                setOf("com.example.game", "com.example.other"),
+                mapOf("com.example.game" to "relay-b")
+            )
+        )
+        val rules = result.getJSONObject("route").getJSONArray("rules")
+        assertEquals(2, rules.length())
+        assertEquals("com.example.game", rules.getJSONObject(0).getJSONArray("package_name").getString(0))
+        assertEquals("route", rules.getJSONObject(0).getString("action"))
+        assertEquals("relay-b", rules.getJSONObject(0).getString("outbound"))
+        assertTrue(rules.getJSONObject(1).has("domain_suffix"))
+    }
+
+    @Test fun rejectsPerGameRoutesForUnselectedPackagesOrUnknownOutboundTags() {
+        val source = """{
+            "inbounds":[{"type":"tun","auto_route":true}],
+            "outbounds":[{"type":"vless","tag":"relay-a","server":"a.example","server_port":443}]
+        }"""
+        assertThrows(IllegalArgumentException::class.java) {
+            GamingProfileConfigurator.withGameOnlyRouting(
+                source, setOf("com.example.game"), mapOf("com.example.other" to "relay-a")
+            )
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            GamingProfileConfigurator.withGameOnlyRouting(
+                source, setOf("com.example.game"), mapOf("com.example.game" to "missing")
+            )
+        }
+    }
+
     @Test fun rejectsTunWithoutAutomaticAndroidRouting() {
         assertThrows(IllegalArgumentException::class.java) {
             GamingProfileConfigurator.withGameOnlyRouting(
