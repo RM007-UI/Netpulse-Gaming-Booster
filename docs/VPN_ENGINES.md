@@ -69,3 +69,14 @@ No generic third-party API can discover every proprietary game server or interpr
 - CI builds the debug APK, runs Kotlin unit tests, checks the pinned libbox AAR checksum and inspects the Android binding API.
 
 Automated checks do not replace physical-device acceptance. Verify VPN consent, service lifecycle, Android 11-15 behavior, IPv4/IPv6, DNS, Wi-Fi/mobile handoff, Game-only package isolation, server selection, UID traffic counters, external VPN conflicts and real gameplay on actual devices.
+
+
+## No-config public relay mode
+
+NetPulse can fetch the official VPN Gate CSV API over HTTPS at runtime. The API publishes volunteer-operated relay metadata and a Base64-encoded OpenVPN profile per relay. The app validates the host/IP relationship, embedded CA certificate, protocol, and remote port before offering a one-tap connection through the existing sing-box OpenVPN adapter. The published shared username/password are used; no user-owned server, private credential, configuration file, or NetPulse backend is required.
+
+The list refresh is user-initiated. Suggested ordering uses VPN Gate's server-reported ping, then reported throughput and session count. These values are not measured from the user's current network and do not predict gameplay latency.
+
+Privacy and reliability warning: VPN Gate relays are operated by volunteers, not NetPulse. The official directory shows a two-week logging policy for listed relays. Relay operators can observe connection metadata, and availability/throughput can change at any time. This is a public community relay for basic connectivity testing, not a trusted privacy provider or a guaranteed gaming route. NetPulse shows a warning and requires explicit confirmation before connecting.
+
+Only OpenVPN is provided in this no-config community mode. WireGuard, IKEv2, Shadowsocks, Trojan, Hysteria2 and TUIC still need an endpoint and provider-issued credentials. More no-config protocols require official provider integrations or a trusted provider account flow; NetPulse does not fabricate server credentials.
