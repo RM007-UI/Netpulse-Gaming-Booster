@@ -56,7 +56,7 @@ class MainActivity : Activity() {
     private lateinit var connectButton: Button
     private lateinit var singBoxStatus: TextView
     private lateinit var singBoxButton: Button
-    private var singBoxConnected = false
+    @Volatile private var singBoxConnected = false
     private var singBoxStarting = false
     private var singBoxReceiverRegistered = false
     private val singBoxStateReceiver = object : BroadcastReceiver() {
@@ -80,14 +80,14 @@ class MainActivity : Activity() {
         }
     }
     private var loadedConfig: Config? = null
-    private var connected = false
+    @Volatile private var connected = false
 
     private lateinit var refreshRootStatus: TextView
     private lateinit var refreshStatus: TextView
     private lateinit var refreshRateContainer: LinearLayout
     private lateinit var autoRefreshButton: Button
     private val refreshHandler = Handler(Looper.getMainLooper())
-    private var refreshRootGranted = false
+    @Volatile private var refreshRootGranted = false
     @Volatile private var liveRefreshEnabled = true
 
     private lateinit var networkBadge: TextView
@@ -96,8 +96,8 @@ class MainActivity : Activity() {
     private lateinit var uploadRate: TextView
     private lateinit var totalTraffic: TextView
     private val trafficRateCalculator = TrafficRateCalculator()
-    private var networkDownBytesPerSecond = 0L
-    private var networkUpBytesPerSecond = 0L
+    @Volatile private var networkDownBytesPerSecond = 0L
+    @Volatile private var networkUpBytesPerSecond = 0L
     private lateinit var webView: WebView
     private val networkTick = object : Runnable {
         override fun run() {
