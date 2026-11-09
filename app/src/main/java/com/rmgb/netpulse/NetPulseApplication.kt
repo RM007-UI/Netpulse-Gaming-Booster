@@ -10,18 +10,27 @@ import com.wireguard.config.Config
 import java.util.Locale
 
 class NetPulseApplication : Application() {
-    val wireGuardBackend: GoBackend by lazy(LazyThreadSafetyMode.SYNCHRONIZED) { GoBackend(applicationContext) }
+    val wireGuardBackend: GoBackend by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        GoBackend(applicationContext)
+    }
+
     @Volatile var wireGuardStateListener: ((Tunnel.State) -> Unit)? = null
-    // Keep imported profiles only in process memory so Activity recreation does not discard them.
     @Volatile var loadedWireGuardConfig: Config? = null
     @Volatile var pendingWireGuardConfig: Config? = null
+    @Volatile var loadedWireGuardText: String? = null
     @Volatile var loadedSingBoxProfile: String? = null
     @Volatile var loadedSingBoxProtocol: String? = null
     @Volatile var loadedSingBoxDisplayName: String? = null
+
+    private lateinit var profileStore: SecureProfileStore
+
     val wireGuardTunnel: Tunnel = object : Tunnel {
         override fun getName(): String = "NetPulse-WireGuard"
-        override fun onStateChange(newState: Tunnel.State) { wireGuardStateListener?.invoke(newState) }
+        override fun onStateChange(newState: Tunnel.State) {
+            wireGuardStateListener?.invoke(newState)
+        }
     }
+
     override fun onCreate() {
         super.onCreate()
         try {
@@ -37,7 +46,61 @@ class NetPulseApplication : Application() {
             Libbox.setLocale(Locale.getDefault().toLanguageTag())
             Libbox.setup(options)
         } catch (error: Exception) {
-            Log.e("NetPulse", "sing-box initialization failed", error)
+            Log.e("NetPulse", "sing-box initialization failed (${error.javaClass.simpleName})")
+        }
+
+        profileStore = SecureProfileStore(this)
+        restoreProfiles()
+    }
+
+    /**
+     * Persist only validated profiles. SecureProfileStore uses a non-exportable
+     * Android Keystore key and AES-GCM authentication; secrets are never logged.
+     */
+    fun persistProfiles(): Boolean {
+        if (!::profileStore.isInitialized) return false
+        return runCatching {
+            profileStore.save(
+                StoredProfiles(
+                    wireGuardConfig = loadedWireGuardText,
+                    singBoxProfile = loadedSingBoxProfile,
+                    singBoxProtocol = loadedSingBoxProtocol,
+                    singBoxDisplayName = loadedSingBoxDisplayName
+                )
+            )
+        }.onFailure { error ->
+            Log.w("NetPulse", "encrypted profile save failed (${error.javaClass.simpleName})")
+        }.isSuccess
+    }
+
+    private fun restoreProfiles() {
+        val stored = runCatching { profileStore.load() }
+            .onFailure { error ->
+                Log.w("NetPulse", "encrypted profile restore failed (${error.javaClass.simpleName})")
+            }
+            .getOrNull() ?: return
+
+        stored.wireGuardConfig?.let { raw ->
+            runCatching { Config.parse(raw.byteInputStream(Charsets.UTF_8)) }
+                .onSuccess { parsed ->
+                    loadedWireGuardText = raw
+                    loadedWireGuardConfig = parsed
+                }
+                .onFailure { error ->
+                    Log.w("NetPulse", "saved WireGuard profile rejected (${error.javaClass.simpleName})")
+                }
+        }
+
+        stored.singBoxProfile?.let { raw ->
+            runCatching { Libbox.checkConfig(raw) }
+                .onSuccess {
+                    loadedSingBoxProfile = raw
+                    loadedSingBoxProtocol = stored.singBoxProtocol
+                    loadedSingBoxDisplayName = stored.singBoxDisplayName
+                }
+                .onFailure { error ->
+                    Log.w("NetPulse", "saved sing-box profile rejected (${error.javaClass.simpleName})")
+                }
         }
     }
 }
