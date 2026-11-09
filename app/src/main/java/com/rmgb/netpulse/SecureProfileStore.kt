@@ -159,6 +159,8 @@ class SecureProfileStore(context: Context) {
     @Synchronized
     fun clear() {
         file.delete()
+        val keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER).apply { load(null) }
+        if (keyStore.containsAlias(KEY_ALIAS)) keyStore.deleteEntry(KEY_ALIAS)
     }
 
     private fun getOrCreateKey(): SecretKey {
