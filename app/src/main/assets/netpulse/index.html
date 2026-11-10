@@ -442,8 +442,10 @@ function netPulseVpnGateServerList(result){
  publicVpnLoading=false;
  const refresh=$('#publicVpnRefresh');if(refresh){refresh.disabled=false;refresh.textContent='↻ بروزرسانی فهرست';}
  if(!result.ok){
-  setPublicVpnStatus((result.message||'دریافت فهرست ناموفق بود.')+(result.cached?' · فهرست قبلی در حافظه باقی مانده است.':''),'error');
-  if(!publicVpnServers.length)showVpnEmpty('دریافت فهرست ناموفق بود',result.message||'اتصال اینترنت را بررسی کن.');
+  const stage=result.stage?' · مرحله فنی: '+result.stage:'';
+  const detail=(result.message||'دریافت فهرست ناموفق بود.')+(result.cached?' · فهرست قبلی در حافظه باقی مانده است.':'')+stage;
+  setPublicVpnStatus(detail,'error');
+  if(!publicVpnServers.length)showVpnEmpty('دریافت فهرست ناموفق بود',detail);
   return;
  }
  publicVpnServers=Array.isArray(result.servers)?result.servers:[];
