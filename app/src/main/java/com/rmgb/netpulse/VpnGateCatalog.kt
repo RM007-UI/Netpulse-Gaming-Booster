@@ -261,12 +261,22 @@ object VpnGateCatalog {
                 reject("importer", imported.exceptionOrNull()?.message)
                 continue
             }
-            val importedEndpoint = runCatching {
+            val importedRoot = runCatching {
                 org.json.JSONObject(imported.getOrThrow().json)
             }.getOrNull()
-            val importedServers = importedEndpoint?.optJSONArray("servers")
-            if (importedServers == null || importedServers.length() == 0) {
-                reject("missing-endpoint", "Imported OpenVPN profile did not contain a remote server.")
+            // OpenVpnProfileImporter emits sing-box's top-level "endpoints" array;
+            // the remote "servers" list is nested inside the openvpn-client endpoint.
+            val importedEndpoints = importedRoot?.optJSONArray("endpoints")
+            val hasRemoteServer = importedEndpoints?.let { endpoints ->
+                (0 until endpoints.length()).any { index ->
+                    endpoints.optJSONObject(index)
+                        ?.optJSONArray("servers")
+                        ?.length()
+                        ?.let { it > 0 } == true
+                }
+            } == true
+            if (!hasRemoteServer) {
+                reject("missing-endpoint", "Imported OpenVPN profile did not contain a remote server in its endpoint.")
                 continue
             }
 
