@@ -77,15 +77,30 @@ class VpnGateCatalogTest {
     }
 
     @Test
-    fun rejectsMalformedCsvAndConfigPointingAtAnotherHost() {
+    fun rejectsMalformedCsvButTrustsEmbeddedProfileEndpointAfterImporterValidation() {
         try {
             VpnGateCatalog.parse("#not-the-api")
             throw AssertionError("Expected malformed API response rejection")
         } catch (expected: IllegalArgumentException) {
             assertTrue(expected.message.orEmpty().contains("header"))
         }
-        val wrongHost = sampleProfile.replace("198.51.100.10", "203.0.113.5")
-        assertTrue(VpnGateCatalog.parse(csv(wrongHost)).isEmpty())
+
+        // VPN Gate's CSV HostName field is metadata. Its embedded .ovpn may
+        // legitimately point at the fully-qualified relay endpoint instead of
+        // repeating the CSV IP literal. The canonical importer validates the
+        // endpoint syntax; a duplicate string-equality pre-filter must not reject it.
+        val fqdnProfile = sampleProfile
+            .replace("proto udp", "proto tcp")
+            .replace("remote 198.51.100.10 1194 udp", "remote public-vpn-40.opengw.net 443")
+        val parsed = VpnGateCatalog.parse(csv(fqdnProfile))
+        assertEquals(1, parsed.size)
+        val imported = OpenVpnProfileImporter.importProfile(
+            parsed.single().config,
+            OpenVpnCredentials("vpn", "vpn")
+        )
+        assertEquals("OpenVPN TCP", imported.protocol)
+        assertEquals("public-vpn-40.opengw.net", org.json.JSONObject(imported.json)
+            .getJSONArray("servers").getJSONObject(0).getString("server"))
     }
 
     @Test
