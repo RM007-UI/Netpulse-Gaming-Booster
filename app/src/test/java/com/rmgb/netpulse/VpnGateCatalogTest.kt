@@ -142,7 +142,7 @@ class VpnGateCatalogTest {
     fun exposesReasonsWhenProfilesFailImporterValidation() {
         val unsupported = sampleProfile.replace(
             "auth-user-pass",
-            "auth-user-pass\\nunsupported-vpn-gate-directive value"
+            "auth-user-pass\nunsupported-vpn-gate-directive value"
         )
         val parsed = VpnGateCatalog.parse(csv(unsupported))
         assertTrue(parsed.isEmpty())
@@ -155,7 +155,7 @@ class VpnGateCatalogTest {
 
     @Test
     fun limitsExpensiveProfileValidationAndReturnsBestCandidates() {
-        val rows = (0..450).joinToString("\\n") { index ->
+        val rows = (0..450).joinToString("\n") { index ->
             val host = "vpn${index.toString().padStart(9, '0')}.opengw.net"
             val ip = "198.51.100.${(index % 240) + 1}"
             val profile = sampleProfile.replace("198.51.100.10", ip)
@@ -166,7 +166,7 @@ class VpnGateCatalogTest {
             ).joinToString(",")
         }
         val header = "#HostName,IP,Score,Ping,Speed,CountryLong,CountryShort,NumVpnSessions,Uptime,TotalUsers,TotalTraffic,LogType,Operator,Message,OpenVPN_ConfigData_Base64"
-        val parsed = VpnGateCatalog.parse("*vpn_servers\\n" + header + "\\n" + rows + "\\n*end")
+        val parsed = VpnGateCatalog.parse("*vpn_servers\n" + header + "\n" + rows + "\n*end")
         assertTrue(parsed.isNotEmpty())
         assertTrue(VpnGateCatalog.lastDiagnostics.profilesChecked <= 400)
         assertTrue(parsed.size <= 60)
