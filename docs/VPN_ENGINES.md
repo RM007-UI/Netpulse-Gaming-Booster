@@ -80,3 +80,8 @@ The list refresh is user-initiated. Suggested ordering uses VPN Gate's server-re
 Privacy and reliability warning: VPN Gate relays are operated by volunteers, not NetPulse. VPN Gate's official anti-abuse policy says aggregated connection logs are kept for three months or more, while each relay keeps packet headers for two weeks or more. Connection logs can include the source IP, destination server, protocol, traffic volume, and destination metadata. Relays are volunteer-operated and availability/throughput can change at any time. This is a public community relay for basic connectivity testing, not a trusted privacy provider or a guaranteed gaming route. NetPulse shows a warning and requires explicit confirmation before connecting.
 
 Only OpenVPN is provided in this no-config community mode. WireGuard, IKEv2, Shadowsocks, Trojan, Hysteria2 and TUIC still need an endpoint and provider-issued credentials. More no-config protocols require official provider integrations or a trusted provider account flow; NetPulse does not fabricate server credentials.
+
+
+## Public relay loading and device stability
+
+The public relay parser caps the CSV response at 16 MiB, validates only the top 400 directory candidates by reported metadata, and returns at most 60 profiles which pass the in-app OpenVPN importer. The dashboard receives transparent parser diagnostics when no profiles pass; a zero result is no longer presented without row/profile counts and rejection categories. The worker and WebView callback are guarded against a destroyed Activity, duplicate requests, stale request results and callback-rendering exceptions.
