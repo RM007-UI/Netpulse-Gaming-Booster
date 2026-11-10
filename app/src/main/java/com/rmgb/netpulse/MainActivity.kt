@@ -79,6 +79,7 @@ class MainActivity : Activity() {
     private var pendingGameSessionExport: String? = null
     private var ikev2PollCount = 0
     private var singBoxStarting = false
+    private var crashReportPromptShown = false
     private var singBoxReceiverRegistered = false
     @Volatile private var activeGamePackage: String? = null
     @Volatile private var activeGameLabel: String? = null
@@ -207,6 +208,13 @@ class MainActivity : Activity() {
                 ): Boolean {
                     val target = request?.url?.toString() ?: return true
                     return !target.startsWith("file:///android_asset/netpulse/")
+                }
+
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    super.onPageFinished(view, url)
+                    if (url?.startsWith("file:///android_asset/netpulse/") == true) {
+                        showPreviousCrashReportIfAvailable()
+                    }
                 }
             }
             addJavascriptInterface(NetPulseBridge(), "NetPulse")
@@ -374,6 +382,25 @@ class MainActivity : Activity() {
                 webView.evaluateJavascript("window.netPulseMessage && window.netPulseMessage($safe);", null)
             }
         }
+    }
+
+    private fun showPreviousCrashReportIfAvailable() {
+        if (crashReportPromptShown || isFinishing || isDestroyed) return
+        val app = application as NetPulseApplication
+        val report = app.lastCrashReport() ?: return
+        crashReportPromptShown = true
+
+        AlertDialog.Builder(this)
+            .setTitle("گزارش توقف دفعه قبل")
+            .setMessage("NetPulse گزارش فنی توقف قبلی را ذخیره کرده است. این گزارش شامل نوع خطا، مرحله آخر و مسیرهای کد است و عمداً اطلاعات ورود یا محتوای پروفایل را ذخیره نمی‌کند.")
+            .setNeutralButton("کپی گزارش") { _, _ ->
+                val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("NetPulse crash report", report))
+                Toast.makeText(this, "گزارش کپی شد؛ آن را در گفتگو ارسال کن.", Toast.LENGTH_LONG).show()
+            }
+            .setPositiveButton("پاک کردن گزارش") { _, _ -> app.clearCrashReport() }
+            .setNegativeButton("بعداً", null)
+            .show()
     }
 
     private fun setLiveRefresh(rawEnabled: String?) {
@@ -2003,12 +2030,17 @@ class MainActivity : Activity() {
         if (isFinishing || isDestroyed) return
 
         publicVpnGateLoading = true
+        (application as NetPulseApplication).markDiagnosticStage("vpn-gate:queued")
         postWebMessage("در حال دریافت فهرست رسمی VPN Gate…")
 
         try {
             worker.execute {
+                (application as NetPulseApplication).markDiagnosticStage("vpn-gate:fetch-start")
                 val result = runCatching { VpnGateCatalog.fetch() }
                 publicVpnGateLoading = false
+                (application as NetPulseApplication).markDiagnosticStage(
+                    "vpn-gate:fetch-finished:${VpnGateCatalog.lastStage}"
+                )
 
                 val payload = runCatching {
                     result.fold(
@@ -2055,6 +2087,7 @@ class MainActivity : Activity() {
                                 .put("ok", false)
                                 .put("requestId", requestId)
                                 .put("message", error.message ?: "دریافت فهرست ناموفق بود.")
+                                .put("stage", VpnGateCatalog.lastStage)
                                 .put("count", publicVpnGateServers.size)
                                 .put("cached", publicVpnGateServers.isNotEmpty())
                                 .toString()
@@ -2065,9 +2098,11 @@ class MainActivity : Activity() {
                         .put("ok", false)
                         .put("requestId", requestId)
                         .put("message", error.message ?: "پردازش پاسخ VPN Gate ناموفق بود.")
+                        .put("stage", VpnGateCatalog.lastStage)
                         .toString()
                 }
 
+                (application as NetPulseApplication).markDiagnosticStage("vpn-gate:callback-ready")
                 if (!isDestroyed && !isFinishing) {
                     runOnUiThread {
                         if (isDestroyed || isFinishing || !::webView.isInitialized) return@runOnUiThread
