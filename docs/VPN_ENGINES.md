@@ -84,4 +84,9 @@ Only OpenVPN is provided in this no-config community mode. WireGuard, IKEv2, Sha
 
 ## Public relay loading and device stability
 
-The public relay parser caps the CSV response at 16 MiB, validates only the top 400 directory candidates by reported metadata, and returns at most 60 profiles which pass the in-app OpenVPN importer. The dashboard receives transparent parser diagnostics when no profiles pass; a zero result is no longer presented without row/profile counts and rejection categories. The worker and WebView callback are guarded against a destroyed Activity, duplicate requests, stale request results and callback-rendering exceptions.
+The public relay parser streams the CSV response from HTTPS with an 8 MiB cap, validates only the top 160 directory candidates by reported metadata, and returns at most 40 profiles (each decoded profile is capped at 256 KiB) which pass the in-app OpenVPN importer. The dashboard receives transparent parser diagnostics when no profiles pass; a zero result is no longer presented without row/profile counts and rejection categories. The worker and WebView callback are guarded against a destroyed Activity, duplicate requests, stale request results and callback-rendering exceptions.
+
+
+## Crash diagnostics in 0.6.5
+
+NetPulse stores a bounded crash summary when an uncaught Java/Kotlin exception terminates the process: exception class, thread, last operation stage and a limited set of stack frames. Exception messages, imported profiles and credentials are intentionally omitted. On the next launch the user can copy or clear the report from a dialog. Native process aborts and low-memory kills may not produce a Java crash report.
