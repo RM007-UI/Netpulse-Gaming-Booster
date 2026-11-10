@@ -104,6 +104,9 @@ class MainActivity : Activity() {
             if (intent.action != SingBoxVpnService.ACTION_STATE) return
             singBoxConnected = intent.getBooleanExtra(SingBoxVpnService.EXTRA_CONNECTED, false)
             singBoxStarting = false
+            (application as NetPulseApplication).markDiagnosticStage(
+                if (singBoxConnected) "singbox:connected" else "singbox:disconnected"
+            )
             val startupError = intent.getStringExtra(SingBoxVpnService.EXTRA_ERROR)
             if (!::singBoxButton.isInitialized || !::singBoxStatus.isInitialized) return
             singBoxButton.isEnabled = true
@@ -2140,6 +2143,8 @@ class MainActivity : Activity() {
     }
 
     private fun connectPublicVpnServer(rawValue: String?) {
+        val app = application as NetPulseApplication
+        app.markDiagnosticStage("public-relay:selection")
         val request = runCatching { JSONObject(rawValue ?: "{}") }.getOrNull()
         val id = request?.optString("id")?.trim().orEmpty()
         val selected = publicVpnGateServers.firstOrNull { it.id == id }
@@ -2150,25 +2155,38 @@ class MainActivity : Activity() {
         if (connected || SingBoxVpnService.isRunning || singBoxConnected || singBoxStarting ||
             ikev2Connected || ikev2Starting || isIkev2PlatformActive()
         ) {
-            postWebMessage("برای اتصال به رله عمومی، ابتدا VPN فعال فعلی را قطع کن.")
+            postWebMessage("یک تونل NetPulse از قبل فعال است؛ ابتدا آن را قطع کن.")
             return
         }
-        AlertDialog.Builder(this)
-            .setTitle("سرور عمومی و داوطلبانه")
-            .setMessage(
-                "این سرور متعلق به NetPulse یا دانشگاه تسوکوبا نیست و توسط داوطلب مستقل اداره می‌شود. طبق سیاست ضدسوءاستفاده VPN Gate، لاگ‌های مرکزی اتصال حداقل ۳ ماه نگهداری می‌شوند و هر رله نیز هدرهای بسته را حداقل ۲ هفته ثبت می‌کند؛ این اطلاعات می‌تواند IP مبدأ، مقصد و فراداده اتصال را دربر بگیرد. برای حساب‌های مهم، پرداخت یا اطلاعات خصوصی از رله عمومی استفاده نکن. پینگ و سرعت فهرست، اندازه‌گیری واقعی گوشی تو نیستند و کیفیت بازی تضمین نمی‌شود.\n\n" +
-                    "${selected.country} · ${selected.hostName}\n" +
-                    "اتصال با OpenVPN و اطلاعات عمومی vpn/vpn انجام می‌شود."
-            )
-            .setNegativeButton("انصراف", null)
-            .setPositiveButton("اتصال به این سرور") { _, _ ->
-                importOpenVpnText(
-                    selected.config,
-                    OpenVpnCredentials("vpn", "vpn"),
-                    connectAfterImport = true
+        if (isForeignVpnNetworkActive()) {
+            app.markDiagnosticStage("public-relay:blocked-foreign-vpn")
+            postWebMessage("یک VPN دیگر روی گوشی فعال است. ابتدا VPN فعلی را از تنظیمات یا برنامه خودش قطع کن، سپس دوباره به رله NetPulse وصل شو.")
+            return
+        }
+
+        try {
+            AlertDialog.Builder(this)
+                .setTitle("سرور عمومی و داوطلبانه")
+                .setMessage(
+                    "این سرور متعلق به NetPulse یا دانشگاه تسوکوبا نیست و توسط داوطلب مستقل اداره می‌شود. طبق سیاست ضدسوءاستفاده VPN Gate، لاگ‌های مرکزی اتصال حداقل ۳ ماه نگهداری می‌شوند و هر رله نیز هدرهای بسته را حداقل ۲ هفته ثبت می‌کند؛ این اطلاعات می‌تواند IP مبدأ، مقصد و فراداده اتصال را دربر بگیرد. برای حساب‌های مهم، پرداخت یا اطلاعات خصوصی از رله عمومی استفاده نکن. پینگ و سرعت فهرست، اندازه‌گیری واقعی گوشی تو نیستند و کیفیت بازی تضمین نمی‌شود.\n\n" +
+                        "${selected.country} · ${selected.hostName}\n" +
+                        "اتصال با OpenVPN و اطلاعات عمومی vpn/vpn انجام می‌شود."
                 )
-            }
-            .show()
+                .setNegativeButton("انصراف", null)
+                .setPositiveButton("اتصال به این سرور") { _, _ ->
+                    app.markDiagnosticStage("public-relay:confirmed")
+                    importOpenVpnText(
+                        selected.config,
+                        OpenVpnCredentials("vpn", "vpn"),
+                        connectAfterImport = true
+                    )
+                }
+                .show()
+        } catch (error: Exception) {
+            app.markDiagnosticStage("public-relay:dialog-failed")
+            Log.e("NetPulse", "Public relay confirmation dialog failed", error)
+            postWebMessage("بازکردن تأیید اتصال ناموفق بود: " + error.javaClass.simpleName)
+        }
     }
 
     private fun connectRecommendedPublicVpnServer() {
@@ -2185,35 +2203,53 @@ class MainActivity : Activity() {
         credentials: OpenVpnCredentials? = null,
         connectAfterImport: Boolean = false
     ) {
+        val app = application as NetPulseApplication
+        app.markDiagnosticStage("openvpn:import-queued")
         postWebMessage("در حال خواندن و اعتبارسنجی پروفایل OpenVPN…")
-        worker.execute {
-            val result = runCatching {
-                val imported = OpenVpnProfileImporter.importProfile(rawProfile, credentials)
-                Libbox.checkConfig(imported.json)
-                imported
-            }
-            runOnUiThread {
-                if (isDestroyed) return@runOnUiThread
-                val imported = result.getOrElse { error ->
-                    if (error is OpenVpnCredentialsRequiredException) {
-                        showOpenVpnCredentialsDialog(rawProfile)
-                    } else {
-                        postWebMessage("پروفایل OpenVPN پذیرفته نشد: " + (error.message ?: error.javaClass.simpleName))
-                    }
-                    return@runOnUiThread
+        try {
+            worker.execute {
+                app.markDiagnosticStage("openvpn:import-begin")
+                val result = runCatching {
+                    val imported = OpenVpnProfileImporter.importProfile(rawProfile, credentials)
+                    app.markDiagnosticStage("openvpn:libbox-check-begin")
+                    Libbox.checkConfig(imported.json)
+                    app.markDiagnosticStage("openvpn:profile-validated")
+                    imported
                 }
-                val app = application as NetPulseApplication
-                app.loadedSingBoxProfile = imported.json
-                app.loadedSingBoxProtocol = imported.protocol
-                app.loadedSingBoxDisplayName = imported.displayName
-                val persisted = app.persistProfiles()
-                updateSingBoxStatus(imported.protocol + " · profile validated")
-                postWebMessage(
-                    imported.protocol + " آماده اتصال شد." +
-                        if (persisted) " پروفایل با رمزگذاری ذخیره شد." else " ذخیره امن انجام نشد."
-                )
-                if (connectAfterImport) toggleSingBox()
+                runOnUiThread {
+                    if (isDestroyed || isFinishing) return@runOnUiThread
+                    val imported = result.getOrElse { error ->
+                        app.markDiagnosticStage("openvpn:validation-failed:${error.javaClass.simpleName}")
+                        Log.w("NetPulse", "OpenVPN profile validation failed", error)
+                        if (error is OpenVpnCredentialsRequiredException) {
+                            showOpenVpnCredentialsDialog(rawProfile)
+                        } else {
+                            postWebMessage("پروفایل OpenVPN پذیرفته نشد: " + (error.message ?: error.javaClass.simpleName))
+                        }
+                        return@runOnUiThread
+                    }
+                    app.loadedSingBoxProfile = imported.json
+                    app.loadedSingBoxProtocol = imported.protocol
+                    app.loadedSingBoxDisplayName = imported.displayName
+                    app.markDiagnosticStage("openvpn:profile-persist-begin")
+                    val persisted = app.persistProfiles()
+                    app.markDiagnosticStage("openvpn:profile-ready")
+                    updateSingBoxStatus(imported.protocol + " · profile validated")
+                    postWebMessage(
+                        imported.protocol + " آماده اتصال شد." +
+                            if (persisted) " پروفایل با رمزگذاری ذخیره شد." else " ذخیره امن انجام نشد."
+                    )
+                    if (connectAfterImport) requestSingBoxConnection(imported.json)
+                }
             }
+        } catch (error: java.util.concurrent.RejectedExecutionException) {
+            app.markDiagnosticStage("openvpn:worker-rejected")
+            Log.e("NetPulse", "OpenVPN import worker unavailable", error)
+            postWebMessage("پردازش اتصال در دسترس نیست؛ برنامه را دوباره باز کن.")
+        } catch (error: Exception) {
+            app.markDiagnosticStage("openvpn:queue-failed:${error.javaClass.simpleName}")
+            Log.e("NetPulse", "Unable to queue OpenVPN import", error)
+            postWebMessage("شروع پردازش پروفایل ناموفق بود: " + error.javaClass.simpleName)
         }
     }
 
@@ -2255,6 +2291,11 @@ class MainActivity : Activity() {
         val trimmed = value.trimStart()
         return trimmed.startsWith("<ca>", ignoreCase = true) ||
             Regex("(?im)^\\s*(?:client|remote|dev\\s+tun|proto\\s+(?:udp|tcp))\\b").containsMatchIn(value)
+    }
+
+    private fun isForeignVpnNetworkActive(): Boolean {
+        val ownVpnActive = connected || SingBoxVpnService.isRunning || singBoxConnected || ikev2Connected
+        return VpnConnectionPolicy.isForeignVpnActive(hasAnyActiveVpnNetwork(), ownVpnActive)
     }
 
     private fun hasAnyActiveVpnNetwork(): Boolean {
@@ -2400,23 +2441,54 @@ class MainActivity : Activity() {
     }
 
     private fun toggleSingBox() {
-        if (singBoxConnected || singBoxStarting) {
+        if (singBoxConnected || SingBoxVpnService.isRunning || singBoxStarting) {
             singBoxButton.isEnabled = false
             singBoxStatus.text = "Stopping sing-box…"
             stopService(Intent(this, SingBoxVpnService::class.java))
             return
         }
         val profile = (application as NetPulseApplication).loadedSingBoxProfile ?: return
-        val permissionIntent = VpnService.prepare(this)
-        if (permissionIntent != null) {
-            startActivityForResult(permissionIntent, REQUEST_SINGBOX_VPN_PERMISSION)
-        } else {
-            startSingBoxService(profile)
+        requestSingBoxConnection(profile)
+    }
+
+    private fun requestSingBoxConnection(profile: String) {
+        val app = application as NetPulseApplication
+        app.markDiagnosticStage("singbox:permission-check")
+        if (profile.isBlank()) {
+            postWebMessage("پروفایل اتصال خالی است.")
+            return
+        }
+        if (isForeignVpnNetworkActive()) {
+            app.markDiagnosticStage("singbox:blocked-foreign-vpn")
+            postWebMessage("یک VPN دیگر روی گوشی فعال است. برای جلوگیری از تداخل تونل‌ها، ابتدا آن را قطع کن و دوباره تلاش کن.")
+            return
+        }
+        try {
+            val permissionIntent = VpnService.prepare(this)
+            if (permissionIntent != null) {
+                app.pendingSingBoxServiceProfile = profile
+                app.markDiagnosticStage("singbox:consent-requested")
+                startActivityForResult(permissionIntent, REQUEST_SINGBOX_VPN_PERMISSION)
+            } else {
+                startSingBoxService(profile)
+            }
+        } catch (error: Exception) {
+            app.pendingSingBoxServiceProfile = null
+            app.markDiagnosticStage("singbox:permission-failed:${error.javaClass.simpleName}")
+            Log.e("NetPulse", "Unable to prepare Android VPN permission", error)
+            postWebMessage("آماده‌سازی مجوز VPN ناموفق بود: " + error.javaClass.simpleName)
         }
     }
 
     private fun startSingBoxService(profile: String? = (application as NetPulseApplication).loadedSingBoxProfile) {
         if (profile.isNullOrBlank() || singBoxStarting) return
+        val diagnosticApp = application as NetPulseApplication
+        diagnosticApp.markDiagnosticStage("singbox:prepare-queued")
+        if (isForeignVpnNetworkActive()) {
+            diagnosticApp.markDiagnosticStage("singbox:foreign-vpn-before-service")
+            postWebMessage("هنوز یک VPN دیگر فعال است. ابتدا آن را قطع کن؛ سپس اتصال NetPulse را شروع کن.")
+            return
+        }
 
         // Profile transformation and libbox validation can be expensive for large
         // JSON configs. Keep both off the UI thread so the dashboard remains responsive.
@@ -2425,7 +2497,9 @@ class MainActivity : Activity() {
         singBoxButton.text = "Validating…"
         singBoxStatus.text = "Preparing sing-box profile…"
 
+        try {
         worker.execute {
+            diagnosticApp.markDiagnosticStage("singbox:profile-prepare-begin")
             val prepared = runCatching {
                 val profileForStart = if (isGamingOnlyEnabled()) {
                     // Android VpnService.Builder rejects packages that were removed since
@@ -2452,7 +2526,9 @@ class MainActivity : Activity() {
                 } else {
                     profile
                 }
+                diagnosticApp.markDiagnosticStage("singbox:libbox-check-begin")
                 Libbox.checkConfig(profileForStart)
+                diagnosticApp.markDiagnosticStage("singbox:profile-prepared")
                 profileForStart
             }
 
@@ -2471,6 +2547,14 @@ class MainActivity : Activity() {
                     return@runOnUiThread
                 }
 
+                if (isForeignVpnNetworkActive()) {
+                    singBoxStarting = false
+                    singBoxButton.isEnabled = true
+                    singBoxButton.text = "Connect sing-box"
+                    diagnosticApp.markDiagnosticStage("singbox:foreign-vpn-before-service")
+                    postWebMessage("یک VPN دیگر قبل از شروع سرویس فعال شد. آن را قطع کن و دوباره تلاش کن.")
+                    return@runOnUiThread
+                }
                 if (ikev2Connected || ikev2Starting || isIkev2PlatformActive()) {
                     singBoxStarting = false
                     singBoxButton.isEnabled = true
@@ -2491,11 +2575,13 @@ class MainActivity : Activity() {
                 app.pendingSingBoxServiceProfile = profileForStart
                 val intent = Intent(this, SingBoxVpnService::class.java)
                 try {
+                    diagnosticApp.markDiagnosticStage("singbox:foreground-service-request")
                     if (android.os.Build.VERSION.SDK_INT >= 26) {
                         startForegroundService(intent)
                     } else {
                         startService(intent)
                     }
+                    diagnosticApp.markDiagnosticStage("singbox:foreground-service-started")
                     singBoxButton.text = "Starting…"
                     singBoxStatus.text = "Starting sing-box…"
                 } catch (error: Exception) {
@@ -2509,6 +2595,21 @@ class MainActivity : Activity() {
                     postWebMessage("شروع سرویس VPN ناموفق بود: " + error.javaClass.simpleName)
                 }
             }
+        }
+        } catch (error: java.util.concurrent.RejectedExecutionException) {
+            singBoxStarting = false
+            singBoxButton.isEnabled = true
+            singBoxButton.text = "Connect sing-box"
+            diagnosticApp.markDiagnosticStage("singbox:worker-rejected")
+            Log.e("NetPulse", "sing-box preparation worker unavailable", error)
+            postWebMessage("پردازش اتصال در دسترس نیست؛ برنامه را دوباره باز کن.")
+        } catch (error: Exception) {
+            singBoxStarting = false
+            singBoxButton.isEnabled = true
+            singBoxButton.text = "Connect sing-box"
+            diagnosticApp.markDiagnosticStage("singbox:prepare-queue-failed:${error.javaClass.simpleName}")
+            Log.e("NetPulse", "Unable to queue sing-box preparation", error)
+            postWebMessage("شروع اتصال sing-box ناموفق بود: " + error.javaClass.simpleName)
         }
     }
 
@@ -2549,7 +2650,16 @@ class MainActivity : Activity() {
             return
         }
         if (requestCode == REQUEST_SINGBOX_VPN_PERMISSION) {
-            if (resultCode == RESULT_OK) startSingBoxService()
+            val app = application as NetPulseApplication
+            if (resultCode == RESULT_OK) {
+                app.markDiagnosticStage("singbox:consent-granted")
+                startSingBoxService(app.pendingSingBoxServiceProfile ?: app.loadedSingBoxProfile)
+            } else {
+                app.pendingSingBoxServiceProfile = null
+                singBoxStarting = false
+                app.markDiagnosticStage("singbox:consent-denied")
+                postWebMessage("مجوز اتصال VPN تأیید نشد.")
+            }
             return
         }
         if (requestCode == REQUEST_VPN_PERMISSION) {
