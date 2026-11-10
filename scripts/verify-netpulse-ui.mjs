@@ -97,7 +97,7 @@ assert.match(activity, /connectAfterImport = true/);
 assert.match(activity, /publicVpnGateServers\.firstOrNull/);
 assert.match(vpnGateCatalog, /https:\/\/www\.vpngate\.net\/api\/iphone\//);
 assert.match(vpnGateCatalog, /instanceFollowRedirects = false/);
-assert.match(vpnGateCatalog, /OpenVPN_ConfigData_Base64/);
+assert.match(vpnGateCatalog, /openvpn_configdata_base64/i);
 assert.match(html, /id="publicVpnList"/);
 assert.match(html, /id="publicVpnQuickConnect"/);
 assert.match(js, /function loadPublicVpnServers\(\)/);
@@ -225,7 +225,7 @@ assert.match(openVpnImporter, /openvpn-client/);
 assert.match(protocolCatalog, /openvpn_udp.*EngineState\.AVAILABLE/);
 assert.match(protocolCatalog, /ikev2_ipsec.*EngineState\.AVAILABLE/);
 
-assert.ok(html.includes("v0.6.4"), "Dashboard version badge must match 0.6.3");
+assert.ok(html.includes("v0.6.4"), "Dashboard version badge must match 0.6.4");
 console.log("PASS 3/5 — game routing, foreground detection, TCP/UDP probes, URLTest and VPN safety are wired");
 
 // PASS 4 — Android 15 system bars and cutout insets are applied to the WebView viewport.
@@ -248,7 +248,7 @@ assert.match(activity, /settings\.allowContentAccess = false/);
 assert.match(activity, /settings\.allowUniversalAccessFromFileURLs = false/);
 assert.match(activity, /settings\.blockNetworkLoads = true/);
 assert.match(activity, /file:\/\/\/android_asset\/netpulse\/index\.html/);
-assert.ok(html.includes("v0.6.4"), "Dashboard version badge must match 0.6.3");
+assert.ok(html.includes("v0.6.4"), "Dashboard version badge must match 0.6.4");
 console.log("PASS 5/5 — mobile navigation, local storage fallback and WebView isolation verified");
 assert.ok(html.includes("v0.6.4"), "Dashboard release badge must match version 0.6.4");
 console.log("NetPulse UI regression checks: 5/5 passed");
