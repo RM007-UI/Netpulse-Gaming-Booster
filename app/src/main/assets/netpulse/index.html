@@ -311,46 +311,159 @@ function drawLiveChart(id,a){if(a.length<2)return;const points=a.map((v,i)=>{con
 function renderGamingState(s){const button=$('#gameModeButton');if(button){button.textContent=s.gameOnlyEnabled?'فعال':'خاموش';button.classList.toggle('primary',!!s.gameOnlyEnabled)}const count=$('#selectedGameCount');if(count)count.textContent=(s.selectedGameCount||0)+' برنامه انتخاب‌شده';const hint=$('#gameModeHint');if(hint)hint.textContent=s.gameOnlyEnabled?'Game-only روی WireGuard و sing-box اعمال می‌شود. برای تغییر انتخاب‌ها باید تونل را قطع و دوباره وصل کنی؛ مسیر اختصاصی هر بازی فقط در sing-box فعال است.':'بازی‌ها را انتخاب کن و برای هرکدام مسیر پیش‌فرض یا یک نود جداگانه تعیین کن. IKEv2 همیشه تمام‌دستگاه است.'}
 function renderGameDetectionState(s){const button=$('#gameDetectionButton');if(button){button.textContent=s.autoGameDetectionEnabled?'خاموش‌کردن تشخیص':(s.usageAccessGranted?'فعال‌کردن تشخیص':'دادن دسترسی تشخیص');button.classList.toggle('primary',!!s.autoGameDetectionEnabled)}const state=$('#gameDetectionState');if(state){state.textContent=!s.usageAccessGranted?'برای تشخیص خودکار، Usage Access را به‌صورت اختیاری در تنظیمات Android فعال کن.':s.autoGameDetectionEnabled?'تشخیص پیش‌زمینه فعال است؛ اطلاعات فقط محلی پردازش می‌شود.':'دسترسی داده شده، اما تشخیص خودکار خاموش است.'}const active=$('#activeGameState');if(active){active.textContent=s.activeGameLabel?(s.activeGameLabel+(s.activeGameSelected?' · انتخاب‌شده در Game-only':' · در فهرست Game-only نیست')):'بازی پیش‌زمینه شناسایی نشده است.'}const traffic=$('#activeGameTraffic');if(traffic){const down=s.activeGameDownloadMbps,up=s.activeGameUploadMbps;traffic.textContent=s.activeGameLabel?'ترافیک UID بازی · دانلود '+(down===null||down===undefined?'—':Number(down).toFixed(2))+' · آپلود '+(up===null||up===undefined?'—':Number(up).toFixed(2))+' Mbps':'نرخ ترافیک بازی فعال: دانلود — · آپلود — Mbps'}}
 let publicVpnServers=[];
-function loadPublicVpnServers(){
- const button=$('#publicVpnRefresh');button.disabled=true;button.textContent='◌ در حال دریافت…';
- $('#publicVpnStatus').textContent='اتصال امن HTTPS به فهرست رسمی VPN Gate…';
- nativeAction('loadPublicVpnServers');
+let publicVpnRequestId=0;
+let publicVpnRequestTimer=null;
+let publicVpnLoading=false;
+
+function clearVpnNode(node){if(!node)return;while(node.firstChild)node.removeChild(node.firstChild);}
+function setPublicVpnStatus(message,kind){
+ const bar=$('#publicVpnStatus'),text=$('#publicVpnStatusText');
+ if(!bar||!text)return;
+ bar.className='vpn-public-status'+(kind?' '+kind:'');
+ text.textContent=message||'';
 }
+function updatePublicVpnSummary(){
+ const count=$('#publicVpnCount'),countries=$('#publicVpnCountries'),checked=$('#publicVpnChecked');
+ if(count)count.textContent=String(publicVpnServers.length);
+ if(countries) countries.textContent=String(new Set(publicVpnServers.map(x=>x.countryCode||x.country).filter(Boolean)).size);
+ if(checked)checked.textContent=String(publicVpnDiagnostics?publicVpnDiagnostics.profilesChecked||0:0);
+}
+let publicVpnDiagnostics=null;
+
+function loadPublicVpnServers(){
+ if(publicVpnLoading)return;
+ const button=$('#publicVpnRefresh');
+ if(!button)return;
+ publicVpnLoading=true;
+ button.disabled=true;
+ button.innerHTML='<span>◌</span> در حال دریافت…';
+ setPublicVpnStatus('در حال دریافت فهرست رسمی و بررسی محلی پروفایل‌ها…','loading');
+ const requestId=++publicVpnRequestId;
+ if(publicVpnRequestTimer)clearTimeout(publicVpnRequestTimer);
+ publicVpnRequestTimer=setTimeout(()=>{
+  if(requestId!==publicVpnRequestId)return;
+  publicVpnLoading=false;
+  button.disabled=false;
+  button.textContent='↻ تلاش دوباره';
+  setPublicVpnStatus('پاسخی دریافت نشد. اتصال اینترنت را بررسی کن و دوباره تلاش کن.','error');
+ },30000);
+ try{
+  nativeAction('loadPublicVpnServers',JSON.stringify({requestId}));
+ }catch(error){
+  if(publicVpnRequestTimer)clearTimeout(publicVpnRequestTimer);
+  publicVpnLoading=false;button.disabled=false;button.textContent='↻ تلاش دوباره';
+  setPublicVpnStatus('شروع دریافت ناموفق بود. دوباره تلاش کن.','error');
+ }
+}
+
 function connectPublicVpnServer(id){
- const server=publicVpnServers.find(x=>x.id===id);if(!server)return;
+ const server=publicVpnServers.find(x=>x.id===id);
+ if(!server)return;
+ setPublicVpnStatus('در حال آماده‌سازی پروفایل '+server.hostName+'…','loading');
  nativeAction('connectPublicVpnServer',JSON.stringify({id:server.id}));
 }
 function connectRecommendedPublicVpnServer(){
  if(!publicVpnServers.length){toast('ابتدا فهرست سرورهای عمومی را دریافت کن.');return;}
  connectPublicVpnServer(publicVpnServers[0].id);
 }
+function showVpnEmpty(title,detail){
+ const list=$('#publicVpnList');if(!list)return;
+ clearVpnNode(list);
+ const box=document.createElement('div');box.className='vpn-empty';
+ const icon=document.createElement('div');icon.className='vpn-empty-icon';icon.textContent='⌁';
+ const heading=document.createElement('b');heading.textContent=title;
+ const paragraph=document.createElement('p');paragraph.textContent=detail||'';
+ box.append(icon,heading,paragraph);list.appendChild(box);
+}
+function renderVpnGateList(){
+ const list=$('#publicVpnList');if(!list)return;
+ const query=($('#publicVpnSearch')?.value||'').trim().toLocaleLowerCase();
+ const selectedCountry=$('#publicVpnCountry')?.value||'';
+ const visible=publicVpnServers.filter(server=>{
+  const country=server.country||server.countryCode||'';
+  const haystack=(country+' '+(server.countryCode||'')+' '+server.hostName+' '+server.ipAddress).toLocaleLowerCase();
+  return (!selectedCountry||(server.countryCode||server.country)===selectedCountry)&&(!query||haystack.includes(query));
+ });
+ clearVpnNode(list);
+ const quick=$('#publicVpnQuickConnect');if(quick)quick.disabled=!publicVpnServers.length;
+ if(!publicVpnServers.length){
+  const diagnostics=publicVpnDiagnostics||{};
+  let detail='فهرست دریافت شد اما پروفایل سازگار پیدا نشد.';
+  if(diagnostics.rowsSeen!==undefined){
+   detail+=' '+diagnostics.rowsSeen+' ردیف دریافت شد؛ '+(diagnostics.rowsWithMetadata||0)+' ردیف اطلاعات پایه داشت و '+(diagnostics.profilesChecked||0)+' پروفایل بررسی شد.';
+   const rejected=diagnostics.rejected||{};
+   const top=Object.entries(rejected).sort((a,b)=>b[1]-a[1]).slice(0,2);
+   if(top.length)detail+=' موارد پرتکرار: '+top.map(x=>x[0]+' ('+x[1]+')').join('، ')+'.';
+   const example=(diagnostics.examples||[])[0];if(example)detail+=' نمونه: '+example;
+  }
+  showVpnEmpty('فعلاً رله قابل‌استفاده پیدا نشد',detail);
+  return;
+ }
+ if(!visible.length){
+  showVpnEmpty('نتیجه‌ای برای این فیلتر پیدا نشد','عبارت جست‌وجو یا کشور را تغییر بده.');
+  return;
+ }
+ const fragment=document.createDocumentFragment();
+ visible.forEach((server)=>{
+  const card=document.createElement('article');card.className='vpn-node-card';
+  const top=document.createElement('div');top.className='vpn-node-top';
+  const country=document.createElement('b');country.className='vpn-node-country';
+  country.textContent=(server.country||server.countryCode||'کشور نامشخص')+' · '+(server.countryCode||'—');
+  const rank=document.createElement('span');rank.className='vpn-node-rank';
+  rank.textContent=server===publicVpnServers[0]?'کمترین Ping گزارش‌شده':'رله عمومی';
+  top.append(country,rank);
+  const host=document.createElement('div');host.className='vpn-node-host';host.textContent=server.hostName+' · '+server.ipAddress;
+  const metrics=document.createElement('div');metrics.className='vpn-node-metrics';
+  const values=[
+   ['Ping',server.reportedPingMs===null||server.reportedPingMs===undefined?'—':Math.round(server.reportedPingMs)+' ms'],
+   ['سرعت گزارش‌شده',server.reportedSpeedMbps===null||server.reportedSpeedMbps===undefined?'—':(Math.round(server.reportedSpeedMbps*10)/10)+' Mbps'],
+   ['اتصال‌های فعال',String(server.sessions??'—')]
+  ];
+  values.forEach(([label,value])=>{
+   const cell=document.createElement('div');cell.className='vpn-node-metric';
+   const small=document.createElement('small');small.textContent=label;
+   const strong=document.createElement('b');strong.textContent=value;
+   cell.append(small,strong);metrics.appendChild(cell);
+  });
+  const footer=document.createElement('div');footer.className='vpn-node-footer';
+  const note=document.createElement('small');note.textContent='OpenVPN · رله داوطلبانه';
+  const button=document.createElement('button');button.type='button';button.className='btn primary';
+  button.textContent='اتصال به این رله';button.addEventListener('click',()=>connectPublicVpnServer(server.id));
+  footer.append(note,button);card.append(top,host,metrics,footer);fragment.appendChild(card);
+ });
+ list.appendChild(fragment);
+ const count=$('#publicVpnCount');
+ if(count)count.textContent=visible.length===publicVpnServers.length?String(publicVpnServers.length):(visible.length+' / '+publicVpnServers.length);
+}
+
 function netPulseVpnGateServerList(result){
- const refresh=$('#publicVpnRefresh'),quick=$('#publicVpnQuickConnect'),list=$('#publicVpnList');
- refresh.disabled=false;refresh.textContent='↻ بروزرسانی فهرست';
- if(!result||!result.ok){
-  $('#publicVpnStatus').textContent=(result&&result.message)||'دریافت فهرست عمومی ناموفق بود.';
-  quick.disabled=!publicVpnServers.length;return;
+ if(!result||Number(result.requestId)!==publicVpnRequestId)return;
+ if(publicVpnRequestTimer){clearTimeout(publicVpnRequestTimer);publicVpnRequestTimer=null;}
+ publicVpnLoading=false;
+ const refresh=$('#publicVpnRefresh');if(refresh){refresh.disabled=false;refresh.textContent='↻ بروزرسانی فهرست';}
+ if(!result.ok){
+  setPublicVpnStatus((result.message||'دریافت فهرست ناموفق بود.')+(result.cached?' · فهرست قبلی در حافظه باقی مانده است.':''),'error');
+  if(!publicVpnServers.length)showVpnEmpty('دریافت فهرست ناموفق بود',result.message||'اتصال اینترنت را بررسی کن.');
+  return;
  }
  publicVpnServers=Array.isArray(result.servers)?result.servers:[];
- quick.disabled=!publicVpnServers.length;
- $('#publicVpnStatus').textContent=publicVpnServers.length+' رله OpenVPN قابل استفاده از '+(result.source||'VPN Gate')+' دریافت شد. ترتیب بر اساس Ping گزارش‌شده سرور است، نه مسیر واقعی گوشی.';
- list.replaceChildren();
- if(!publicVpnServers.length){
-  const empty=document.createElement('p');empty.className='engine-message';empty.textContent='در حال حاضر پروفایل سازگار پیدا نشد.';list.appendChild(empty);return;
+ publicVpnDiagnostics=result.diagnostics||null;
+ const countries=[...new Set(publicVpnServers.map(x=>({value:x.countryCode||x.country,label:x.country||x.countryCode||'نامشخص'})).filter(x=>x.value).map(x=>JSON.stringify(x)))].map(x=>JSON.parse(x));
+ const countrySelect=$('#publicVpnCountry');
+ if(countrySelect){
+  const previous=countrySelect.value;clearVpnNode(countrySelect);
+  const all=document.createElement('option');all.value='';all.textContent='همه کشورها';countrySelect.appendChild(all);
+  countries.forEach(country=>{const option=document.createElement('option');option.value=country.value;option.textContent=country.label;countrySelect.appendChild(option)});
+  countrySelect.value=countries.some(x=>x.value===previous)?previous:'';
  }
- publicVpnServers.forEach((server,index)=>{
-  const row=document.createElement('div');row.className='server-row';
-  const main=document.createElement('div');main.className='server-main';
-  const title=document.createElement('b');title.textContent=(index===0?'✦ ':'')+(server.country||server.countryCode||'Unknown')+' · '+server.hostName;
-  const detail=document.createElement('p');
-  const ping=server.reportedPingMs===null?'—':Math.round(server.reportedPingMs)+' ms';
-  const speed=server.reportedSpeedMbps===null?'—':(Math.round(server.reportedSpeedMbps*10)/10)+' Mbps';
-  detail.textContent='گزارش سرور: Ping '+ping+' · Speed '+speed+' · Sessions '+server.sessions+' · '+server.ipAddress;
-  main.append(title,detail);
-  const connect=document.createElement('button');connect.type='button';connect.className='btn'+(index===0?' primary':'');
-  connect.textContent='اتصال';connect.addEventListener('click',()=>connectPublicVpnServer(server.id));
-  row.append(main,connect);list.appendChild(row);
- });
+ updatePublicVpnSummary();
+ const checked=publicVpnDiagnostics?publicVpnDiagnostics.profilesChecked:0;
+ setPublicVpnStatus(
+  publicVpnServers.length+' رله سازگار از '+(publicVpnDiagnostics?publicVpnDiagnostics.rowsSeen:0)+' ردیف فهرست دریافت شد. معیار مرتب‌سازی Ping گزارش‌شده است، نه تست گوشی.',
+  publicVpnServers.length?'success':'error'
+ );
+ renderVpnGateList();
+ if(!publicVpnServers.length)renderVpnGateList();
 }
 function loadServers(){const list=$('#serverCatalog');if(!list)return;if(!window.NetPulse){list.textContent='رابط native در دسترس نیست.';return;}try{const entries=JSON.parse(window.NetPulse.getServerCatalog()||'[]');let state={};try{state=JSON.parse(window.NetPulse.getState()||'{}')}catch(error){}list.replaceChildren();$('#serverCatalogCount').textContent=entries.length+' نود';if(!entries.length){const empty=document.createElement('div');empty.className='engine-message';empty.textContent='در پروفایل فعلی نود قابل انتخابی پیدا نشد. ابتدا یک پروفایل sing-box معتبر وارد کن.';list.appendChild(empty);$('#serverCatalogHint').textContent='پروفایل باید حداقل یک outbound سروری یا یک گروه selector/urltest داشته باشد.';return;}entries.forEach(entry=>{const row=document.createElement('div');row.className='server-row';const main=document.createElement('div');main.className='server-row-main';const title=document.createElement('b');title.textContent=entry.tag;const endpoint=document.createElement('small');endpoint.textContent=(entry.type||'unknown').toUpperCase()+' · '+(entry.group?('گروه با '+(entry.memberCount||0)+' عضو'):((entry.server||'میزبان نامشخص')+(entry.port?':'+entry.port:'')));main.append(title,endpoint);const actions=document.createElement('div');actions.className='server-row-actions';const badge=document.createElement('span');badge.className='tag'+(entry.selected?' active-node':'');badge.textContent=entry.selected?'مسیر پیش‌فرض':'آماده انتخاب';const button=document.createElement('button');button.type='button';button.className='btn'+(entry.selected?'':' primary');button.textContent=entry.selected?'انتخاب‌شده':'انتخاب مسیر';button.disabled=!!state.singboxConnected||!!entry.selected;button.addEventListener('click',()=>nativeAction('selectServer',entry.tag));actions.append(badge,button);row.append(main,actions);list.appendChild(row)});$('#serverCatalogHint').textContent=state.singboxConnected?'برای تغییر مسیر ابتدا sing-box را قطع کن. انتخاب جدید پس از اتصال دوباره اعمال می‌شود.':'تغییر مسیر، route.final پروفایل را عوض می‌کند و قوانین خاص route حفظ می‌شوند. برای فعال شدن، sing-box را وصل کن.';}catch(error){list.textContent='خواندن فهرست سرورها ناموفق بود.';$('#serverCatalogCount').textContent='نامشخص';}}
 function loadGamingApps(){
