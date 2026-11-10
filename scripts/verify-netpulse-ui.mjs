@@ -112,7 +112,7 @@ assert.match(html, /id="publicVpnCountry"/);
 assert.doesNotMatch(js.slice(js.indexOf("let publicVpnServers=[]"), js.indexOf("function loadServers()")), /replaceChildren\(/);
 assert.match(html, /VPN Gate/);
 assert.match(activity, /لاگ‌های مرکزی اتصال حداقل ۳ ماه/);
-assert.match(html, /لاگ‌های مرکزی اتصال حداقل ۳ ماه/);
+assert.match(html, /لاگ‌های مرکزی اتصال حداقل سه ماه/);
 
 // Automatic relay selection is a real sing-box URLTest group, not a static ping label.
 assert.match(autoServer, /"type", "urltest"/);
