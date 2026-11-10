@@ -2050,6 +2050,7 @@ class MainActivity : Activity() {
                             JSONObject()
                                 .put("ok", true)
                                 .put("requestId", requestId)
+                                .put("stage", VpnGateCatalog.lastStage)
                                 .put("source", "VPN Gate · official public relay API")
                                 .put("count", servers.size)
                                 .put("servers", JSONArray().apply {
