@@ -95,3 +95,10 @@ NetPulse stores a bounded crash summary when an uncaught Java/Kotlin exception t
 ## VPN Gate 0.6.6 — canonical profile validation
 
 The catalog no longer runs a separate endpoint/transport regex gate before import. That redundant gate was classifying rows as `unsupported-profile` without revealing which part of a profile failed and could reject profiles that the actual importer accepts. Each normalized profile is now passed to `OpenVpnProfileImporter`, the same parser used for connection setup. If it rejects the profile, the diagnostic report includes the importer's concrete error message. The imported JSON is also checked for a non-empty servers endpoint list.
+
+
+## Android VPN handoff and diagnostics (0.6.7)
+
+Android has a single active VpnService slot for the user. NetPulse now detects an existing VPN network not owned by NetPulse and blocks a second tunnel start before invoking sing-box. The UI asks the user to disconnect the other VPN first. This avoids racing active VPN route handoffs.
+
+Connection stages are synchronously persisted around OpenVPN profile import, libbox validation, Android consent, foreground-service creation, CommandServer startup and the native `startOrReloadService` call. If a Java crash occurs, the previous-operation dialog can report the last completed stage; native process aborts may still require Android logcat.
