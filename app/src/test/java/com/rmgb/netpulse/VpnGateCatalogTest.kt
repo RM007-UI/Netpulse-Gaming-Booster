@@ -46,6 +46,11 @@ class VpnGateCatalogTest {
         assertEquals(22.0, servers[0].pingMs!!, 0.0)
         assertEquals(120.0, servers[0].speedMbps!!, 0.0)
         assertTrue(servers[0].config.contains("<ca>"))
+        assertEquals(1, VpnGateCatalog.lastDiagnostics.rowsSeen)
+        assertEquals(1, VpnGateCatalog.lastDiagnostics.rowsWithMetadata)
+        assertEquals(1, VpnGateCatalog.lastDiagnostics.profilesChecked)
+        assertEquals(1, VpnGateCatalog.lastDiagnostics.profilesDecoded)
+        assertEquals(1, VpnGateCatalog.lastDiagnostics.profilesAccepted)
         val imported = OpenVpnProfileImporter.importProfile(
             servers[0].config,
             OpenVpnCredentials("vpn", "vpn")
@@ -131,6 +136,40 @@ class VpnGateCatalogTest {
                 OpenVpnCredentials("vpn", "vpn")
             ).protocol
         )
+    }
+
+    @Test
+    fun exposesReasonsWhenProfilesFailImporterValidation() {
+        val unsupported = sampleProfile.replace(
+            "auth-user-pass",
+            "auth-user-pass\\nunsupported-vpn-gate-directive value"
+        )
+        val parsed = VpnGateCatalog.parse(csv(unsupported))
+        assertTrue(parsed.isEmpty())
+        assertEquals(1, VpnGateCatalog.lastDiagnostics.rowsSeen)
+        assertEquals(1, VpnGateCatalog.lastDiagnostics.profilesChecked)
+        assertEquals(1, VpnGateCatalog.lastDiagnostics.profilesDecoded)
+        assertEquals(1, VpnGateCatalog.lastDiagnostics.rejected["importer"])
+        assertTrue(VpnGateCatalog.lastDiagnostics.examples.any { it.contains("unsupported-vpn-gate-directive") })
+    }
+
+    @Test
+    fun limitsExpensiveProfileValidationAndReturnsBestCandidates() {
+        val rows = (0..450).joinToString("\\n") { index ->
+            val host = "vpn${index.toString().padStart(9, '0')}.opengw.net"
+            val ip = "198.51.100.${(index % 240) + 1}"
+            val profile = sampleProfile.replace("198.51.100.10", ip)
+            listOf(
+                host, ip, "100", (index + 1).toString(), "1000000",
+                "Japan", "JP", "2", "200", "10", "100", "1", "owner", "test",
+                java.util.Base64.getEncoder().encodeToString(profile.toByteArray())
+            ).joinToString(",")
+        }
+        val header = "#HostName,IP,Score,Ping,Speed,CountryLong,CountryShort,NumVpnSessions,Uptime,TotalUsers,TotalTraffic,LogType,Operator,Message,OpenVPN_ConfigData_Base64"
+        val parsed = VpnGateCatalog.parse("*vpn_servers\\n" + header + "\\n" + rows + "\\n*end")
+        assertTrue(parsed.isNotEmpty())
+        assertTrue(VpnGateCatalog.lastDiagnostics.profilesChecked <= 400)
+        assertTrue(parsed.size <= 60)
     }
 
     @Test
