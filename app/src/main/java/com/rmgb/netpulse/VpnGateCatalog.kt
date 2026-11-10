@@ -246,16 +246,27 @@ object VpnGateCatalog {
             profilesDecoded++
 
             val profile = ensureInAppUserPass(decoded.toString(Charsets.UTF_8))
-            if (!isCompatibleOpenVpnProfile(profile, candidate.ip, candidate.host)) {
-                reject("unsupported-profile")
-                continue
-            }
 
+            // The previous pre-filter duplicated a subset of OpenVPN parsing rules
+            // and rejected valid VPN Gate profiles before the real importer saw them.
+            // In particular, VPN Gate rows may advertise a short HostName while the
+            // embedded .ovpn uses its fully-qualified opengw.net endpoint (and profile
+            // directive variants can differ). The importer is the canonical validator:
+            // let it parse the whole profile and report the exact unsupported directive.
+            lastStage = "importing-profile"
             val imported = runCatching {
                 OpenVpnProfileImporter.importProfile(profile, OpenVpnCredentials("vpn", "vpn"))
             }
             if (imported.isFailure) {
                 reject("importer", imported.exceptionOrNull()?.message)
+                continue
+            }
+            val importedEndpoint = runCatching {
+                org.json.JSONObject(imported.getOrThrow().json)
+            }.getOrNull()
+            val importedServers = importedEndpoint?.optJSONArray("servers")
+            if (importedServers == null || importedServers.length() == 0) {
+                reject("missing-endpoint", "Imported OpenVPN profile did not contain a remote server.")
                 continue
             }
 
@@ -325,31 +336,6 @@ object VpnGateCatalog {
 
     private val INLINE_BLOCK_OPEN = Regex("^<[a-zA-Z0-9_-]+>$")
     private val INLINE_BLOCK_CLOSE = Regex("^</[a-zA-Z0-9_-]+>$")
-
-    private fun isCompatibleOpenVpnProfile(profile: String, expectedIp: String, expectedHost: String): Boolean {
-        if (profile.toByteArray(Charsets.UTF_8).size > MAX_CONFIG_BYTES) return false
-        if (!profile.contains("<ca>", ignoreCase = true) ||
-            !profile.contains("-----BEGIN CERTIFICATE-----") ||
-            !profile.contains("auth-user-pass")
-        ) return false
-
-        val defaultProtocol = Regex("(?im)^\\s*proto\\s+(udp|udp4|udp6|tcp|tcp-client|tcp4-client|tcp6-client)\\s*$")
-            .find(profile)?.groupValues?.getOrNull(1)?.lowercase(Locale.ROOT).orEmpty()
-        val remotes = Regex("(?im)^\\s*remote\\s+(\\S+)\\s+(\\d+)(?:\\s+(\\S+))?\\s*$")
-            .findAll(profile).toList()
-        if (remotes.isEmpty()) return false
-        return remotes.any { match ->
-            val remoteHost = match.groupValues[1].trim().trim('[', ']')
-            val port = match.groupValues[2].toIntOrNull() ?: return@any false
-            val protocol = match.groupValues.getOrNull(3).orEmpty()
-                .ifBlank { defaultProtocol }.lowercase(Locale.ROOT)
-            port in 1..65535 &&
-                (remoteHost.equals(expectedIp, true) ||
-                    remoteHost.equals(expectedHost, true) ||
-                    remoteHost.equals("$expectedHost.opengw.net", true)) &&
-                protocol in setOf("udp", "udp4", "udp6", "tcp", "tcp-client", "tcp4-client", "tcp6-client")
-        }
-    }
 
     private fun validHost(host: String): Boolean =
         host.length in 1..253 && host.matches(Regex("(?i)^[a-z0-9][a-z0-9.-]*[a-z0-9]$"))
