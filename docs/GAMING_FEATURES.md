@@ -70,3 +70,8 @@ The monitor deliberately stops when NetPulse leaves the foreground. It does not 
 The Servers screen includes an optional VPN Gate community-relay list fetched from the official HTTPS CSV API. Selecting a relay decodes the OpenVPN profile included by VPN Gate, validates it with the existing OpenVPN importer and bundled libbox core, then requests Android VPN consent and starts sing-box. No user-uploaded profile or self-hosted server is needed for this mode.
 
 The service is not operated by NetPulse. Relays are volunteer-run, may be unreliable, and the official anti-abuse policy says central connection logs are kept for three months or more and packet-header logs at each relay for two weeks or more. The displayed latency/throughput are server-reported values, not measurements from the user's device. A confirmation warning is shown before connecting, and the app refuses to replace an already-active VPN. Only OpenVPN is available in this provider-backed no-config mode.
+
+
+## Public relay dashboard changes in 0.6.4
+
+The VPN Gate panel is now placed near the top of the Servers screen and uses responsive server cards with search, country filtering, source-reported ping/speed/session metadata, explicit loading/error/empty states, and a collapsible privacy explanation. Directory-reported Ping and Speed are not device-measured gameplay quality.
