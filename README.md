@@ -44,7 +44,7 @@ NetPulse is an Android VPN and gaming-network diagnostics app with a Persian RTL
 ## Build and verification
 
 - JDK 17, Android SDK 35 and Gradle 8.9.
-- Current app version: **0.6.4** (versionCode 13).
+- Current app version: **0.6.5** (versionCode 14).
 - Run `gradle testDebugUnitTest assembleDebug`.
 - GitHub Actions runs the five-pass UI/bridge regression suite, Kotlin unit tests, debug APK assembly, pinned libbox AAR SHA-256 verification and Android API inspection.
 - A successful CI build does not replace testing on physical phones and networks.
@@ -66,3 +66,12 @@ NetPulse is an Android VPN and gaming-network diagnostics app with a Persian RTL
 - Exposes local diagnostics (rows received, metadata-valid rows, profiles checked/decoded/accepted, and rejection reasons) when the list is empty.
 - Adds guarded worker scheduling, request IDs, a render timeout, stale-response rejection, and safer WebView callback handling.
 - Redesigned the public-relay panel with responsive server cards, search, country filter, clear loading/error/empty states, and a collapsible privacy notice.
+
+
+### 0.6.5 crash diagnostics and relay stability
+- Streams the VPN Gate CSV directly from HTTPS instead of loading the complete response plus a second line array into memory.
+- Caps responses at 8 MiB, validates at most 160 of the best reported candidates, returns at most 40 importable profiles, and caps each decoded profile at 256 KiB.
+- Replaces repeated full-list sorting with a bounded priority queue.
+- Records parsing stages and rejection reasons for actionable empty-list diagnostics.
+- Adds last-crash recording (exception type and stack frames only, without exception messages, profile contents or credentials). On the next launch, the user can copy the report to help diagnose a repeat crash.
+- Preserves the refreshed relay dashboard, filters, error/empty states and stale-response protection.
