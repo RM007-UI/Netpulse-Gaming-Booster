@@ -1,6 +1,7 @@
 package com.rmgb.netpulse
 
 import android.app.Activity
+import android.util.Log
 import android.app.AppOpsManager
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
