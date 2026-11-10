@@ -32,7 +32,7 @@ class NetPulseApplication : Application() {
             getSharedPreferences(DIAGNOSTICS_PREFS, MODE_PRIVATE)
                 .edit()
                 .putString(KEY_LAST_STAGE, stage.take(120))
-                .apply()
+                .commit()
         }
     }
 
