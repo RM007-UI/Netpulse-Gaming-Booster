@@ -44,7 +44,7 @@ NetPulse is an Android VPN and gaming-network diagnostics app with a Persian RTL
 ## Build and verification
 
 - JDK 17, Android SDK 35 and Gradle 8.9.
-- Current app version: **0.6.5** (versionCode 14).
+- Current app version: **0.6.6** (versionCode 15).
 - Run `gradle testDebugUnitTest assembleDebug`.
 - GitHub Actions runs the five-pass UI/bridge regression suite, Kotlin unit tests, debug APK assembly, pinned libbox AAR SHA-256 verification and Android API inspection.
 - A successful CI build does not replace testing on physical phones and networks.
@@ -75,3 +75,10 @@ NetPulse is an Android VPN and gaming-network diagnostics app with a Persian RTL
 - Records parsing stages and rejection reasons for actionable empty-list diagnostics.
 - Adds last-crash recording (exception type and stack frames only, without exception messages, profile contents or credentials). On the next launch, the user can copy the report to help diagnose a repeat crash.
 - Preserves the refreshed relay dashboard, filters, error/empty states and stale-response protection.
+
+
+### 0.6.6 — VPN Gate compatibility filter correction
+- Removed the duplicate, stricter-than-the-real-importer profile pre-filter which labeled every candidate as `unsupported-profile` before the supported OpenVPN parser ran.
+- The embedded profile is now normalized, then validated by the same `OpenVpnProfileImporter` used by the actual connection path.
+- Rejected rows now report the actual importer error (unsupported directive, missing inline CA, remote parsing, etc.) instead of a generic pre-filter result.
+- Added a regression test for VPN Gate's fully-qualified `.opengw.net` endpoint form and verified the importer output endpoint.
