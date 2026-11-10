@@ -90,3 +90,8 @@ The public relay parser streams the CSV response from HTTPS with an 8 MiB cap, v
 ## Crash diagnostics in 0.6.5
 
 NetPulse stores a bounded crash summary when an uncaught Java/Kotlin exception terminates the process: exception class, thread, last operation stage and a limited set of stack frames. Exception messages, imported profiles and credentials are intentionally omitted. On the next launch the user can copy or clear the report from a dialog. Native process aborts and low-memory kills may not produce a Java crash report.
+
+
+## VPN Gate 0.6.6 — canonical profile validation
+
+The catalog no longer runs a separate endpoint/transport regex gate before import. That redundant gate was classifying rows as `unsupported-profile` without revealing which part of a profile failed and could reject profiles that the actual importer accepts. Each normalized profile is now passed to `OpenVpnProfileImporter`, the same parser used for connection setup. If it rejects the profile, the diagnostic report includes the importer's concrete error message. The imported JSON is also checked for a non-empty servers endpoint list.
