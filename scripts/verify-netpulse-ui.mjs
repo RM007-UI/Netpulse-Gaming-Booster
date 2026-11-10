@@ -85,7 +85,12 @@ assert.match(wireGuardGame, /includeApplications\(selectedPackages\.sorted\(\)\)
 assert.match(wireGuardGame, /addPeers\(config\.getPeers\(\)\)/);
 
 // One-tap community relay mode fetches only the official VPN Gate HTTPS directory.
-assert.match(activity, /private fun loadPublicVpnServers\(\)/);
+assert.match(activity, /private fun loadPublicVpnServers\(rawRequest: String\?\)/);
+assert.match(activity, /VpnGateCatalog\.lastDiagnostics/);
+assert.match(activity, /\.put\("requestId", requestId\)/);
+assert.match(vpnGateCatalog, /MAX_CANDIDATES_TO_VALIDATE = 400/);
+assert.match(vpnGateCatalog, /lastDiagnostics = VpnGateCatalogDiagnostics/);
+assert.match(vpnGateCatalog, /profilesAccepted = finalList\.size/);
 assert.match(activity, /VpnGateCatalog\.fetch\(\)/);
 assert.match(activity, /OpenVpnCredentials\("vpn", "vpn"\)/);
 assert.match(activity, /connectAfterImport = true/);
@@ -97,6 +102,14 @@ assert.match(html, /id="publicVpnList"/);
 assert.match(html, /id="publicVpnQuickConnect"/);
 assert.match(js, /function loadPublicVpnServers\(\)/);
 assert.match(js, /function netPulseVpnGateServerList\(result\)/);
+assert.match(js, /function renderVpnGateList\(\)/);
+assert.match(js, /function clearVpnNode\(node\)/);
+assert.match(js, /Number\(result\.requestId\)!==publicVpnRequestId/);
+assert.match(html, /class="vpn-public"/);
+assert.match(html, /class="vpn-node-grid"/);
+assert.match(html, /id="publicVpnSearch"/);
+assert.match(html, /id="publicVpnCountry"/);
+assert.doesNotMatch(js.slice(js.indexOf("let publicVpnServers=[]"), js.indexOf("function loadServers()")), /replaceChildren\(/);
 assert.match(html, /VPN Gate/);
 assert.match(activity, /لاگ‌های مرکزی اتصال حداقل ۳ ماه/);
 assert.match(html, /لاگ‌های مرکزی اتصال حداقل ۳ ماه/);
@@ -212,7 +225,7 @@ assert.match(openVpnImporter, /openvpn-client/);
 assert.match(protocolCatalog, /openvpn_udp.*EngineState\.AVAILABLE/);
 assert.match(protocolCatalog, /ikev2_ipsec.*EngineState\.AVAILABLE/);
 
-assert.ok(html.includes("v0.6.3"), "Dashboard version badge must match 0.6.3");
+assert.ok(html.includes("v0.6.4"), "Dashboard version badge must match 0.6.3");
 console.log("PASS 3/5 — game routing, foreground detection, TCP/UDP probes, URLTest and VPN safety are wired");
 
 // PASS 4 — Android 15 system bars and cutout insets are applied to the WebView viewport.
@@ -235,7 +248,7 @@ assert.match(activity, /settings\.allowContentAccess = false/);
 assert.match(activity, /settings\.allowUniversalAccessFromFileURLs = false/);
 assert.match(activity, /settings\.blockNetworkLoads = true/);
 assert.match(activity, /file:\/\/\/android_asset\/netpulse\/index\.html/);
-assert.ok(html.includes("v0.6.3"), "Dashboard version badge must match 0.6.3");
+assert.ok(html.includes("v0.6.4"), "Dashboard version badge must match 0.6.3");
 console.log("PASS 5/5 — mobile navigation, local storage fallback and WebView isolation verified");
-assert.ok(html.includes("v0.6.3"), "Dashboard release badge must match version 0.6.3");
+assert.ok(html.includes("v0.6.4"), "Dashboard release badge must match version 0.6.4");
 console.log("NetPulse UI regression checks: 5/5 passed");
