@@ -137,6 +137,38 @@ class VpnGateCatalogTest {
     }
 
     @Test
+    fun importsSoftEtherVpnGateStyleFullyQualifiedRemoteProfile() {
+        val publicProfile = """
+            client
+            dev tun
+            proto tcp
+            remote public-vpn-40.opengw.net 443
+            cipher AES-128-CBC
+            auth SHA1
+            resolv-retry infinite
+            nobind
+            persist-key
+            persist-tun
+            remote-cert-tls server
+            verb 3
+            #auth-user-pass
+            <ca>
+            -----BEGIN CERTIFICATE-----
+            ZmFrZS1jZXJ0
+            -----END CERTIFICATE-----
+            </ca>
+        """.trimIndent()
+        val parsed = VpnGateCatalog.parse(csv(publicProfile))
+        assertEquals(1, parsed.size)
+        assertEquals("public-vpn-40.opengw.net", org.json.JSONObject(
+            OpenVpnProfileImporter.importProfile(
+                parsed.single().config,
+                OpenVpnCredentials("vpn", "vpn")
+            ).json
+        ).getJSONArray("servers").getJSONObject(0).getString("server"))
+    }
+
+    @Test
     fun usesTopLevelProtoWhenRemoteOmitsItsTransportToken() {
         val configWithoutRemoteProto = sampleProfile.replace(
             "remote 198.51.100.10 1194 udp",
