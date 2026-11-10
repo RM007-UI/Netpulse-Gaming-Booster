@@ -1996,53 +1996,106 @@ class MainActivity : Activity() {
 
     private fun loadPublicVpnServers() {
         if (publicVpnGateLoading) {
-            postWebMessage("فهرست سرورهای عمومی در حال دریافت است.")
+            postWebMessage("فهرست سرورها در حال دریافت است.")
             return
         }
+        if (isFinishing || isDestroyed) return
+
         publicVpnGateLoading = true
-        postWebMessage("در حال دریافت فهرست زنده از API رسمی VPN Gate…")
-        worker.execute {
-            val result = runCatching { VpnGateCatalog.fetch() }
-            publicVpnGateLoading = false
-            result.onSuccess { servers -> publicVpnGateServers = servers }
-            val payload = result.fold(
-                onSuccess = { servers ->
-                    JSONObject()
-                        .put("ok", true)
-                        .put("source", "VPN Gate · official public relay API")
-                        .put("count", servers.size)
-                        .put("servers", JSONArray().apply {
-                            servers.forEach { server ->
-                                put(
+        postWebMessage("در حال دریافت فهرست رسمی VPN Gate…")
+
+        try {
+            worker.execute {
+                val result = runCatching { VpnGateCatalog.fetch() }
+                publicVpnGateLoading = false
+
+                val payload = runCatching {
+                    result.fold(
+                        onSuccess = { servers ->
+                            publicVpnGateServers = servers
+                            val diagnostics = VpnGateCatalog.lastDiagnostics
+                            JSONObject()
+                                .put("ok", true)
+                                .put("source", "VPN Gate · official public relay API")
+                                .put("count", servers.size)
+                                .put("servers", JSONArray().apply {
+                                    servers.forEach { server ->
+                                        put(
+                                            JSONObject()
+                                                .put("id", server.id)
+                                                .put("hostName", server.hostName)
+                                                .put("ipAddress", server.ipAddress)
+                                                .put("country", server.country)
+                                                .put("countryCode", server.countryCode)
+                                                .put("reportedPingMs", server.pingMs ?: JSONObject.NULL)
+                                                .put("reportedSpeedMbps", server.speedMbps ?: JSONObject.NULL)
+                                                .put("sessions", server.sessions)
+                                        )
+                                    }
+                                })
+                                .put(
+                                    "diagnostics",
                                     JSONObject()
-                                        .put("id", server.id)
-                                        .put("hostName", server.hostName)
-                                        .put("ipAddress", server.ipAddress)
-                                        .put("country", server.country)
-                                        .put("countryCode", server.countryCode)
-                                        .put("reportedPingMs", server.pingMs ?: JSONObject.NULL)
-                                        .put("reportedSpeedMbps", server.speedMbps ?: JSONObject.NULL)
-                                        .put("sessions", server.sessions)
+                                        .put("rowsSeen", diagnostics.rowsSeen)
+                                        .put("rowsWithMetadata", diagnostics.rowsWithMetadata)
+                                        .put("profilesChecked", diagnostics.profilesChecked)
+                                        .put("profilesDecoded", diagnostics.profilesDecoded)
+                                        .put("profilesAccepted", diagnostics.profilesAccepted)
+                                        .put("rejected", JSONObject().apply {
+                                            diagnostics.rejected.forEach { (key, value) -> put(key, value) }
+                                        })
+                                        .put("examples", JSONArray(diagnostics.examples))
                                 )
-                            }
-                        })
-                        .toString()
-                },
-                onFailure = { error ->
+                                .toString()
+                        },
+                        onFailure = { error ->
+                            JSONObject()
+                                .put("ok", false)
+                                .put("message", error.message ?: "دریافت فهرست ناموفق بود.")
+                                .put("count", publicVpnGateServers.size)
+                                .put("cached", publicVpnGateServers.isNotEmpty())
+                                .toString()
+                        }
+                    )
+                }.getOrElse { error ->
                     JSONObject()
                         .put("ok", false)
-                        .put("message", error.message ?: error.javaClass.simpleName)
-                        .put("count", publicVpnGateServers.size)
+                        .put("message", error.message ?: "پردازش پاسخ VPN Gate ناموفق بود.")
                         .toString()
                 }
-            )
-            runOnUiThread {
-                if (isDestroyed || !::webView.isInitialized) return@runOnUiThread
-                webView.evaluateJavascript(
-                    "window.netPulseVpnGateServerList && window.netPulseVpnGateServerList($payload);",
-                    null
-                )
+
+                if (!isDestroyed && !isFinishing) {
+                    runOnUiThread {
+                        if (isDestroyed || isFinishing || !::webView.isInitialized) return@runOnUiThread
+                        runCatching {
+                            webView.evaluateJavascript(
+                                "window.netPulseVpnGateServerList && window.netPulseVpnGateServerList($payload);",
+                                null
+                            )
+                        }.onFailure { error ->
+                            android.util.Log.e("NetPulse", "VPN Gate result rendering failed", error)
+                        }
+                    }
+                }
             }
+        } catch (error: java.util.concurrent.RejectedExecutionException) {
+            publicVpnGateLoading = false
+            val message = "پردازش دریافت فهرست در دسترس نیست؛ برنامه را دوباره باز کن."
+            postWebMessage(message)
+            val payload = JSONObject().put("ok", false).put("message", message).toString()
+            runOnUiThread {
+                if (!isDestroyed && ::webView.isInitialized) {
+                    runCatching {
+                        webView.evaluateJavascript(
+                            "window.netPulseVpnGateServerList && window.netPulseVpnGateServerList($payload);",
+                            null
+                        )
+                    }
+                }
+            }
+        } catch (error: Exception) {
+            publicVpnGateLoading = false
+            postWebMessage("شروع دریافت فهرست ناموفق بود: " + (error.message ?: error.javaClass.simpleName))
         }
     }
 
