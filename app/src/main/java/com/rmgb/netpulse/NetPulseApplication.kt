@@ -54,20 +54,20 @@ class NetPulseApplication : Application() {
                 val prefs = getSharedPreferences(DIAGNOSTICS_PREFS, MODE_PRIVATE)
                 val stage = prefs.getString(KEY_LAST_STAGE, "unknown") ?: "unknown"
                 val report = buildString {
-                    append("NetPulse crash diagnostic\\n")
-                    append("Time: ").append(System.currentTimeMillis()).append('\\n')
-                    append("Thread: ").append(thread.name.take(80)).append('\\n')
-                    append("Last operation: ").append(stage).append('\\n')
-                    append("Error type: ").append(error.javaClass.name).append('\\n')
+                    append("NetPulse crash diagnostic\n")
+                    append("Time: ").append(System.currentTimeMillis()).append('\n')
+                    append("Thread: ").append(thread.name.take(80)).append('\n')
+                    append("Last operation: ").append(stage).append('\n')
+                    append("Error type: ").append(error.javaClass.name).append('\n')
                     error.stackTrace.take(36).forEach { frame ->
-                        append("at ").append(frame.toString().take(220)).append('\\n')
+                        append("at ").append(frame.toString().take(220)).append('\n')
                     }
                     var cause = error.cause
                     var depth = 0
                     while (cause != null && depth++ < 3) {
-                        append("Caused by: ").append(cause.javaClass.name).append('\\n')
+                        append("Caused by: ").append(cause.javaClass.name).append('\n')
                         cause.stackTrace.take(8).forEach { frame ->
-                            append("at ").append(frame.toString().take(220)).append('\\n')
+                            append("at ").append(frame.toString().take(220)).append('\n')
                         }
                         cause = cause.cause
                     }
