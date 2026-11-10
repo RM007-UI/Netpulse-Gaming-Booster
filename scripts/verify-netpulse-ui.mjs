@@ -106,6 +106,10 @@ assert.match(activity, /vpn-gate:fetch-start/);
 assert.match(activity, /vpn-gate:callback-ready/);
 assert.match(js, /const stage=result\.stage/);
 assert.match(activity, /VpnGateCatalog\.fetch\(\)/);
+assert.match(vpnGateCatalog, /OpenVpnProfileImporter\.importProfile\(profile, OpenVpnCredentials\("vpn", "vpn"\)\)/);
+assert.doesNotMatch(vpnGateCatalog, /isCompatibleOpenVpnProfile/);
+assert.match(vpnGateCatalog, /reject\("importer", imported\.exceptionOrNull\(\)\?\.message\)/);
+assert.match(vpnGateCatalog, /lastStage = "importing-profile"/);
 assert.match(activity, /OpenVpnCredentials\("vpn", "vpn"\)/);
 assert.match(activity, /connectAfterImport = true/);
 assert.match(activity, /publicVpnGateServers\.firstOrNull/);
@@ -239,7 +243,7 @@ assert.match(openVpnImporter, /openvpn-client/);
 assert.match(protocolCatalog, /openvpn_udp.*EngineState\.AVAILABLE/);
 assert.match(protocolCatalog, /ikev2_ipsec.*EngineState\.AVAILABLE/);
 
-assert.ok(html.includes("v0.6.5"), "Dashboard version badge must match 0.6.5");
+assert.ok(html.includes("v0.6.6"), "Dashboard version badge must match 0.6.6");
 console.log("PASS 3/5 — game routing, foreground detection, TCP/UDP probes, URLTest and VPN safety are wired");
 
 // PASS 4 — Android 15 system bars and cutout insets are applied to the WebView viewport.
@@ -262,7 +266,7 @@ assert.match(activity, /settings\.allowContentAccess = false/);
 assert.match(activity, /settings\.allowUniversalAccessFromFileURLs = false/);
 assert.match(activity, /settings\.blockNetworkLoads = true/);
 assert.match(activity, /file:\/\/\/android_asset\/netpulse\/index\.html/);
-assert.ok(html.includes("v0.6.5"), "Dashboard version badge must match 0.6.5");
+assert.ok(html.includes("v0.6.6"), "Dashboard version badge must match 0.6.6");
 console.log("PASS 5/5 — mobile navigation, local storage fallback and WebView isolation verified");
-assert.ok(html.includes("v0.6.5"), "Dashboard release badge must match version 0.6.4");
+assert.ok(html.includes("v0.6.6"), "Dashboard release badge must match version 0.6.6");
 console.log("NetPulse UI regression checks: 5/5 passed");
