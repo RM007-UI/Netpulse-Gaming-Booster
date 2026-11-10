@@ -282,7 +282,7 @@ class MainActivity : Activity() {
                     "toggleAutoGameDetection" -> toggleAutoGameDetection()
                     "testGameServer" -> runGameServerComparison(value)
                     "testGameUdpEcho" -> runGameUdpEchoComparison(value)
-                    "loadPublicVpnServers" -> loadPublicVpnServers()
+                    "loadPublicVpnServers" -> loadPublicVpnServers(value)
                     "connectPublicVpnServer" -> connectPublicVpnServer(value)
                     "exportGameSessions" -> exportGameSessionHistory(value)
                     "clearProfiles" -> confirmClearSavedProfiles()
@@ -1994,7 +1994,8 @@ class MainActivity : Activity() {
         publishNativeState()
     }
 
-    private fun loadPublicVpnServers() {
+    private fun loadPublicVpnServers(rawRequest: String?) {
+        val requestId = runCatching { JSONObject(rawRequest ?: "{}").optLong("requestId", 0L) }.getOrDefault(0L)
         if (publicVpnGateLoading) {
             postWebMessage("فهرست سرورها در حال دریافت است.")
             return
@@ -2016,6 +2017,7 @@ class MainActivity : Activity() {
                             val diagnostics = VpnGateCatalog.lastDiagnostics
                             JSONObject()
                                 .put("ok", true)
+                                .put("requestId", requestId)
                                 .put("source", "VPN Gate · official public relay API")
                                 .put("count", servers.size)
                                 .put("servers", JSONArray().apply {
@@ -2051,6 +2053,7 @@ class MainActivity : Activity() {
                         onFailure = { error ->
                             JSONObject()
                                 .put("ok", false)
+                                .put("requestId", requestId)
                                 .put("message", error.message ?: "دریافت فهرست ناموفق بود.")
                                 .put("count", publicVpnGateServers.size)
                                 .put("cached", publicVpnGateServers.isNotEmpty())
@@ -2060,6 +2063,7 @@ class MainActivity : Activity() {
                 }.getOrElse { error ->
                     JSONObject()
                         .put("ok", false)
+                        .put("requestId", requestId)
                         .put("message", error.message ?: "پردازش پاسخ VPN Gate ناموفق بود.")
                         .toString()
                 }
@@ -2082,7 +2086,7 @@ class MainActivity : Activity() {
             publicVpnGateLoading = false
             val message = "پردازش دریافت فهرست در دسترس نیست؛ برنامه را دوباره باز کن."
             postWebMessage(message)
-            val payload = JSONObject().put("ok", false).put("message", message).toString()
+            val payload = JSONObject().put("ok", false).put("requestId", requestId).put("message", message).toString()
             runOnUiThread {
                 if (!isDestroyed && ::webView.isInitialized) {
                     runCatching {
