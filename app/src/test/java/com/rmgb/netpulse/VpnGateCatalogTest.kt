@@ -100,6 +100,7 @@ class VpnGateCatalogTest {
         )
         assertEquals("OpenVPN TCP", imported.protocol)
         assertEquals("public-vpn-40.opengw.net", org.json.JSONObject(imported.json)
+            .getJSONArray("endpoints").getJSONObject(0)
             .getJSONArray("servers").getJSONObject(0).getString("server"))
     }
 
@@ -165,7 +166,8 @@ class VpnGateCatalogTest {
                 parsed.single().config,
                 OpenVpnCredentials("vpn", "vpn")
             ).json
-        ).getJSONArray("servers").getJSONObject(0).getString("server"))
+        ).getJSONArray("endpoints").getJSONObject(0)
+            .getJSONArray("servers").getJSONObject(0).getString("server"))
     }
 
     @Test
