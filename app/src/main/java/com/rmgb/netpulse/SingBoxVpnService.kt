@@ -37,6 +37,7 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val app = application as NetPulseApplication
+        app.markDiagnosticStage("singbox-service:start-command")
         // Avoid putting potentially multi-megabyte JSON into an Intent Binder transaction.
         // The Activity and Service share this process; the profile is handed off in memory.
         val profile = app.pendingSingBoxServiceProfile
@@ -54,14 +55,17 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
             starting = true
         }
         try {
+            app.markDiagnosticStage("singbox-service:foreground-begin")
             startForeground(NOTIFICATION_ID, buildNotification("Starting sing-box…"))
+            app.markDiagnosticStage("singbox-service:foreground-ready")
         } catch (error: Exception) {
             synchronized(lifecycleLock) {
                 starting = false
                 stopping.set(true)
                 VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.SING_BOX)
             }
-            Log.e(TAG, "sing-box foreground startup failed (${error.javaClass.simpleName})")
+            app.markDiagnosticStage("singbox-service:foreground-failed:${error.javaClass.simpleName}")
+            Log.e(TAG, "sing-box foreground startup failed (${error.javaClass.simpleName})", error)
             sendBroadcast(
                 Intent(ACTION_STATE).setPackage(packageName)
                     .putExtra(EXTRA_CONNECTED, false)
@@ -73,22 +77,29 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
         Thread({
             synchronized(lifecycleLock) {
                 try {
+                    app.markDiagnosticStage("singbox-service:engine-claim")
                     check(!stopping.get()) { "VPN service is stopping" }
                     if (!VpnEngineCoordinator.acquire(VpnEngineCoordinator.Engine.SING_BOX)) {
                         throw IllegalStateException("Another VPN engine owns Android VPN")
                     }
+                    app.markDiagnosticStage("singbox-service:command-server-create")
                     val server = CommandServer(this, this)
                     commandServer = server
+                    app.markDiagnosticStage("singbox-service:command-server-start")
                     server.start()
+                    app.markDiagnosticStage("singbox-service:native-start-begin")
                     check(!stopping.get()) { "VPN service is stopping" }
                     server.startOrReloadService(profile, OverrideOptions())
+                    app.markDiagnosticStage("singbox-service:native-start-returned")
                     check(!stopping.get()) { "VPN service is stopping" }
                     started = true
                     isRunning = true
+                    app.markDiagnosticStage("singbox-service:connected")
                     updateNotification("sing-box active")
                     sendBroadcast(Intent(ACTION_STATE).setPackage(packageName).putExtra(EXTRA_CONNECTED, true))
                 } catch (error: Exception) {
-                    Log.e(TAG, "sing-box startup failed (${error.javaClass.simpleName})")
+                    app.markDiagnosticStage("singbox-service:start-failed:${error.javaClass.simpleName}")
+                    Log.e(TAG, "sing-box startup failed (${error.javaClass.simpleName})", error)
                     stopEngine()
                     sendBroadcast(
                         Intent(ACTION_STATE).setPackage(packageName)
