@@ -36,36 +36,76 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
     private val connectivity by lazy { getSystemService(ConnectivityManager::class.java) }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val profile = intent?.getStringExtra(EXTRA_PROFILE)
+        val app = application as NetPulseApplication
+        app.markDiagnosticStage("singbox-service:start-command")
+        // Avoid putting potentially multi-megabyte JSON into an Intent Binder transaction.
+        // The Activity and Service share this process; the profile is handed off in memory.
+        val profile = app.pendingSingBoxServiceProfile
+            ?: intent?.getStringExtra(EXTRA_PROFILE)
+        app.pendingSingBoxServiceProfile = null
         if (profile.isNullOrBlank()) {
             stopSelf(startId)
             return START_NOT_STICKY
         }
         synchronized(lifecycleLock) {
-            if (started || starting || stopping.get()) return START_NOT_STICKY
+            if (started || starting) return START_NOT_STICKY
+            // A stopped Service instance may receive a new start before Android
+            // creates a replacement instance. Re-arm its lifecycle under the same lock.
+            stopping.set(false)
             starting = true
         }
-        startForeground(NOTIFICATION_ID, buildNotification("Starting sing-box…"))
+        try {
+            app.markDiagnosticStage("singbox-service:foreground-begin")
+            startForeground(NOTIFICATION_ID, buildNotification("Starting sing-box…"))
+            app.markDiagnosticStage("singbox-service:foreground-ready")
+        } catch (error: Exception) {
+            synchronized(lifecycleLock) {
+                starting = false
+                stopping.set(true)
+                VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.SING_BOX)
+            }
+            app.markDiagnosticStage("singbox-service:foreground-failed:${error.javaClass.simpleName}")
+            Log.e(TAG, "sing-box foreground startup failed (${error.javaClass.simpleName})", error)
+            sendBroadcast(
+                Intent(ACTION_STATE).setPackage(packageName)
+                    .putExtra(EXTRA_CONNECTED, false)
+                    .putExtra(EXTRA_ERROR, error.javaClass.simpleName)
+            )
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
         Thread({
             synchronized(lifecycleLock) {
                 try {
+                    app.markDiagnosticStage("singbox-service:engine-claim")
                     check(!stopping.get()) { "VPN service is stopping" }
                     if (!VpnEngineCoordinator.acquire(VpnEngineCoordinator.Engine.SING_BOX)) {
                         throw IllegalStateException("Another VPN engine owns Android VPN")
                     }
+                    app.markDiagnosticStage("singbox-service:command-server-create")
                     val server = CommandServer(this, this)
                     commandServer = server
+                    app.markDiagnosticStage("singbox-service:command-server-start")
                     server.start()
+                    app.markDiagnosticStage("singbox-service:native-start-begin")
                     check(!stopping.get()) { "VPN service is stopping" }
                     server.startOrReloadService(profile, OverrideOptions())
+                    app.markDiagnosticStage("singbox-service:native-start-returned")
                     check(!stopping.get()) { "VPN service is stopping" }
                     started = true
                     isRunning = true
+                    app.markDiagnosticStage("singbox-service:connected")
                     updateNotification("sing-box active")
                     sendBroadcast(Intent(ACTION_STATE).setPackage(packageName).putExtra(EXTRA_CONNECTED, true))
                 } catch (error: Exception) {
-                    Log.e(TAG, "sing-box startup failed (${error.javaClass.simpleName})")
+                    app.markDiagnosticStage("singbox-service:start-failed:${error.javaClass.simpleName}")
+                    Log.e(TAG, "sing-box startup failed (${error.javaClass.simpleName})", error)
                     stopEngine()
+                    sendBroadcast(
+                        Intent(ACTION_STATE).setPackage(packageName)
+                            .putExtra(EXTRA_CONNECTED, false)
+                            .putExtra(EXTRA_ERROR, error.javaClass.simpleName)
+                    )
                     stopSelf(startId)
                 } finally {
                     starting = false
@@ -78,6 +118,12 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
     override fun openTun(options: TunOptions): Int {
         check(!stopping.get()) { "VPN service is stopping" }
         check(prepare(this) == null) { "VPN permission is missing" }
+        // Capture the physical default network before the TUN interface becomes active.
+        // The UDP diagnostics use this handle for the direct-path baseline.
+        underlyingNetworkForDiagnostics = connectivity.activeNetwork?.takeIf { network ->
+            connectivity.getNetworkCapabilities(network)
+                ?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) != true
+        }
         val builder = Builder().setSession("NetPulse sing-box").setMtu(options.mtu)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val underlyingCapabilities = connectivity.activeNetwork?.let(connectivity::getNetworkCapabilities)
@@ -120,6 +166,12 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
             builder.setHttpProxy(ProxyInfo.buildDirectProxy(host, port, bypassDomains))
         }
 
+        if (!options.autoRoute) {
+            require(!options.includePackage.hasNext() && !options.excludePackage.hasNext()) {
+                "Per-app package routing requires auto_route to be enabled on the TUN inbound"
+            }
+        }
+
         if (options.autoRoute) {
             val dns = options.dnsServerAddress
             if (options.dnsMode.value != Libbox.DNSModeDisabled) {
@@ -132,22 +184,44 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
                 else if (hasV4Address) builder.addRoute("0.0.0.0", 0)
                 if (v6.hasNext()) addPrefixes(v6, true)
                 else if (hasV6Address) builder.addRoute("::", 0)
+
                 fun excludePrefixes(iterator: RoutePrefixIterator) {
                     while (iterator.hasNext()) {
                         val prefix = iterator.next()
-                        builder.excludeRoute(IpPrefix(InetAddress.getByName(prefix.address()), prefix.prefix()))
+                        builder.excludeRoute(
+                            IpPrefix(InetAddress.getByName(prefix.address()), prefix.prefix())
+                        )
                     }
                 }
                 excludePrefixes(options.inet4RouteExcludeAddress)
                 excludePrefixes(options.inet6RouteExcludeAddress)
             } else {
-                addPrefixes(options.inet4RouteRange, true)
-                addPrefixes(options.inet6RouteRange, true)
+                require(
+                    !options.inet4RouteExcludeAddress.hasNext() &&
+                        !options.inet6RouteExcludeAddress.hasNext()
+                ) {
+                    "This sing-box profile uses route exclusions that Android 12 and earlier cannot enforce safely"
+                }
+                val v4 = options.inet4RouteRange
+                val v6 = options.inet6RouteRange
+                if (v4.hasNext()) addPrefixes(v4, true)
+                else if (hasV4Address) builder.addRoute("0.0.0.0", 0)
+                if (v6.hasNext()) addPrefixes(v6, true)
+                else if (hasV6Address) builder.addRoute("::", 0)
             }
+
+            val includePackages = mutableListOf<String>()
             val include = options.includePackage
-            while (include.hasNext()) builder.addAllowedApplication(include.next())
+            while (include.hasNext()) includePackages += include.next()
+            val excludePackages = mutableListOf<String>()
             val exclude = options.excludePackage
-            while (exclude.hasNext()) builder.addDisallowedApplication(exclude.next())
+            while (exclude.hasNext()) excludePackages += exclude.next()
+
+            require(includePackages.isEmpty() || excludePackages.isEmpty()) {
+                "Android VpnService cannot combine include_package and exclude_package in one TUN"
+            }
+            includePackages.distinct().forEach(builder::addAllowedApplication)
+            excludePackages.distinct().forEach(builder::addDisallowedApplication)
         }
         val descriptor = builder.establish() ?: error("Android did not establish the VPN interface")
         synchronized(tunDescriptors) {
@@ -333,6 +407,7 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
             starting = false
             started = false
             isRunning = false
+            underlyingNetworkForDiagnostics = null
             VpnEngineCoordinator.release(VpnEngineCoordinator.Engine.SING_BOX)
             sendBroadcast(Intent(ACTION_STATE).setPackage(packageName).putExtra(EXTRA_CONNECTED, false))
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) stopForeground(STOP_FOREGROUND_REMOVE)
@@ -371,9 +446,12 @@ class SingBoxVpnService : VpnService(), PlatformInterface, CommandServerHandler 
     companion object {
         @Volatile var isRunning: Boolean = false
             private set
+        @Volatile var underlyingNetworkForDiagnostics: Network? = null
+            private set
         const val EXTRA_PROFILE = "com.rmgb.netpulse.extra.SINGBOX_PROFILE"
         const val ACTION_STATE = "com.rmgb.netpulse.action.SINGBOX_STATE"
         const val EXTRA_CONNECTED = "com.rmgb.netpulse.extra.CONNECTED"
+        const val EXTRA_ERROR = "com.rmgb.netpulse.extra.ERROR"
         private const val TAG = "NetPulseSingBox"
         private const val CHANNEL_ID = "netpulse_vpn"
         private const val NOTIFICATION_ID = 4102

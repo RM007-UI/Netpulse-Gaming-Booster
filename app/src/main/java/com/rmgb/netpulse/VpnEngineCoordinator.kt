@@ -5,7 +5,7 @@ package com.rmgb.netpulse
  * Claims are process-local; each engine must release its claim on every stop/failure path.
  */
 internal object VpnEngineCoordinator {
-    enum class Engine { WIREGUARD, SING_BOX }
+    enum class Engine { WIREGUARD, SING_BOX, IKEV2 }
 
     @Volatile
     private var owner: Engine? = null

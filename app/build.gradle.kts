@@ -9,8 +9,8 @@ android {
         applicationId = "com.rmgb.netpulse"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.3.1"
+        versionCode = 16
+        versionName = "0.6.7"
         ndk { abiFilters.add("arm64-v8a") }
     }
     compileOptions {
@@ -20,6 +20,12 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
 }
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    testLogging {
+        events("failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
+}
 dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.activity:activity-ktx:1.10.0")
@@ -27,4 +33,7 @@ dependencies {
     implementation("com.github.singbox-android:libbox:1.14.4")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     testImplementation("junit:junit:4.13.2")
+    // Android's mockable android.jar stubs org.json methods during local JVM tests.
+    // Use the reference JSON implementation so profile-import tests exercise real serialization.
+    testImplementation("org.json:json:20260814")
 }

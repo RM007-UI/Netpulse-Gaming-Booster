@@ -19,8 +19,19 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
+      - name: Run five-pass NetPulse UI regression tests
+        run: node scripts/verify-netpulse-ui.mjs
       - name: Build debug APK
-        run: gradle testDebugUnitTest assembleDebug
+        run: gradle testDebugUnitTest assembleDebug --console=plain
+      - name: Upload unit-test reports for diagnosis
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: netpulse-test-reports
+          path: |
+            app/build/reports/tests/testDebugUnitTest/
+            app/build/test-results/testDebugUnitTest/
+          if-no-files-found: warn
       - name: Verify pinned sing-box AAR checksum
         shell: bash
         run: |

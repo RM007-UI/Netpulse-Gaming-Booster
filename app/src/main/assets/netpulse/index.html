@@ -1,0 +1,696 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#090b17">
+<title>NetPulse — Network Intelligence</title>
+<style>
+:root{color-scheme:dark;--bg:#090b17;--panel:#151b30;--panel2:#101629;--line:#292f4b;--text:#f1f4ff;--muted:#8c95b3;--cyan:#63e9e0;--blue:#7b8cff;--violet:#a78bfa;--green:#54dfae;--amber:#f5bf69;--red:#ff718b;--shadow:0 18px 55px #03061170}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}button{touch-action:manipulation}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(ellipse at 75% -10%,#23345a55,transparent 35%),radial-gradient(ellipse at 5% 55%,#13383b22,transparent 32%),var(--bg);color:var(--text);font-family:Roboto,"Noto Sans",Arial,sans-serif;-webkit-font-smoothing:antialiased}button,input,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}.app{max-width:1680px;margin:auto;min-height:100vh;display:grid;grid-template-columns:248px minmax(0,1fr)}
+.sidebar{position:sticky;top:0;height:100vh;padding:25px 16px 18px;background:#0a0e1bef;border-left:1px solid #242b43;display:flex;flex-direction:column;z-index:20;backdrop-filter:blur(22px)}.brand{display:flex;align-items:center;gap:12px;padding:1px 10px 28px}.brand-icon{width:43px;height:43px;border-radius:15px;background:linear-gradient(145deg,#63e9e0,#6779ff 65%,#a68bff);display:grid;place-items:center;box-shadow:0 8px 28px #5d78ff45;color:#07111d;font-size:25px;font-weight:900}.brand-name{font-size:20px;font-weight:900;letter-spacing:-.7px;direction:ltr}.brand-name span{color:var(--cyan)}.brand-sub{font-size:9px;color:#717d9f;letter-spacing:1.7px;margin-top:1px}.nav-title{padding:12px 13px 8px;color:#616d8e;font-size:9px;font-weight:800;letter-spacing:1.4px}.nav{display:grid;gap:5px}.nav button{position:relative;border:1px solid transparent;background:transparent;color:#9ba4c0;display:flex;align-items:center;gap:12px;text-align:right;width:100%;padding:11px 13px;border-radius:12px;font-size:11px;transition:.2s}.nav button:hover{background:#ffffff09;color:#fff}.nav button.active{color:#f5ffff;background:linear-gradient(110deg,#586bc02c,#43d5cf14);border-color:#6bdcd526;box-shadow:inset -2px 0 var(--cyan),0 7px 24px #17203c50}.nav-ico{width:20px;height:20px;display:grid;place-items:center;font-size:17px}.nav-count{margin-right:auto;font-size:9px;background:#252d4b;color:#bac7e7;padding:2px 7px;border-radius:7px}.nav-sep{height:1px;background:#202741;margin:13px 6px 4px}.sidebar-bottom{margin-top:auto}.network-mini{border:1px solid #2b4a5b;background:linear-gradient(145deg,#132b3b,#14192c);border-radius:15px;padding:13px;margin:10px 4px 17px}.mini-head{display:flex;justify-content:space-between;align-items:center;font-size:10px;font-weight:700}.live-dot{width:7px;height:7px;background:var(--green);display:inline-block;border-radius:50%;margin-left:7px;box-shadow:0 0 0 4px #54dfae1c}.mini-desc{font-size:9px;color:#8c9bb1;margin:7px 0 11px}.mini-btn{width:100%;border:1px solid #2b5b68;background:#112f3a;color:#a9f6ef;border-radius:9px;padding:8px;font-size:9px}.profile{border-top:1px solid #222a42;padding:14px 6px 0;display:flex;align-items:center;gap:9px}.avatar{width:33px;height:33px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(140deg,#c7a8ff,#648bff);color:#12162b;font-weight:900;font-size:11px}.profile strong{font-size:10px;display:block}.profile small{color:var(--muted);font-size:8px}.profile-more{margin-right:auto;color:#7e88a5}
+main{min-width:0;padding:27px 34px 38px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:25px}.eyebrow{color:var(--cyan);font-size:9px;letter-spacing:1.6px;font-weight:800;direction:ltr;text-align:right}.eyebrow span{color:#596785;margin:0 6px}.page-title{font-size:23px;font-weight:800;letter-spacing:-.6px;margin:4px 0 0}.top-actions{display:flex;align-items:center;gap:9px}.date-chip,.icon-btn{border:1px solid var(--line);background:#13192c;color:#aeb8d2;border-radius:11px;padding:9px 12px;font-size:9px}.icon-btn{width:37px;height:37px;padding:0;font-size:16px;position:relative}.notify-dot:after{content:'';position:absolute;top:7px;right:7px;width:6px;height:6px;border-radius:50%;background:var(--red);border:2px solid #13192c}.profile-chip{display:flex;align-items:center;gap:8px;padding-right:5px}.profile-chip .avatar{width:31px;height:31px}.profile-chip strong{display:block;font-size:10px}.profile-chip small{display:block;color:var(--muted);font-size:8px}.view{display:none;animation:fade .22s ease}.view.active{display:block}@keyframes fade{from{opacity:.25;transform:translateY(5px)}to{opacity:1;transform:none}}.view-intro{display:flex;align-items:flex-end;justify-content:space-between;gap:15px;margin:3px 0 18px}.view-intro h2{font-size:17px;margin:0 0 4px}.view-intro p{font-size:10px;color:var(--muted);margin:0}.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{border:1px solid var(--line);background:#151c32;color:#c7d0e8;border-radius:10px;padding:9px 13px;font-size:9px;font-weight:700;transition:.2s}.btn:hover{filter:brightness(1.15);transform:translateY(-1px)}.btn.primary{border:0;color:#07151d;background:linear-gradient(110deg,#5ce4dc,#718bff);box-shadow:0 8px 24px #5c96e833}.btn.ghost{background:transparent}.btn.danger{border-color:#623247;background:#29182a;color:#ff9db0}.card{background:linear-gradient(145deg,#151b30,#101627);border:1px solid #282f4b;border-radius:18px;box-shadow:var(--shadow);min-width:0}.grid{display:grid;gap:14px}.metrics{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:14px}.metric{padding:16px 17px;position:relative;overflow:hidden}.metric:after{content:'';position:absolute;width:110px;height:110px;left:-35px;bottom:-52px;border-radius:50%;background:var(--accent,var(--cyan));filter:blur(27px);opacity:.12}.metric-top{display:flex;align-items:center;justify-content:space-between;color:#a3acc7;font-size:9px}.metric-icon{width:29px;height:29px;border-radius:9px;display:grid;place-items:center;background:#1d3444;color:var(--cyan);font-size:14px}.metric-value{font-size:25px;line-height:1.3;font-weight:800;direction:ltr;text-align:right;margin:10px 0 2px;letter-spacing:-.8px}.metric-value small{font-size:10px;color:#8b98b6;margin-right:3px}.metric-foot{font-size:8px;color:var(--muted);display:flex;align-items:center;gap:6px}.good{color:var(--green)}.warn{color:var(--amber)}.bad{color:var(--red)}.card-head{padding:16px 18px 0;display:flex;justify-content:space-between;align-items:center;gap:10px}.card-title{font-size:11px;font-weight:800}.card-sub{font-size:8px;color:var(--muted);margin-top:3px}.range{display:flex;gap:3px;padding:3px;background:#0d1323;border:1px solid #282f49;border-radius:8px}.range button{border:0;background:transparent;color:#8590af;padding:5px 8px;border-radius:6px;font-size:8px}.range button.active{background:#29365a;color:#a8fff4}.chart-area{padding:16px 17px 12px}.chart-legend{display:flex;gap:16px;color:#a5aec8;font-size:8px;margin-bottom:8px}.legend-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:5px}.cyan{background:var(--cyan)}.blue{background:var(--blue)}.chart-wrap{height:174px;position:relative}.chart-wrap svg{width:100%;height:100%}.chart-labels{display:flex;justify-content:space-between;color:#7783a3;font-size:8px;padding:3px 5px}.main-grid{grid-template-columns:minmax(0,1.5fr) minmax(270px,.78fr);margin-bottom:14px}.bottom-grid{grid-template-columns:minmax(0,1.2fr) minmax(270px,.8fr)}.quality{padding-bottom:15px}.quality-body{display:flex;align-items:center;gap:16px;padding:19px 17px 5px}.gauge{width:105px;height:105px;flex:0 0 105px;position:relative;display:grid;place-items:center}.gauge svg{position:absolute;inset:0;transform:rotate(-90deg)}.gauge strong{font-size:26px}.gauge small{position:absolute;top:65px;color:var(--muted);font-size:8px}.quality-copy strong{font-size:11px}.quality-copy p{font-size:8px;color:var(--muted);line-height:1.9;margin:5px 0 8px}.pill{display:inline-flex;align-items:center;gap:5px;border-radius:7px;background:#14372f;color:#7ce9bd;padding:4px 7px;font-size:8px}.quality-list{padding:12px 18px 0;display:grid;gap:10px}.q-head{display:flex;justify-content:space-between;color:#98a4c0;font-size:8px}.q-head b{color:#e2eaff;direction:ltr}.track{height:4px;background:#29314d;border-radius:9px;margin-top:5px;overflow:hidden}.track i{height:100%;display:block;background:linear-gradient(90deg,var(--cyan),var(--blue));border-radius:9px}.server-list{padding:10px 17px 4px}.server-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #242c45}.server-row:last-child{border:0}.flag{width:32px;height:32px;border-radius:9px;background:#202a45;display:grid;place-items:center;font-size:15px}.server-info{flex:1;min-width:0}.server-info b{font-size:9px;display:block}.server-info small{font-size:7px;color:var(--muted)}.server-ms{direction:ltr;font-size:9px;font-weight:800;text-align:left}.server-ms small{display:block;color:var(--muted);font-size:7px;font-weight:400}.status{font-size:7px;padding:4px 7px;border-radius:6px;background:#16382f;color:#71e2b9;white-space:nowrap}.status.warning{background:#3b2c19;color:#f7c578}.status.offline{background:#3b1d2a;color:#ff94a9}.events-list{padding:12px 17px}.event{display:flex;gap:9px;position:relative;padding-bottom:13px}.event:not(:last-child):before{content:'';position:absolute;right:11px;top:23px;bottom:0;width:1px;background:#2a3451}.event-icon{width:23px;height:23px;border-radius:8px;display:grid;place-items:center;background:#1c3b4b;color:var(--cyan);font-size:10px;z-index:1}.event-icon.amber{background:#3b2d1b;color:var(--amber)}.event-copy b{font-size:8px;display:block;margin:1px 0 2px}.event-copy p{font-size:7px;color:var(--muted);margin:0 0 3px}.event-copy time{font-size:7px;color:#687593}.hero{padding:22px 24px;min-height:183px;margin-bottom:14px;position:relative;overflow:hidden;background:linear-gradient(110deg,#1a2843,#17233b 55%,#162f3d);border:1px solid #35415f;border-radius:20px;display:flex;align-items:center;justify-content:space-between;gap:20px}.hero:before{content:'';position:absolute;width:420px;height:420px;border:1px solid #7f8cff22;border-radius:50%;left:7%;top:-180px;box-shadow:0 0 0 30px #7f8cff09,0 0 0 70px #7f8cff07}.hero-copy{position:relative;z-index:2;max-width:520px}.hero-kicker{font-size:8px;color:#a5fff0;letter-spacing:1.1px;font-weight:800}.hero h2{font-size:24px;margin:8px 0 5px;line-height:1.55}.hero h2 em{font-style:normal;color:var(--cyan)}.hero p{font-size:9px;color:#a2afc9;line-height:2;margin:0}.hero-actions{display:flex;gap:8px;margin-top:14px}.network-visual{position:relative;width:300px;height:155px;flex:0 0 300px;z-index:1}.network-visual svg{width:100%;height:100%;filter:drop-shadow(0 0 18px #64e9e055)}.hero-live{position:absolute;left:22px;top:15px;border:1px solid #5b8b9d55;border-radius:8px;padding:6px 9px;color:#9bf4e8;font-size:8px;direction:ltr}.hero-live b{display:block;font-size:12px;color:white}.footer{display:flex;justify-content:space-between;gap:12px;margin-top:18px;color:#667391;font-size:7px;direction:ltr}.tag{display:inline-flex;align-items:center;padding:4px 7px;border-radius:6px;font-size:8px;background:#202943;color:#bac5e4}.tag.green{background:#16382f;color:#70e4b9}.tag.amber{background:#3d2e1b;color:#f1c477}.sample{border:1px solid #5a4725;background:#2c2417;color:#f2c87d}.filters{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.field{border:1px solid #303956;background:#11182b;color:#dde5fa;border-radius:9px;padding:9px 11px;font-size:9px;min-width:120px}.field::placeholder{color:#6f7895}.search{min-width:190px}.table-wrap{overflow:auto;padding:10px 16px 15px}.data-table{width:100%;border-collapse:collapse;min-width:640px;text-align:right}.data-table th{font-size:8px;color:#8290ad;font-weight:600;padding:11px 10px;border-bottom:1px solid #29304a;white-space:nowrap}.data-table td{font-size:9px;color:#dce4f6;padding:12px 10px;border-bottom:1px solid #222a43;white-space:nowrap}.data-table tr:last-child td{border:0}.tiny-btn{border:1px solid #303a59;background:#1b2440;color:#c0cbed;border-radius:7px;padding:5px 8px;font-size:8px}.panel-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.panel-card{padding:15px;border-radius:15px;background:linear-gradient(145deg,#19213b,#12192d);border:1px solid #293350}.panel-card .pc-top{display:flex;justify-content:space-between;align-items:center;color:#a7b2cf;font-size:9px}.panel-card strong{display:block;font-size:21px;margin:9px 0 1px;direction:ltr;text-align:right}.panel-card small{color:var(--muted);font-size:8px}.device-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.device-card{padding:15px}.device-top{display:flex;align-items:center;gap:10px}.device-icon{width:39px;height:39px;border-radius:12px;background:#202b48;display:grid;place-items:center;font-size:18px}.device-name{flex:1;min-width:0}.device-name b{display:block;font-size:10px}.device-name small{font-size:8px;color:var(--muted)}.device-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid #2a314a}.device-meta small{display:block;font-size:7px;color:var(--muted)}.device-meta b{font-size:9px;direction:ltr;display:block;margin-top:3px}.progress-mini{height:4px;border-radius:9px;background:#2a3450;margin-top:6px}.progress-mini i{height:100%;display:block;background:linear-gradient(90deg,var(--cyan),var(--blue));border-radius:9px}.alert-item{padding:15px;display:flex;align-items:flex-start;gap:12px;border-bottom:1px solid #252d46}.alert-item:last-child{border:0}.alert-icon{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;border-radius:11px;background:#412030;color:#ff9bad}.alert-icon.amber{background:#3a2d1b;color:var(--amber)}.alert-icon.blue{background:#1c2e4b;color:#8faaff}.alert-main{flex:1;min-width:0}.alert-main b{display:block;font-size:10px}.alert-main p{font-size:8px;color:var(--muted);line-height:1.8;margin:4px 0}.alert-meta{font-size:7px;color:#707d9d}.alert-controls{display:flex;gap:6px;flex-wrap:wrap}.speed-layout{display:grid;grid-template-columns:minmax(300px,.9fr) minmax(0,1.1fr);gap:14px}.speed-panel{padding:22px;text-align:center}.speed-gauge{width:225px;height:225px;margin:15px auto 17px;position:relative;display:grid;place-items:center}.speed-gauge svg{position:absolute;inset:0;transform:rotate(-90deg)}.speed-gauge .dial{font-size:44px;font-weight:800;direction:ltr}.speed-gauge small{position:absolute;top:145px;color:var(--muted);font-size:10px}.speed-gauge-label{color:#a6b3d0;font-size:10px}.speed-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:15px 0}.speed-probe-grid{grid-template-columns:repeat(5,minmax(0,1fr))}.game-app-list{display:grid;gap:7px;margin-top:12px;max-height:360px;overflow:auto}.game-app-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #293653;border-radius:10px;background:#10182b}.game-app-row input{width:17px;height:17px;accent-color:var(--cyan);flex:0 0 auto}.game-app-copy{min-width:0;flex:1}.game-app-copy b{display:block;font-size:9px}.game-app-copy small{display:block;font-size:7px;color:var(--muted);direction:ltr;text-align:right;overflow-wrap:anywhere}.game-app-usage{font-size:7px;color:#8d9abb;white-space:nowrap;direction:ltr}.speed-stat{background:#1b2340;border:1px solid #2b3656;border-radius:11px;padding:11px 5px}.speed-stat small{display:block;font-size:8px;color:var(--muted)}.speed-stat b{display:block;font-size:15px;margin-top:4px;direction:ltr}.speed-history{padding-bottom:8px}.speed-history-row{display:grid;grid-template-columns:1fr auto auto;gap:15px;align-items:center;padding:13px 17px;border-bottom:1px solid #252d46;font-size:9px}.speed-history-row small{display:block;color:var(--muted);font-size:7px;margin-top:3px}.log-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:14px 16px 3px}.settings-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:14px}.settings-nav{padding:10px}.settings-nav button{width:100%;text-align:right;background:none;border:0;color:#9ba6c5;padding:10px;border-radius:9px;font-size:9px}.settings-nav button.active{background:#222b4a;color:#b8fff6}.settings-content{padding:18px}.settings-content h3{font-size:12px;margin:0 0 4px}.settings-content>p{font-size:8px;color:var(--muted);margin:0 0 17px}.setting-row{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:14px 0;border-bottom:1px solid #29314a}.setting-row:last-child{border:0}.setting-row b{font-size:9px;display:block}.setting-row small{font-size:7px;color:var(--muted)}.switch{width:38px;height:21px;border:0;border-radius:20px;background:#39425f;padding:3px;flex:0 0 38px}.switch:after{content:'';display:block;width:15px;height:15px;border-radius:50%;background:#d1d8ec;transition:.2s}.switch.on{background:#287f7c}.switch.on:after{transform:translateX(-17px);background:#fff}.toast{position:fixed;bottom:25px;left:25px;background:#1f2b48;color:#eaf3ff;border:1px solid #425578;padding:11px 15px;border-radius:11px;font-size:9px;box-shadow:var(--shadow);opacity:0;transform:translateY(8px);pointer-events:none;transition:.2s;z-index:100}.toast.show{opacity:1;transform:none}.engine-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}.engine-card{padding:16px;border:1px solid #2b3554;border-radius:16px;background:linear-gradient(145deg,#19223b,#12192d)}.engine-card h3{margin:0;font-size:12px}.engine-card p{margin:5px 0 12px;font-size:8px;color:var(--muted);line-height:1.7}.engine-status{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;font-size:8px;color:#aeb9d2}.engine-actions{display:flex;gap:6px}.engine-actions button{flex:1}.refresh-controls{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0}.refresh-controls button{border:1px solid #34405f;background:#1c2540;color:#d7e1f6;border-radius:9px;padding:8px 12px;font-size:9px}.refresh-controls button:disabled{opacity:.3}.refresh-controls button.active{background:linear-gradient(110deg,#5ce4dc,#718bff);color:#07151d;border:0}.engine-message{padding:8px 10px;border-radius:9px;background:#10192c;color:#8fa4c3;font-size:8px;margin-top:10px;min-height:31px}.profile-import{margin-top:10px;padding:10px;border:1px solid #34415f;border-radius:12px;background:#10182b}.profile-import textarea{display:block;width:100%;resize:vertical;min-height:96px;padding:10px;border:1px solid #34415f;border-radius:9px;background:#090f1d;color:#edf4ff;font:11px/1.7 monospace;direction:ltr;text-align:left;outline:none}.profile-import textarea:focus{border-color:#63e9e0}.profile-import small{display:block;color:#8994b3;font-size:8px;line-height:1.8;margin-top:8px}
+@media(max-width:1120px){.app{grid-template-columns:220px minmax(0,1fr)}main{padding:24px 22px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.device-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.panel-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.speed-probe-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.app{display:block}.sidebar{position:fixed;top:auto;bottom:0;left:0;right:0;width:100%;height:auto;min-height:0;padding:6px 6px calc(6px + env(safe-area-inset-bottom));border-left:0;border-top:1px solid #2a304a;background:#0b0f1fee;box-shadow:0 -12px 35px #0005}.brand,.nav-title,.sidebar-bottom,.nav-sep{display:none}.nav{display:flex;overflow-x:auto;gap:3px;scrollbar-width:none}.nav::-webkit-scrollbar{display:none}.nav button{min-width:58px;flex:1;display:flex;flex-direction:column;justify-content:center;gap:2px;padding:7px 2px;font-size:7px;white-space:nowrap}.nav-ico{font-size:15px}.nav-count{display:none}main{padding:17px 13px 98px}.topbar{margin-bottom:18px}.page-title{font-size:19px}.eyebrow{font-size:7px}.date-chip,.profile-chip{display:none}.hero{padding:18px 17px;min-height:200px;align-items:flex-start}.hero h2{font-size:21px}.hero p{font-size:8px;max-width:270px}.network-visual{position:absolute;left:-38px;bottom:2px;width:195px;height:120px;opacity:.45}.hero-live{left:13px;top:12px}.hero-actions{margin-top:12px}.hero-actions .btn{padding:8px 10px}.metrics{gap:9px}.metric{padding:13px 12px;border-radius:15px}.metric-value{font-size:23px}.main-grid,.bottom-grid,.speed-layout{grid-template-columns:1fr}.chart-wrap{height:158px}.quality-body{gap:12px;padding:16px 14px 4px}.gauge{width:95px;height:95px;flex-basis:95px}.gauge svg{width:95px;height:95px}.gauge small{top:58px}.quality-list{padding:12px 14px 0}.card-head{padding:14px 14px 0}.chart-area{padding:13px 12px}.server-list,.events-list{padding-right:14px;padding-left:14px}.view-intro{align-items:flex-start;flex-direction:column;gap:10px}.view-intro h2{font-size:15px}.view-intro p{font-size:8px}.panel-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.panel-card{padding:12px}.panel-card strong{font-size:18px}.device-grid{grid-template-columns:1fr}.settings-layout{grid-template-columns:1fr}.settings-nav{display:flex;overflow:auto;gap:3px}.settings-nav button{white-space:nowrap;width:auto;flex:0 0 auto}.settings-content{padding:14px}.speed-gauge{width:205px;height:205px}.speed-gauge small{top:132px}.speed-gauge .dial{font-size:39px}.speed-history-row{gap:8px;padding:12px 13px}.table-wrap{padding:8px 10px 12px}.data-table{min-width:590px}.log-toolbar{padding:12px 12px 2px}.filters{width:100%}.search{min-width:0;flex:1}.footer{font-size:6px;gap:7px}.toast{left:12px;right:12px;bottom:88px;text-align:center}.engine-grid{grid-template-columns:1fr}.engine-card{padding:14px}}
+@media(max-width:380px){.speed-probe-grid{grid-template-columns:repeat(2,minmax(0,1fr))}main{padding-right:10px;padding-left:10px}.metrics{gap:7px}.metric{padding:11px 9px}.metric-value{font-size:21px}.metric-top{font-size:8px}.nav button{min-width:53px;font-size:6.5px}.hero{padding:16px 14px}.hero h2{font-size:19px}.network-visual{left:-54px}.speed-stats{gap:5px}.speed-stat b{font-size:13px}}
+.server-list{display:grid;gap:10px;padding:12px 16px 14px}.server-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:13px 14px;border:1px solid #2a3652;border-radius:14px;background:rgba(17,26,46,.72)}.server-row-main{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}.server-row-main b{font-size:12px;color:#e8efff;overflow-wrap:anywhere}.server-row-main small{font-size:9px;color:#929fba;overflow-wrap:anywhere}.server-row-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.server-row-actions .btn{min-height:34px;padding:6px 11px;font-size:9px}.server-row .tag{white-space:nowrap}.server-row .tag.active-node{color:#7af0d0;border-color:#377b70;background:#163d39}.server-row .btn:disabled{opacity:.5;cursor:not-allowed}html.no-motion *,html.no-motion *::before,html.no-motion *::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}.game-app-route{width:150px;max-width:38%;min-width:108px;background:#151f37;color:#dce8ff;border:1px solid #344263;border-radius:8px;padding:7px;font-size:8px}.game-app-route:disabled{opacity:.45}.game-target-input{display:block;width:100%;box-sizing:border-box;margin-top:6px;background:#111a2e;color:#eaf1ff;border:1px solid #364565;border-radius:9px;padding:10px;font-size:11px;direction:ltr;text-align:left}.game-target-input:focus{outline:1px solid #63e9e0;border-color:#63e9e0} 
+/* One-tap public relay experience */
+.vpn-public{position:relative;overflow:hidden;margin:0 0 16px;padding:21px;border:1px solid #354366;border-radius:22px;background:radial-gradient(ellipse at 8% 0%,#36d5d322,transparent 36%),radial-gradient(ellipse at 95% 100%,#7585ff1b,transparent 38%),linear-gradient(135deg,#182744 0%,#111b31 54%,#132b36 100%);box-shadow:0 18px 48px #03061155}
+.vpn-public:before{content:"";position:absolute;top:-105px;left:12%;width:230px;height:230px;border:1px solid #7cefe51c;border-radius:50%;box-shadow:0 0 0 24px #7cefe508,0 0 0 52px #7cefe506;pointer-events:none}
+.vpn-public-head{position:relative;display:flex;justify-content:space-between;align-items:center;gap:18px}
+.vpn-public-copy{min-width:0;max-width:580px}.vpn-public-kicker{display:flex;align-items:center;gap:8px;color:#85e9e2;font-size:8px;letter-spacing:1.2px;font-weight:800;direction:ltr;text-align:right}
+.vpn-public-live{width:7px;height:7px;background:#58e1b2;border-radius:50%;box-shadow:0 0 0 4px #58e1b21c}
+.vpn-public-copy h3{font-size:21px;line-height:1.5;margin:8px 0 4px;color:#f4f8ff}
+.vpn-public-copy p{color:#aebbd2;font-size:10px;line-height:2;margin:0}
+.vpn-public-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;flex-shrink:0}.vpn-public-actions .btn{min-height:40px;padding:9px 14px}
+.vpn-public-secondary{background:#1b2944;border-color:#3a4b6b;color:#d8e4fa}
+.vpn-public-status{position:relative;display:flex;align-items:center;gap:9px;margin-top:18px;padding:10px 12px;border:1px solid #344563;border-radius:11px;background:#0b1425a8;color:#afc0d9;font-size:9px;line-height:1.8}
+.vpn-status-dot{width:7px;height:7px;border-radius:50%;background:#7283a3;flex-shrink:0}.vpn-public-status.loading .vpn-status-dot{background:#75a5ff;box-shadow:0 0 0 4px #75a5ff22;animation:vpnPulse 1.1s infinite}.vpn-public-status.success .vpn-status-dot{background:#54dfae}.vpn-public-status.error .vpn-status-dot{background:#ff718b}
+@keyframes vpnPulse{50%{opacity:.35;transform:scale(.8)}}
+.vpn-public-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:11px}
+.vpn-stat{padding:12px 14px;border:1px solid #31405d;border-radius:13px;background:#111c31b8;min-width:0}
+.vpn-stat small,.vpn-stat span{display:block;color:#8f9db8;font-size:8px}.vpn-stat strong{display:block;color:#f0f6ff;font-size:22px;line-height:1.35;direction:ltr;text-align:right;margin:2px 0}.vpn-stat span{font-size:7px}
+.vpn-public-filterbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:14px}
+.vpn-search{display:flex;align-items:center;gap:8px;flex:1 1 210px;min-width:0;padding:0 11px;border:1px solid #33435f;border-radius:10px;background:#0d1729;color:#89a0bd}.vpn-search span{font-size:17px}.vpn-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#eef5ff;padding:10px 0;font-size:9px}.vpn-search input::placeholder{color:#71809b}
+.vpn-country-filter{min-width:130px;border:1px solid #33435f;border-radius:10px;background:#0d1729;color:#dce8fb;padding:10px;font-size:9px}
+.vpn-sort-note{font-size:8px;color:#8d9bb5}
+.vpn-node-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+.vpn-node-card{min-width:0;padding:13px;border:1px solid #2e3e5b;border-radius:15px;background:linear-gradient(145deg,#18243c,#111a2d);transition:border-color .18s,transform .18s}
+.vpn-node-card:hover{border-color:#648f9e;transform:translateY(-1px)}
+.vpn-node-top{display:flex;justify-content:space-between;align-items:center;gap:8px}.vpn-node-country{font-size:10px;font-weight:800;color:#eaf2ff;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.vpn-node-rank{font-size:7px;padding:4px 7px;border:1px solid #3c6a67;border-radius:20px;color:#8ce8d8;background:#173b39;white-space:nowrap}
+.vpn-node-host{font-size:8px;color:#91a4c2;direction:ltr;text-align:left;overflow-wrap:anywhere;margin-top:6px}
+.vpn-node-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:12px}
+.vpn-node-metric{padding:8px 7px;border:1px solid #2a3853;border-radius:9px;background:#0d1728;text-align:center;min-width:0}.vpn-node-metric small{display:block;color:#8594af;font-size:7px}.vpn-node-metric b{display:block;color:#e4efff;font-size:10px;direction:ltr;margin-top:3px;overflow:hidden;text-overflow:ellipsis}
+.vpn-node-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px}.vpn-node-footer .btn{padding:7px 12px;font-size:8px}.vpn-node-footer small{font-size:7px;color:#8190aa}
+.vpn-empty{grid-column:1/-1;display:grid;justify-items:center;text-align:center;padding:25px 15px;border:1px dashed #3c4b68;border-radius:14px;background:#0d17288a;color:#d7e2f5}.vpn-empty-icon{display:grid;place-items:center;width:36px;height:36px;border-radius:12px;background:#1b3450;color:#8cebe1;font-size:20px;margin-bottom:8px}.vpn-empty b{font-size:10px}.vpn-empty p{font-size:8px;line-height:1.9;color:#8f9db6;margin:5px 0 0;max-width:340px}
+.vpn-privacy{margin-top:13px;padding:10px 12px;border:1px solid #51412c;border-radius:11px;background:#251f18a8;color:#d7bd8e}.vpn-privacy summary{cursor:pointer;font-size:8px;font-weight:700;list-style:none}.vpn-privacy summary::-webkit-details-marker{display:none}.vpn-privacy summary span{margin-left:7px;color:#f2c47e}.vpn-privacy p{font-size:8px;line-height:2;color:#c6b18b;margin:9px 0 2px}
+@media(max-width:760px){.vpn-public{padding:15px;border-radius:17px}.vpn-public-head{align-items:flex-start;flex-direction:column}.vpn-public-copy h3{font-size:18px}.vpn-public-actions{width:100%}.vpn-public-actions .btn{flex:1}.vpn-node-grid{grid-template-columns:1fr}.vpn-public-stats{gap:7px}.vpn-stat{padding:10px}.vpn-stat strong{font-size:18px}.vpn-sort-note{width:100%}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="sidebar">
+ <div class="brand"><div class="brand-icon">∿</div><div><div class="brand-name">Net<span>Pulse</span></div><div class="brand-sub">NETWORK INTELLIGENCE</div></div></div>
+ <div class="nav-title">WORKSPACE</div>
+ <nav class="nav" aria-label="ناوبری اصلی">
+  <button class="active" data-view="overview" data-title="نمای کلی شبکه"><span class="nav-ico">◫</span>نمای کلی</button>
+  <button data-view="analytics" data-title="تحلیل شبکه"><span class="nav-ico">⌁</span>تحلیل شبکه</button>
+  <button data-view="devices" data-title="دستگاه‌های متصل"><span class="nav-ico">▣</span>دستگاه‌ها</button>
+  <button data-view="servers" data-title="مدیریت سرورها"><span class="nav-ico">◉</span>سرورها</button>
+  <button data-view="alerts" data-title="مرکز هشدارها"><span class="nav-ico">♧</span>هشدارها</button>
+  <button data-view="speed" data-title="تست اتصال"><span class="nav-ico">➤</span>تست اتصال</button>
+  <button data-view="logs" data-title="گزارش رویدادها"><span class="nav-ico">▤</span>گزارش‌ها</button>
+  <button data-view="settings" data-title="تنظیمات سیستم"><span class="nav-ico">⚙</span>تنظیمات</button>
+ </nav>
+ <div class="sidebar-bottom"><div class="network-mini"><div class="mini-head"><span><i class="live-dot"></i>وضعیت شبکه</span><span class="good" id="sideNetworkStatus">در حال بررسی</span></div><div class="mini-desc" id="sideNetworkType">مانیتورینگ روی دستگاه فعال است.</div><button class="mini-btn" onclick="go('speed')">اجرای تست اتصال ↗</button></div><div class="profile"><div class="avatar">R</div><div><strong>رضا</strong><small>حساب مدیر</small></div><span class="profile-more">•••</span></div></div>
+</aside>
+<main>
+<header class="topbar"><div><div class="eyebrow">✳ NETPULSE <span>/</span> CONTROL CENTER</div><h1 class="page-title" id="pageTitle">نمای کلی شبکه</h1></div><div class="top-actions"><div class="date-chip" id="dateChip">NETWORK MONITOR</div><button class="icon-btn notify-dot" onclick="go('alerts')" aria-label="اعلان‌ها">♧</button><div class="profile-chip"><div class="avatar">R</div><div><strong>رضا</strong><small>مدیر شبکه</small></div></div></div></header>
+<section class="view active" id="view-overview">
+ <div class="hero"><div class="hero-copy"><div class="hero-kicker"><i class="live-dot"></i> اتصال زنده · MONITORING ACTIVE</div><h2>شبکه‌ات، <em>زیر کنترل توست.</em></h2><p>عملکرد اتصال را لحظه‌به‌لحظه ببین؛ سریع‌تر تشخیص بده و هوشمندانه‌تر تصمیم بگیر.</p><div class="hero-actions"><button class="btn" onclick="nativeAction('refresh')">↻ بروزرسانی</button><button class="btn primary" onclick="go('speed')">▶ تست اتصال</button></div></div><div class="network-visual"><svg viewBox="0 0 380 230" fill="none"><defs><linearGradient id="nl" x1="0" x2="1"><stop stop-color="#9c86ff"/><stop offset="1" stop-color="#4ee8dd"/></linearGradient><radialGradient id="ng"><stop stop-color="#8c80ff" stop-opacity=".7"/><stop offset="1" stop-color="#8c80ff" stop-opacity="0"/></radialGradient></defs><circle cx="190" cy="112" r="94" fill="url(#ng)"/><g stroke="url(#nl)" stroke-width="1.5" opacity=".85"><path d="M55 133L112 61L190 112L267 48L326 117L254 179L190 112L111 183Z"/><path d="M112 61L254 179M55 133L267 48M111 183L326 117" opacity=".45"/></g><g fill="#111a30" stroke="#64e9e0" stroke-width="2"><circle cx="55" cy="133" r="6"/><circle cx="112" cy="61" r="7"/><circle cx="267" cy="48" r="6"/><circle cx="326" cy="117" r="7"/><circle cx="254" cy="179" r="6"/><circle cx="111" cy="183" r="6"/></g><circle cx="190" cy="112" r="31" fill="#17203a" stroke="#8c86ff" stroke-width="2"/><path d="M174 113h8l5-12 7 24 6-13h9" stroke="#75f6e8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="hero-live" id="heroNetwork">DEVICE STATUS<b>—</b>LIVE TELEMETRY</div></div>
+ <section class="grid metrics"><article class="card metric" style="--accent:#63e9e0"><div class="metric-top"><span>دانلود لحظه‌ای دستگاه</span><span class="metric-icon">↓</span></div><div class="metric-value" id="downMetric">— <small>Mbps</small></div><div class="metric-foot"><span class="good">LIVE</span> از شمارنده ترافیک اندروید</div></article><article class="card metric" style="--accent:#7b8cff"><div class="metric-top"><span>آپلود لحظه‌ای دستگاه</span><span class="metric-icon" style="color:#a5b4ff;background:#272c50">↑</span></div><div class="metric-value" id="upMetric">— <small>Mbps</small></div><div class="metric-foot"><span class="good">LIVE</span> از شمارنده ترافیک اندروید</div></article><article class="card metric" style="--accent:#54dfae"><div class="metric-top"><span>نوع اتصال</span><span class="metric-icon" style="color:#70e7bc;background:#16372f">⌁</span></div><div class="metric-value" id="typeMetric" style="font-size:19px">—</div><div class="metric-foot" id="validatedMetric">در انتظار وضعیت سیستم</div></article><article class="card metric" style="--accent:#f5bf69"><div class="metric-top"><span>سلامت اینترنت</span><span class="metric-icon" style="color:#f7ca7a;background:#3a2d1d">◇</span></div><div class="metric-value" id="internetMetric" style="font-size:19px">در حال بررسی</div><div class="metric-foot">اعتبارسنجی‌شده توسط Android</div></article></section>
+ <section class="grid main-grid"><article class="card"><div class="card-head"><div><div class="card-title">ترافیک دستگاه</div><div class="card-sub">سرعت لحظه‌ای دریافت و ارسال داده در کل دستگاه</div></div><span class="tag green">LIVE</span></div><div class="chart-area"><div class="chart-legend"><span><i class="legend-dot cyan"></i>دانلود</span><span><i class="legend-dot blue"></i>آپلود</span></div><div class="chart-wrap"><svg id="trafficChart" viewBox="0 0 720 190" preserveAspectRatio="none"><g stroke="#27304b" stroke-dasharray="3 5"><path d="M0 25H720M0 65H720M0 105H720M0 145H720M0 185H720"/></g><path id="downPath" d="M0 145 C45 130 54 95 100 109 S160 125 200 90 S260 73 300 92 S360 52 400 67 S460 85 500 46 S560 65 600 40 S660 58 720 22" fill="none" stroke="#63e9e0" stroke-width="3"/><path id="upPath" d="M0 166 C45 159 65 145 100 151 S160 137 200 146 S260 128 300 138 S360 117 400 132 S460 119 500 126 S560 100 600 116 S660 103 720 91" fill="none" stroke="#7b8cff" stroke-width="2.5"/></svg></div><div class="chart-labels"><span>۶۰ ثانیه قبل</span><span>۴۵ ثانیه</span><span>۳۰ ثانیه</span><span>۱۵ ثانیه</span><span>اکنون</span></div></div></article>
+ <article class="card quality"><div class="card-head"><div><div class="card-title">وضعیت اتصال</div><div class="card-sub">بر اساس قابلیت‌های گزارش‌شده توسط Android</div></div><span class="pill" id="connectionPill">در حال بررسی</span></div><div class="quality-body"><div class="gauge"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="49" fill="none" stroke="#2b3452" stroke-width="9"/><circle id="healthArc" cx="60" cy="60" r="49" fill="none" stroke="#63e9e0" stroke-width="9" stroke-linecap="round" stroke-dasharray="0 308"/></svg><strong id="healthScore">—</strong><small>وضعیت</small></div><div class="quality-copy"><strong id="networkHeadline">در حال تشخیص</strong><p id="networkDescription">اطلاعات اتصال مستقیماً از سیستم‌عامل خوانده می‌شود.</p><span class="pill" id="networkDetail">بدون داده ساختگی</span></div></div><div class="quality-list"><div><div class="q-head"><span>دریافت داده</span><b id="rxTotal">—</b></div><div class="track"><i id="rxBar" style="width:0%"></i></div></div><div><div class="q-head"><span>ارسال داده</span><b id="txTotal">—</b></div><div class="track"><i id="txBar" style="width:0%"></i></div></div></div></article></section>
+ <section class="grid bottom-grid"><article class="card"><div class="card-head"><div><div class="card-title">موتورهای اتصال</div><div class="card-sub">مدیریت تونل‌های VPN داخلی برنامه</div></div><span class="tag">NATIVE</span></div><div class="engine-grid"><div class="engine-card"><h3>WireGuard</h3><p>واردکردن پروفایل اختصاصی و مدیریت تونل WireGuard.</p><div class="engine-status"><span id="wgState">پروفایل بارگذاری نشده</span><span class="status" id="wgBadge">آماده</span></div><div class="engine-actions"><button class="btn" onclick="nativeAction('importWireGuard')">وارد کردن</button><button class="btn primary" id="wgToggle" onclick="nativeAction('toggleWireGuard')" disabled>اتصال</button></div></div><div class="engine-card"><h3>sing-box · Multi-protocol engine</h3><p>موتور چندپروتکلی TUN برای اتصال امن بازی؛ لینک یا پیکربندی اختصاصی خودت را وارد کن.</p><div class="engine-status"><span id="sbState">پروفایل بارگذاری نشده</span><span class="status" id="sbBadge">آماده</span></div><div class="engine-actions"><button class="btn" onclick="nativeAction('importSingBox')">فایل JSON / TXT</button><button class="btn ghost" onclick="toggleSingBoxImport()">Paste link / JSON</button><button class="btn primary" id="sbToggle" onclick="nativeAction('toggleSingBox')" disabled>اتصال</button></div><div class="profile-import" id="singBoxImportPanel" hidden><textarea id="singBoxProfileInput" rows="4" placeholder="لینک پروفایل یا sing-box JSON را اینجا وارد کن…"></textarea><div class="engine-actions"><button class="btn primary" onclick="submitSingBoxImport()">اعتبارسنجی و افزودن پروفایل</button><button class="btn" onclick="toggleSingBoxImport()">بستن</button></div><small>فرمت‌ها: VLESS · VMess · Trojan · Shadowsocks · SOCKS5 · Hysteria · Hysteria2 · TUIC · AnyTLS · NaiveProxy · HTTP CONNECT · sing-box JSON</small></div></div></div><div class="engine-message" id="engineMessage">WireGuard و sing-box از موتورهای مستقل VPN اندروید استفاده می‌کنند. پروفایل‌ها قبل از اتصال با libbox اعتبارسنجی می‌شوند.</div></article>
+ <article class="card"><div class="card-head"><div><div class="card-title">کنترل Refresh Rate</div><div class="card-sub">قفل روی نرخ‌های پشتیبانی‌شده نمایشگر (نیازمند Root)</div></div><span class="tag" id="rootBadge">ROOT</span></div><div style="padding:15px 17px"><div id="rootState" style="font-size:9px;color:var(--muted)">در حال بررسی دسترسی روت…</div><div class="refresh-controls" id="refreshRates"></div><button class="btn" onclick="nativeAction('restoreRefreshRate')">AUTO · بازگردانی تنظیمات قبلی</button><div class="engine-message" id="refreshMessage">نرخ‌های قابل انتخاب پس از بررسی دستگاه ظاهر می‌شوند.</div></div></article></section>
+</section>
+<section class="view" id="view-analytics"><div class="view-intro"><div><h2>تحلیل عمیق عملکرد شبکه</h2><p>روند مصرف و شاخص‌های قابل‌اندازه‌گیری را بررسی کن.</p></div><span class="tag green">LIVE · داده واقعی دستگاه</span></div><div class="grid panel-grid" style="margin-bottom:14px"><div class="panel-card"><div class="pc-top">دانلود لحظه‌ای</div><strong id="aDown">—</strong><small>داده زنده دستگاه</small></div><div class="panel-card"><div class="pc-top">آپلود لحظه‌ای</div><strong id="aUp">—</strong><small>داده زنده دستگاه</small></div><div class="panel-card"><div class="pc-top">کل دریافت</div><strong id="aRx">—</strong><small>از زمان راه‌اندازی دستگاه</small></div></div><div class="grid main-grid"><article class="card"><div class="card-head"><div><div class="card-title">ترافیک زنده دستگاه</div><div class="card-sub">نمونه‌های اخیر TrafficStats اندروید</div></div><span class="tag green">LIVE</span></div><div class="chart-area"><div class="chart-wrap"><svg viewBox="0 0 720 190"><g stroke="#29334f" stroke-dasharray="3 5"><path d="M0 25H720M0 65H720M0 105H720M0 145H720M0 185H720"/></g><path id="analyticsDown" d="M0 160H720" stroke="#63e9e0" stroke-width="3" fill="none"/><path id="analyticsUp" d="M0 175H720" stroke="#7b8cff" stroke-width="2" fill="none"/></svg></div><div class="chart-labels"><span>گذشته</span><span>اکنون</span></div></div></article><article class="card"><div class="card-head"><div><div class="card-title">تشخیص نوع شبکه</div><div class="card-sub">وضعیت مسیر فعال</div></div></div><div class="events-list"><div class="event"><div class="event-icon">⌁</div><div class="event-copy"><b id="aType">—</b><p id="aInternet">در انتظار اطلاعات سیستم</p></div></div><div class="event"><div class="event-icon">⇵</div><div class="event-copy"><b>شمارنده ترافیک</b><p>مقادیر کلی دستگاه؛ نه آمار یک اپ خاص.</p></div></div></div></article></div><p class="engine-message">آمارهای تاریخی، میانگین‌ها و نمودارهای چندروزه تا اضافه‌شدن سرویس ذخیره‌سازی، نمایش داده نمی‌شوند.</p></section>
+<section class="view" id="view-devices"><div class="view-intro"><div><h2>دستگاه و ترافیک شبکه</h2><p>اندروید فقط آمار دستگاه جاری را مستقیماً در اختیار این برنامه می‌گذارد.</p></div><span class="tag green">این دستگاه</span></div><div class="grid panel-grid"><div class="panel-card"><div class="pc-top">ترافیک دریافتی</div><strong id="dRx">—</strong><small>TrafficStats · کل سیستم</small></div><div class="panel-card"><div class="pc-top">ترافیک ارسالی</div><strong id="dTx">—</strong><small>TrafficStats · کل سیستم</small></div><div class="panel-card"><div class="pc-top">نوع اتصال</div><strong id="dType" style="font-size:16px">—</strong><small>مسیر فعال اندروید</small></div></div><article class="card" style="margin-top:14px"><div class="card-head"><div><div class="card-title">دستگاه جاری</div><div class="card-sub">جزئیات اتصال همین گوشی</div></div><span class="status" id="deviceOnline">در حال بررسی</span></div><div class="events-list"><div class="event"><div class="event-icon">▣</div><div class="event-copy"><b id="deviceModel">دستگاه اندرویدی</b><p id="deviceTransport">نوع اتصال: —</p></div></div><div class="event"><div class="event-icon">⇵</div><div class="event-copy"><b>نرخ انتقال داده</b><p id="deviceRates">دانلود — · آپلود —</p></div></div></div></article><p class="engine-message">فهرست دستگاه‌های دیگر شبکه هنوز اسکن نمی‌شود؛ آدرس‌ها و مصرف دستگاه‌های فرضی نمایش داده نمی‌شوند.</p>
+<article class="card" style="margin-top:14px">
+ <div class="card-head"><div><div class="card-title">Gaming Mode · تونل اختصاصی بازی</div><div class="card-sub">انتخاب برنامه‌هایی که از VPN عبور می‌کنند</div></div><span class="tag" id="selectedGameCount">۰ برنامه</span></div>
+ <div style="padding:12px 17px 17px">
+  <div class="setting-row">
+<div><b>Game-only routing</b><small>فقط برنامه‌های انتخاب‌شده از تونل عبور می‌کنند؛ WireGuard و sing-box پشتیبانی می‌شوند. IKEv2 همچنان تمام‌دستگاه است.</small></div>
+<button class="btn" id="gameModeButton" onclick="toggleGamingMode()">خاموش</button>
+</div>
+<div class="setting-row">
+<div><b>تشخیص خودکار بازی</b><small id="gameDetectionState">اختیاری؛ با مجوز Usage Access نام بازی پیش‌زمینه روی همین دستگاه تشخیص داده می‌شود.</small></div>
+<button class="btn" id="gameDetectionButton" onclick="nativeAction('toggleAutoGameDetection')">فعال‌سازی</button>
+</div>
+<div class="engine-message" id="activeGameState">بازی پیش‌زمینه شناسایی نشده است.</div>
+  <div class="engine-message" id="activeGameTraffic">نرخ ترافیک بازی فعال: دانلود — · آپلود — Mbps</div>
+<p class="engine-message" id="gameModeHint">بازی‌ها را انتخاب کن. Game-only در WireGuard و sing-box اجرا می‌شود؛ انتخاب مسیر اختصاصی هر بازی فقط در sing-box در دسترس است.</p>
+  <div class="actions"><button class="btn" onclick="loadGamingApps()">▣ بارگذاری برنامه‌های نصب‌شده</button><button class="btn primary" onclick="saveGamingApps()">ذخیره انتخاب‌ها</button></div>
+  <div id="gamingAppList" class="game-app-list"><p class="engine-message">فهرست برنامه‌ها هنوز بارگذاری نشده است.</p></div>
+  <p class="engine-message">مصرف هر برنامه از شمارنده UID اندروید خوانده می‌شود و ممکن است روی بعضی رام‌ها در دسترس نباشد. بعد از تغییر انتخاب‌ها، تونل sing-box را قطع و دوباره وصل کن.</p>
+ </div>
+</article>
+<article class="card" style="margin-top:14px">
+ <div class="card-head"><div><div class="card-title">تاریخچه جلسات بازی</div><div class="card-sub">ثبت محلی زمان بازی، میانگین مصرف UID و اوج نرخ شبکه؛ تشخیص می‌تواند هنگام اجرای بازی و در پس‌زمینه ادامه یابد تا وقتی Android پردازش NetPulse را زنده نگه دارد.</div></div><span class="tag" id="gameSessionCount">۰ جلسه</span></div>
+ <div style="padding:14px 17px 17px">
+  <div class="grid panel-grid">
+   <div class="panel-card"><div class="pc-top">جلسه جاری</div><strong id="gameSessionActive">—</strong><small>وضعیت رصد</small></div>
+   <div class="panel-card"><div class="pc-top">مدت کل ثبت‌شده</div><strong id="gameSessionTotal">—</strong><small>تاریخچه ذخیره‌شده</small></div>
+   <div class="panel-card"><div class="pc-top">میانگین دانلود جلسه جاری</div><strong id="gameSessionAverage">—</strong><small>Mbps · تقریبی</small></div>
+  </div>
+  <div class="actions" style="margin-top:12px"><button class="btn" type="button" onclick="exportGameSessions()">خروجی JSON جلسات</button><button class="btn" type="button" onclick="clearGameSessions()">پاک‌کردن تاریخچه</button></div>
+  <div id="gameSessionHistory" class="events-list" style="margin-top:12px"><p class="engine-message">هنوز جلسه‌ای ثبت نشده است.</p></div>
+  <p class="engine-message">این گزارش از شمارنده UID اندروید نمونه‌برداری می‌کند و مصرف دقیق داخل بازی را تضمین نمی‌کند. رصد با Usage Access اختیاری است و ممکن است هنگام زنده‌بودن پردازش NetPulse در پس‌زمینه ادامه یابد؛ Android می‌تواند پردازش را متوقف کند، بنابراین ثبت دائمی تضمین نمی‌شود.</p>
+ </div>
+</article></section>
+<section class="view" id="view-servers">
+<div class="view-intro">
+<div><h2>سرورها و نقاط پایش</h2><p>مدیریت نودهای موجود در پروفایل واردشده و انتخاب مسیر پیش‌فرض اتصال.</p></div>
+<div class="actions"><button class="btn" onclick="loadServers()">↻ بروزرسانی فهرست</button><button class="btn primary" onclick="nativeAction('autoSelectServer')">✦ انتخاب خودکار سریع‌ترین مسیر</button></div>
+</div>
+<section class="vpn-public" aria-labelledby="publicVpnTitle">
+ <div class="vpn-public-head">
+  <div class="vpn-public-copy">
+   <div class="vpn-public-kicker"><span class="vpn-public-live"></span> COMMUNITY RELAYS · OPENVPN</div>
+   <h3 id="publicVpnTitle">اتصال سریع، بدون فایل کانفیگ</h3>
+   <p>فهرست زنده رله‌های عمومی را بگیر، کشور و مسیر را بررسی کن و با یک لمس پروفایل را آماده اتصال کن.</p>
+  </div>
+  <div class="vpn-public-actions">
+   <button class="btn primary" id="publicVpnRefresh" type="button" onclick="loadPublicVpnServers()"><span>↻</span> دریافت فهرست زنده</button>
+   <button class="btn vpn-public-secondary" id="publicVpnQuickConnect" type="button" onclick="connectRecommendedPublicVpnServer()" disabled>✦ انتخاب پیشنهادی</button>
+  </div>
+ </div>
+ <div class="vpn-public-status" id="publicVpnStatus" role="status" aria-live="polite">
+  <span class="vpn-status-dot"></span><span id="publicVpnStatusText">برای نمایش سرورها، فهرست زنده را دریافت کن.</span>
+ </div>
+ <div class="vpn-public-stats">
+  <div class="vpn-stat"><small>رله‌های سازگار</small><strong id="publicVpnCount">—</strong><span>قابل واردکردن در NetPulse</span></div>
+  <div class="vpn-stat"><small>کشورهای موجود</small><strong id="publicVpnCountries">—</strong><span>پس از دریافت فهرست</span></div>
+  <div class="vpn-stat"><small>پروفایل‌های بررسی‌شده</small><strong id="publicVpnChecked">—</strong><span>اعتبارسنجی محلی</span></div>
+ </div>
+ <div class="vpn-public-filterbar">
+  <label class="vpn-search"><span>⌕</span><input id="publicVpnSearch" type="search" placeholder="جست‌وجوی کشور، میزبان یا IP…" autocomplete="off" oninput="renderVpnGateList()"></label>
+  <select id="publicVpnCountry" class="vpn-country-filter" aria-label="فیلتر کشور" onchange="renderVpnGateList()"><option value="">همه کشورها</option></select>
+  <span class="vpn-sort-note">مرتب‌سازی بر اساس Ping گزارش‌شده</span>
+ </div>
+ <div id="publicVpnList" class="vpn-node-grid">
+  <div class="vpn-empty"><div class="vpn-empty-icon">⌁</div><b>هنوز سروری دریافت نشده</b><p>با دریافت فهرست زنده، رله‌های سازگار اینجا نمایش داده می‌شوند.</p></div>
+ </div>
+ <details class="vpn-privacy">
+  <summary><span>⚑</span> قبل از اتصال، این نکته حریم خصوصی را بخوان</summary>
+  <p>این رله‌ها متعلق به داوطلبان مستقل‌اند، نه NetPulse. سیاست رسمی VPN Gate از نگهداری لاگ‌های مرکزی اتصال حداقل سه ماه و لاگ هدر بسته‌ها در هر رله حداقل دو هفته خبر می‌دهد. اپراتور رله می‌تواند فراداده اتصال را ببیند؛ برای حساب‌های مهم، پرداخت یا اطلاعات حساس از این سرورها استفاده نکن. Ping و سرعت، گزارش خود فهرست‌اند و کیفیت بازی را تضمین نمی‌کنند.</p>
+ </details>
+</section>
+<div class="grid panel-grid">
+<div class="panel-card"><div class="pc-top">TCP latency</div><strong id="serverLatency">—</strong><small>اتصال به 1.1.1.1:443</small></div>
+<div class="panel-card"><div class="pc-top">اینترنت اعتبارسنجی‌شده</div><strong id="serverOnline">—</strong><small>Android NetworkCapabilities</small></div>
+<div class="panel-card"><div class="pc-top">مسیر فعال</div><strong id="serverType" style="font-size:16px">—</strong><small>شبکه پیش‌فرض دستگاه</small></div>
+</div>
+<article class="card" style="margin-top:14px">
+<div class="card-head"><div><div class="card-title">سرورهای پروفایل</div><div class="card-sub">نودها و گروه‌های قابل انتخاب از فایل sing-box</div></div><span class="tag" id="serverCatalogCount">۰ نود</span></div>
+<div id="serverCatalog" class="server-list"><div class="engine-message">برای نمایش نودها، یک پروفایل sing-box وارد کن و فهرست را بروزرسانی کن.</div></div>
+<div class="engine-message" id="serverCatalogHint">انتخاب دستی، مسیر پیش‌فرض را تغییر می‌دهد. «انتخاب خودکار» یک گروه URLTest می‌سازد تا sing-box با درخواست HTTP دوره‌ای، سلامت و تأخیر عمومی نودها را بسنجد؛ این معیار پینگ بازی نیست. برای اعمال تغییر، اتصال را دوباره برقرار کن.</div>
+</article>
+<article class="card" style="margin-top:14px">
+<div class="card-head"><div><div class="card-title">انتخاب خودکار نود</div><div class="card-sub">فعال‌سازی گروه URLTest موجود در پروفایل؛ انتخاب عضو بر عهده موتور sing-box است.</div></div><span class="tag">sing-box URLTest</span></div>
+<div class="form-row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:14px">
+<button class="btn primary" id="autoSelectNode" type="button" onclick="nativeAction('autoSelectServer')">فعال‌سازی URLTest</button>
+<span class="engine-message">اگر پروفایل گروه URLTest نداشته باشد، باید آن را به فایل sing-box اضافه کنی.</span>
+</div>
+</article>
+<article class="card" style="margin-top:14px">
+<div class="card-head"><div><div class="card-title">آزمایش مقصد دلخواه</div><div class="card-sub">زمان برقراری اتصال TCP به میزبان و پورت واردشده؛ پینگ UDP بازی نیست.</div></div><span class="tag">TCP CONNECT</span></div>
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 110px auto;gap:8px;padding:14px">
+<input id="endpointHost" class="input" type="text" maxlength="253" placeholder="میزبان، مانند example.com" autocomplete="off" spellcheck="false">
+<input id="endpointPort" class="input" type="number" min="1" max="65535" value="443" inputmode="numeric" aria-label="پورت">
+<button class="btn primary" id="endpointTest" type="button" onclick="runEndpointTest()">آزمایش</button>
+</div>
+<div class="engine-message" id="endpointResult" aria-live="polite">مقصد باید اتصال TCP را بپذیرد. نتیجه فقط مسیر شبکه فعلی را نشان می‌دهد.</div>
+</article>
+<article class="card" style="margin-top:14px">
+<div class="card-head"><div><div class="card-title">نقطه آزمایش</div><div class="card-sub">بررسی اتصال TCP؛ نه ICMP ping</div></div><span class="tag">Cloudflare DNS</span></div>
+<div class="events-list"><div class="event"><div class="event-icon">◎</div><div class="event-copy"><b>1.1.1.1 · TCP / 443</b><p id="latencyDetail">برای اجرای بررسی، دکمه «بررسی تأخیر» را بزن.</p></div></div></div>
+</article>
+</section>
+<section class="view" id="view-alerts"><div class="view-intro"><div><h2>مرکز هشدارها</h2><p>اعلان‌های واقعی سیستم و وضعیت موتورهای اتصال.</p></div><button class="btn" onclick="nativeAction('refresh')">↻ بروزرسانی</button></div><article class="card"><div class="alert-item"><div class="alert-icon blue">i</div><div class="alert-main"><b>حریم خصوصی آمار شبکه</b><p>سرعت نمایش‌داده‌شده نرخ کلی ترافیک دستگاه است؛ مصرف یک اپلیکیشن را نشان نمی‌دهد.</p><div class="alert-meta">اطلاع‌رسانی · محلی</div></div><span class="tag green">اطلاع</span></div><div class="alert-item"><div class="alert-icon amber">⌁</div><div class="alert-main"><b>موتورهای اتصال</b><p id="alertEngineState">وضعیت WireGuard و sing-box در حال دریافت است.</p><div class="alert-meta">وضعیت سرویس · محلی</div></div><span class="tag">سیستم</span></div><div class="alert-item"><div class="alert-icon blue">◇</div><div class="alert-main"><b>دسترسی روت</b><p id="alertRootState">وضعیت مجوز روت بررسی نشده است.</p><div class="alert-meta">کنترل Refresh Rate</div></div><span class="tag">سیستم</span></div></article></section>
+<section class="view" id="view-speed"><div class="view-intro"><div><h2>تست تأخیر اتصال</h2><p>اندازه‌گیری زمان برقراری اتصال TCP به نقطه تست.</p></div><span class="tag">TCP latency · not ICMP ping</span></div><div class="speed-layout"><article class="card speed-panel"><div class="eyebrow">NETPULSE CONNECTION DIAGNOSTICS</div><div class="speed-gauge"><svg viewBox="0 0 230 230"><circle cx="115" cy="115" r="93" fill="none" stroke="#2b3452" stroke-width="12" stroke-dasharray="510 585" stroke-linecap="round"/><circle id="speedArc" cx="115" cy="115" r="93" fill="none" stroke="url(#speedGradient)" stroke-width="12" stroke-dasharray="355 585" stroke-linecap="round"/><defs><linearGradient id="speedGradient"><stop stop-color="#63e9e0"/><stop offset="1" stop-color="#7b8cff"/></linearGradient></defs></svg><div class="dial" id="speedDial">—</div><small>TCP CONNECT · ms</small></div><div class="speed-gauge-label" id="speedStatus">برای اندازه‌گیری، دکمه زیر را بزن.</div><button class="btn primary" id="startSpeed" onclick="runLatency()" style="min-width:175px;margin-top:12px">▶ شروع بررسی</button><div class="speed-stats"><div class="speed-stat"><small>دانلود فعلی</small><b id="speedDownload">—</b></div><div class="speed-stat"><small>آپلود فعلی</small><b id="speedUpload">—</b></div><div class="speed-stat"><small>نوع اتصال</small><b id="speedNetworkType">—</b></div></div></article><article class="card speed-history"><div class="card-head"><div><div class="card-title">نتیجه آخرین بررسی</div><div class="card-sub">مقادیر واقعی از دستگاه</div></div><span class="tag green">LOCAL</span></div><div id="speedResult" class="events-list"><div class="event"><div class="event-icon">◎</div><div class="event-copy"><b>هنوز تستی اجرا نشده</b><p>عدد ساختگی نمایش داده نمی‌شود.</p></div></div></div></article></div>
+<div class="grid speed-probe-grid" style="margin-top:14px">
+ <div class="panel-card"><div class="pc-top">کمترین زمان TCP</div><strong id="probeMin">—</strong><small>میلی‌ثانیه</small></div>
+ <div class="panel-card"><div class="pc-top">میانه زمان TCP</div><strong id="probeMedian">—</strong><small>شاخص اصلی این بررسی</small></div>
+ <div class="panel-card"><div class="pc-top">بیشترین زمان TCP</div><strong id="probeMax">—</strong><small>میلی‌ثانیه</small></div>
+ <div class="panel-card"><div class="pc-top">نوسان نمونه‌ها</div><strong id="probeVariation">—</strong><small>میانگین اختلاف نمونه‌های موفق</small></div>
+ <div class="panel-card"><div class="pc-top">خطای اتصال</div><strong id="probeFailures">—</strong><small>درصد تلاش‌های ناموفق TCP</small></div>
+</div>
+<p class="engine-message">این آزمون ۶ اتصال TCP به 1.1.1.1:443 را می‌سنجد؛ Ping واقعی ICMP، تأخیر UDP بازی یا packet loss سرور بازی نیست. برای سنجش دقیق بازی باید به سرور همان بازی پروب اختصاصی فرستاده شود.</p>
+<article class="card" style="margin-top:14px">
+ <div class="card-head"><div><div class="card-title">پایش سرور بازی · مقصد دلخواه</div><div class="card-sub">مقایسه TCP connect به میزبان و پورت بازی که خودت وارد می‌کنی</div></div><span class="tag">CUSTOM TCP</span></div>
+ <div style="padding:14px 17px 17px">
+  <div class="grid" style="grid-template-columns:minmax(0,2fr) minmax(90px,1fr);gap:9px">
+   <label class="event-copy"><b>نام میزبان یا IP</b><input id="gameServerHost" class="game-target-input" type="text" maxlength="253" spellcheck="false" placeholder="مثلاً game.example.net" autocomplete="off"></label>
+   <label class="event-copy"><b>پورت TCP</b><input id="gameServerPort" class="game-target-input" type="number" min="1" max="65535" value="443" inputmode="numeric"></label>
+  </div>
+  <div class="actions" style="margin-top:12px"><button class="btn primary" id="gameServerProbeButton" onclick="runGameServerComparison()">↔ مقایسه مستقیم و VPN</button></div>
+  <p class="engine-message" id="gameServerProbeStatus">برای مقایسه، sing-box و Game-only باید فعال باشند. ده اتصال TCP از هر مسیر به همان IP اندازه‌گیری می‌شود.</p>
+  <div class="grid speed-probe-grid" style="margin-top:12px">
+   <div class="panel-card"><div class="pc-top">میانه مستقیم</div><strong id="gameDirectMedian">—</strong><small>TCP connect · ms</small></div>
+   <div class="panel-card"><div class="pc-top">میانه VPN</div><strong id="gameVpnMedian">—</strong><small>TCP connect · ms</small></div>
+   <div class="panel-card"><div class="pc-top">اختلاف VPN</div><strong id="gameVpnDelta">—</strong><small>ms · منفی یعنی سریع‌تر</small></div>
+   <div class="panel-card"><div class="pc-top">نوسان مستقیم</div><strong id="gameDirectJitter">—</strong><small>میانگین اختلاف نمونه‌ها</small></div>
+   <div class="panel-card"><div class="pc-top">نوسان VPN</div><strong id="gameVpnJitter">—</strong><small>میانگین اختلاف نمونه‌ها</small></div>
+   <div class="panel-card"><div class="pc-top">خطای اتصال مستقیم</div><strong id="gameDirectFailures">—</strong><small>اتصالات TCP ناموفق</small></div>
+   <div class="panel-card"><div class="pc-top">خطای اتصال VPN</div><strong id="gameVpnFailures">—</strong><small>اتصالات TCP ناموفق</small></div>
+  </div>
+  <p class="engine-message" id="gameServerProbeDetail">این ابزار فقط برای سرورهایی معتبر است که TCP را روی پورت واردشده می‌پذیرند. برای سرور UDP بازی، پروتکل پاسخ اختصاصی لازم است؛ درصد خطای TCP را packet loss بازی تلقی نکن.</p>
+ </div>
+</article>
+<article class="card" style="margin-top:14px">
+ <div class="card-head"><div><div class="card-title">مقایسه مسیر UDP · Direct vs VPN</div><div class="card-sub">۵ درخواست STUN از هر مسیر، با مقصد و IP یکسان</div></div><span class="tag">UDP / STUN</span></div>
+ <div style="padding:14px 17px 17px">
+  <p class="engine-message" id="udpComparisonStatus">برای مقایسه، sing-box باید متصل باشد و Game-only فعال باشد. ترافیک آزمایشی خود NetPulse نیز در تونل قرار می‌گیرد.</p>
+  <div class="actions"><button class="btn primary" id="startUdpCompare" onclick="runUdpComparison()">↔ مقایسه اتصال مستقیم و VPN</button></div>
+  <div class="grid speed-probe-grid" style="margin-top:13px">
+   <div class="panel-card"><div class="pc-top">میانه UDP مستقیم</div><strong id="udpDirectMedian">—</strong><small>ms · مسیر فیزیکی</small></div>
+   <div class="panel-card"><div class="pc-top">میانه UDP با VPN</div><strong id="udpVpnMedian">—</strong><small>ms · مسیر sing-box</small></div>
+   <div class="panel-card"><div class="pc-top">اختلاف VPN و مستقیم</div><strong id="udpDelta">—</strong><small>ms · عدد منفی یعنی VPN کمتر</small></div>
+   <div class="panel-card"><div class="pc-top">عدم پاسخ مستقیم</div><strong id="udpDirectLoss">—</strong><small>درصد STUN timeout/خطا</small></div>
+   <div class="panel-card"><div class="pc-top">عدم پاسخ VPN</div><strong id="udpVpnLoss">—</strong><small>درصد STUN timeout/خطا</small></div>
+   <div class="panel-card"><div class="pc-top">Jitter مستقیم</div><strong id="udpDirectJitter">—</strong><small>ms · نوسان هموار RTT</small></div>
+   <div class="panel-card"><div class="pc-top">Jitter با VPN</div><strong id="udpVpnJitter">—</strong><small>ms · نوسان هموار RTT</small></div>
+  </div>
+  <div class="engine-message" id="udpComparisonDetail">مقصد اندازه‌گیری: stun.l.google.com:19302. پاسخ STUN از UDP استفاده می‌کند؛ این معیار، پینگ یا packet loss سرور مسابقه نیست.</div>
+ </div>
+</article>
+<article class="card" style="margin-top:14px">
+ <div class="card-head"><div><div class="card-title">UDP echo اختصاصی برای هر بازی</div><div class="card-sub">اندازه‌گیری RTT یک مقصد UDP که بسته آزمایشی NetPulse را عیناً بازمی‌گرداند.</div></div><span class="tag">CUSTOM UDP ECHO</span></div>
+ <div style="padding:14px 17px 17px">
+  <div class="grid" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:9px">
+   <label class="event-copy"><b>بازی انتخاب‌شده</b><select id="gameUdpPackage" class="game-target-input" onchange="restoreGameUdpTarget()"><option value="">ابتدا فهرست بازی‌ها را بارگذاری کن</option></select></label>
+   <label class="event-copy"><b>میزبان یا IP مقصد</b><input id="gameUdpHost" class="game-target-input" maxlength="253" placeholder="udp-echo.example.net" spellcheck="false" autocomplete="off"></label>
+   <label class="event-copy"><b>پورت UDP</b><input id="gameUdpPort" class="game-target-input" type="number" min="1" max="65535" value="7" inputmode="numeric"></label>
+   <label class="event-copy"><b>Payload آزمایشی (Hex)</b><input id="gameUdpPayload" class="game-target-input" maxlength="96" value="4e50554c5345" spellcheck="false" autocomplete="off"></label>
+  </div>
+  <div class="actions" style="margin-top:12px;flex-wrap:wrap">
+   <button class="btn" type="button" onclick="loadUdpGameTargets()">↻ بارگذاری بازی‌ها</button>
+   <button class="btn primary" id="gameUdpProbeButton" type="button" onclick="runUdpEchoComparison()">↔ مقایسه UDP مستقیم و VPN</button>
+  </div>
+  <p class="engine-message" id="gameUdpProbeStatus" aria-live="polite">نیازمند sing-box متصل، Game-only فعال و بازی انتخاب‌شده در فهرست Game-only است.</p>
+  <div class="grid speed-probe-grid" style="margin-top:12px">
+   <div class="panel-card"><div class="pc-top">میانه مستقیم</div><strong id="gameUdpDirectMedian">—</strong><small>UDP echo · ms</small></div>
+   <div class="panel-card"><div class="pc-top">میانه VPN</div><strong id="gameUdpVpnMedian">—</strong><small>UDP echo · ms</small></div>
+   <div class="panel-card"><div class="pc-top">اختلاف VPN</div><strong id="gameUdpDelta">—</strong><small>ms · منفی یعنی کمتر</small></div>
+   <div class="panel-card"><div class="pc-top">Jitter مستقیم</div><strong id="gameUdpDirectJitter">—</strong><small>ms</small></div>
+   <div class="panel-card"><div class="pc-top">Jitter VPN</div><strong id="gameUdpVpnJitter">—</strong><small>ms</small></div>
+   <div class="panel-card"><div class="pc-top">عدم پاسخ مستقیم</div><strong id="gameUdpDirectTimeout">—</strong><small>UDP echo timeout</small></div>
+   <div class="panel-card"><div class="pc-top">عدم پاسخ VPN</div><strong id="gameUdpVpnTimeout">—</strong><small>UDP echo timeout</small></div>
+  </div>
+  <p class="engine-message" id="gameUdpProbeDetail">مهم: سرور مقصد باید بسته‌های UDP را عیناً Echo کند. این آزمون با سرورهای معمولی و پروتکل اختصاصی PUBG/COD سازگار نیست و packet loss مسابقه را اندازه نمی‌گیرد. پروب را خود NetPulse می‌فرستد و از مسیر پیش‌فرض تونل استفاده می‌کند؛ انتخاب نام بازی، outbound اختصاصی UID آن بازی را آزمایش نمی‌کند. برای نتیجه واقعی بازی، آداپتور رسمی همان پروتکل لازم است.</p>
+ </div>
+</article>
+</section>
+<section class="view" id="view-logs"><div class="view-intro"><div><h2>گزارش رویدادها</h2><p>ثبت رویدادهای همین نشست رابط کاربری.</p></div><button class="btn" onclick="clearLogs()">پاک‌سازی</button></div><article class="card"><div class="log-toolbar"><input class="field search" id="logSearch" placeholder="جست‌وجو در گزارش‌ها…" oninput="filterLogs()"><span class="tag">LOCAL SESSION</span></div><div class="table-wrap"><table class="data-table"><thead><tr><th>زمان</th><th>نوع</th><th>رویداد</th><th>وضعیت</th></tr></thead><tbody id="logRows"><tr><td>همین حالا</td><td>سیستم</td><td>رابط NetPulse بارگذاری شد</td><td class="good">فعال</td></tr></tbody></table></div></article><p class="engine-message">گزارش‌های پایدار و تاریخچه چندروزه پس از اضافه‌شدن دیتابیس محلی فعال می‌شوند.</p></section>
+<section class="view" id="view-settings"><div class="view-intro"><div><h2>تنظیمات NetPulse</h2><p>تنظیمات رابط، اعلان‌ها و کنترل‌های موتور دستگاه.</p></div></div><div class="settings-layout"><div class="card settings-nav"><button class="active" data-settings="general">⚙ عمومی</button><button data-settings="monitor">⌁ مانیتورینگ</button><button data-settings="alerts">♧ اعلان‌ها</button><button data-settings="engines">⌘ موتورهای اتصال</button><button data-settings="security">◇ امنیت و دسترسی</button></div><article class="card settings-content"><div id="settings-general"><h3>تنظیمات عمومی</h3><p>ظاهر و رفتار پیش‌فرض رابط را مدیریت کن.</p><div class="setting-row"><div><b>بروزرسانی خودکار</b><small>خواندن وضعیت شبکه هر یک ثانیه</small></div><button class="switch on" data-pref="live"></button></div><div class="setting-row"><div><b>انیمیشن‌ها</b><small>جلوه‌های حرکتی رابط</small></div><button class="switch on" data-pref="motion"></button></div><div class="setting-row"><div><b>زبان رابط</b><small>زبان فعلی برنامه</small></div><span class="tag">فارسی</span></div></div><div id="settings-monitor" hidden><h3>مانیتورینگ</h3><p>داده‌های زنده از شمارنده ترافیک Android خوانده می‌شوند.</p><div class="setting-row"><div><b>نمونه‌برداری</b><small>فاصله به‌روزرسانی داشبورد</small></div><span class="tag">۱ ثانیه</span></div><div class="setting-row"><div><b>آمار هر برنامه</b><small>بدون دسترسی ویژه نمایش داده نمی‌شود.</small></div><span class="tag amber">غیرفعال</span></div></div><div id="settings-alerts" hidden><h3>اعلان‌ها</h3><p>ترجیحات محلی برای رابط کاربری.</p><div class="setting-row"><div><b>اعلان وضعیت اتصال</b><small>نمایش پیام‌های درون برنامه</small></div><button class="switch on" data-pref="notifications"></button></div></div><div id="settings-engines" hidden>
+<h3>موتورهای اتصال</h3><p>موتور فعال در هر لحظه تنها مالک اسلات VPN اندروید خواهد بود.</p>
+<div class="setting-row"><div><b>WireGuard</b><small id="settingsWg">در حال بررسی</small></div><div class="actions"><button class="btn" onclick="nativeAction('importWireGuard')">وارد کردن پروفایل</button><button class="btn" onclick="nativeAction('toggleWireGuard')">اتصال / قطع</button></div></div>
+<div class="setting-row"><div><b>sing-box · OpenVPN / Proxy</b><small id="settingsSb">در حال بررسی</small></div><div class="actions"><button class="btn" onclick="nativeAction('importSingBox')">فایل / JSON / .ovpn</button><button class="btn" onclick="nativeAction('toggleSingBox')">اتصال / قطع</button></div></div>
+<div class="setting-row"><div><b>IKEv2 / IPsec بومی</b><small id="settingsIkev2">در حال بررسی پشتیبانی دستگاه</small></div><div class="actions"><button class="btn" onclick="nativeAction('configureIkev2')">تنظیم پروفایل</button><button class="btn primary" id="ikev2Toggle" onclick="nativeAction('toggleIkev2')" disabled>اتصال</button></div></div>
+<p class="engine-message" id="ikev2Help">IKEv2 از Android 11 و دستگاه‌های دارای IPsec پشتیبانی می‌کند. این تونل بومی، مسیریابی تمام‌دستگاه دارد؛ Game-only فقط برای sing-box در دسترس است.</p>
+</div><div id="settings-security" hidden><h3>امنیت و دسترسی</h3><p>پروفایل‌های VPN با AES-256-GCM و کلید Android Keystore رمزگذاری می‌شوند و در نسخه پشتیبان قرار نمی‌گیرند.</p><div class="setting-row"><div><b>دسترسی Root</b><small id="settingsRoot">در حال بررسی</small></div><button class="btn" onclick="nativeAction('checkRoot')">بررسی مجدد</button></div><div class="setting-row"><div><b>داده‌های ترافیک</b><small>محلی؛ به سرور بیرونی ارسال نمی‌شوند.</small></div><span class="tag green">LOCAL ONLY</span></div><div class="setting-row"><div><b>حذف امن پروفایل‌ها</b><small>پاک‌کردن فایل رمزگذاری‌شده و کلید ذخیره‌شده پس از قطع VPN</small></div><button class="btn" onclick="nativeAction('clearProfiles')">پاک‌کردن اطلاعات</button></div></div></article></div></section>
+<div class="footer"><span>NETPULSE / NATIVE ANDROID · v0.6.7</span><span id="footerState">LIVE DEVICE TELEMETRY · NO DEMO METRICS</span></div>
+</main></div><div class="toast" id="toast" role="status"></div>
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];let toastTimer;let historyDown=[],historyUp=[];
+function toast(s){if(readPref('np-pref-notifications')==='false')return;const t=$('#toast');t.textContent=s;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2300)}
+function go(key){
+ const target=$('#view-'+key);
+ if(!target)return;
+ Array.from(document.querySelectorAll('.view')).forEach(v=>{
+  const active=v===target;
+  v.classList.toggle('active',active);
+  v.setAttribute('aria-hidden',String(!active));
+ });
+ let activeButton=null;
+ Array.from(document.querySelectorAll('.nav button[data-view]')).forEach(button=>{
+  const active=button.dataset.view===key;
+  button.classList.toggle('active',active);
+  if(active){button.setAttribute('aria-current','page');activeButton=button;}
+  else button.removeAttribute('aria-current');
+ });
+ $('#pageTitle').textContent=activeButton?activeButton.dataset.title:'NetPulse';
+ if(activeButton){
+  const nav=$('.nav');
+  if(nav && nav.scrollWidth>nav.clientWidth){
+   const left=activeButton.offsetLeft-nav.offsetLeft;
+   const right=left+activeButton.offsetWidth;
+   if(left<nav.scrollLeft)nav.scrollTo({left,behavior:'smooth'});
+   else if(right>nav.scrollLeft+nav.clientWidth)nav.scrollTo({left:right-nav.clientWidth,behavior:'smooth'});
+  }
+ }
+ document.documentElement.scrollTop=0;
+ document.body.scrollTop=0;
+ if(key==='servers')loadServers();
+ if(key==='speed')loadUdpGameTargets();
+}
+const primaryNav=$('.nav');
+if(primaryNav){
+ primaryNav.addEventListener('click',event=>{
+  const button=event.target.closest('button[data-view]');
+  if(!button || !primaryNav.contains(button))return;
+  event.preventDefault();
+  go(button.dataset.view);
+ });
+ Array.from(document.querySelectorAll('.nav button[data-view]')).forEach(button=>button.setAttribute('type','button'));
+}
+function toggleSingBoxImport(){const panel=$('#singBoxImportPanel');if(panel)panel.hidden=!panel.hidden;}
+function submitSingBoxImport(){const field=$('#singBoxProfileInput');const value=field?field.value.trim():'';if(!value){toast('لینک یا JSON را وارد کن.');return;}if(new TextEncoder().encode(value).length>2*1024*1024){toast('حجم پروفایل بیشتر از ۲ مگابایت است.');return;}nativeAction('importSingBoxText',value);}
+function nativeAction(action,value=''){if(window.NetPulse){window.NetPulse.perform(action,String(value));}else toast('رابط native در دسترس نیست.')}
+function applyState(s){if(!s)return;const fmt=v=>v===null||v===undefined?'—':v;$('#downMetric').innerHTML=fmt(s.downloadMbps)+' <small>Mbps</small>';$('#upMetric').innerHTML=fmt(s.uploadMbps)+' <small>Mbps</small>';$('#typeMetric').textContent=fmt(s.networkType);$('#internetMetric').textContent=s.validated?'آنلاین':(s.hasInternet?'در حال بررسی':'آفلاین');$('#validatedMetric').textContent=s.validated?'اینترنت تأییدشده': 'هنوز تأیید نشده';$('#sideNetworkStatus').textContent=s.validated?'آنلاین':'بررسی';$('#sideNetworkType').textContent=s.networkType||'اتصال نامشخص';$('#heroNetwork').innerHTML=(s.validated?'ONLINE':'DEVICE STATUS')+'<b>'+(s.validated?'اتصال تأییدشده':'در انتظار شبکه')+'</b>LIVE TELEMETRY';$('#connectionPill').textContent=s.validated?'پایدار':'بررسی';$('#healthScore').textContent=s.validated?'✓':'—';$('#healthArc').setAttribute('stroke-dasharray',s.validated?'285 308':'0 308');$('#networkHeadline').textContent=s.validated?'دسترسی اینترنت تأیید شد':'وضعیت اتصال';$('#networkDescription').textContent=(s.networkType||'اتصال نامشخص')+' · '+(s.validated?'Android اتصال را تأیید کرده است.':'هنوز دسترسی اینترنت تأیید نشده است.');$('#networkDetail').textContent='شمارنده محلی دستگاه';$('#rxTotal').textContent=fmt(s.rxFormatted);$('#txTotal').textContent=fmt(s.txFormatted);$('#rxBar').style.width=Math.min(100,Math.max(2,(s.rxBytes||0)%100000000/1000000))+'%';$('#txBar').style.width=Math.min(100,Math.max(2,(s.txBytes||0)%100000000/1000000))+'%';$('#aDown').textContent=fmt(s.downloadMbps)+' Mbps';$('#aUp').textContent=fmt(s.uploadMbps)+' Mbps';$('#aRx').textContent=fmt(s.rxFormatted);$('#aType').textContent=fmt(s.networkType);$('#aInternet').textContent=s.validated?'اتصال اعتبارسنجی‌شده':'اتصال تأییدنشده';$('#dRx').textContent=fmt(s.rxFormatted);$('#dTx').textContent=fmt(s.txFormatted);$('#dType').textContent=fmt(s.networkType);$('#deviceOnline').textContent=s.validated?'آنلاین':'نامشخص';$('#deviceModel').textContent=s.deviceModel||'دستگاه اندرویدی';$('#deviceTransport').textContent='نوع اتصال: '+fmt(s.networkType);$('#deviceRates').textContent='دانلود '+fmt(s.downloadMbps)+' Mbps · آپلود '+fmt(s.uploadMbps)+' Mbps';$('#serverOnline').textContent=s.validated?'بله':'نامشخص';$('#serverType').textContent=fmt(s.networkType);renderGamingState(s);renderGameDetectionState(s);$('#speedDownload').textContent=fmt(s.downloadMbps)+' Mbps';$('#speedUpload').textContent=fmt(s.uploadMbps)+' Mbps';$('#speedNetworkType').textContent=fmt(s.networkType);$('#settingsWg').textContent=s.wireguardConnected?'متصل':(s.wireguardProfileReady?'پروفایل آماده':'پروفایل موجود نیست');$('#settingsSb').textContent=s.singboxConnected?'متصل':(s.singboxProfileReady?((s.singboxProtocol||'sing-box')+' · آماده'):'پروفایل موجود نیست');$('#settingsIkev2').textContent=!s.ikev2Supported?'به Android 11+ و IPsec نیاز دارد':s.ikev2Connected?'متصل':s.ikev2Starting?'در حال اتصال':s.ikev2StatusUnverified?'یک VPN دیگر فعال است؛ نوع آن قابل تشخیص نیست':s.ikev2ProfileReady?('پروفایل آماده · '+(s.ikev2Server||'')):'پروفایل موجود نیست';$('#ikev2Toggle').textContent=s.ikev2StatusUnverified?'قطع پروفایل IKEv2':(s.ikev2Connected||s.ikev2Starting?'قطع اتصال':'اتصال');$('#ikev2Toggle').disabled=!s.ikev2Supported||(!s.ikev2StatusUnverified&&!s.ikev2Connected&&!s.ikev2Starting&&!s.ikev2ProfileReady);$('#ikev2Help').textContent=!s.ikev2Supported?'این دستگاه API بومی IKEv2/IPsec را ارائه نمی‌کند.':s.ikev2StatusUnverified?'Android 11/12 یک VPN فعال را نشان می‌دهد ولی نوع آن را مشخص نمی‌کند. دکمه بالا فقط پروفایل IKEv2 متعلق به NetPulse را متوقف می‌کند و به VPN برنامه‌های دیگر دست نمی‌زند.':s.ikev2Connected?'IKEv2 از طریق VpnManager سیستم متصل است. این تونل تمام‌دستگاه است و با WireGuard یا sing-box هم‌زمان اجرا نمی‌شود.':'IKEv2 بومی به مجوز سیستم نیاز دارد و تمام ترافیک دستگاه را تونل می‌کند؛ برای انتخاب اپ‌ها از Game-only در sing-box استفاده کن.';$('#wgState').textContent=s.wireguardConnected?'WireGuard متصل است':(s.wireguardProfileReady?'پروفایل آماده اتصال':'پروفایل بارگذاری نشده');$('#wgBadge').textContent=s.wireguardConnected?'متصل':(s.wireguardProfileReady?'آماده':'بدون پروفایل');$('#wgToggle').textContent=s.wireguardConnected?'قطع اتصال':'اتصال';$('#wgToggle').disabled=!s.wireguardConnected&&!s.wireguardProfileReady;$('#sbState').textContent=s.singboxConnected?'sing-box متصل است':(s.singboxProfileReady?((s.singboxProtocol||'sing-box')+' · '+(s.singboxDisplayName||'پروفایل آماده')):'پروفایل بارگذاری نشده');$('#sbBadge').textContent=s.singboxConnected?'متصل':(s.singboxProfileReady?'آماده':'بدون پروفایل');$('#sbToggle').textContent=s.singboxConnected?'قطع اتصال':'اتصال';$('#sbToggle').disabled=!s.singboxConnected&&!s.singboxProfileReady;$('#engineMessage').textContent=s.wireguardConnected?'تونل WireGuard فعال است.':(s.singboxConnected?'تونل sing-box فعال است.':'پروفایل‌ها داخل فضای خصوصی برنامه بارگذاری می‌شوند.');$('#rootState').textContent=s.rootGranted?'دسترسی Root تأیید شد.':'Root در دسترس نیست یا مجوز داده نشده است.';$('#rootBadge').textContent=s.rootGranted?'ROOT OK':'NO ROOT';$('#settingsRoot').textContent=s.rootGranted?'مجاز':'غیرمجاز';$('#alertRootState').textContent=s.rootGranted?'دسترسی روت موجود است.':'دسترسی روت موجود نیست.';$('#alertEngineState').textContent='WireGuard: '+(s.wireguardConnected?'متصل':'قطع')+' · sing-box: '+(s.singboxConnected?'متصل':'قطع')+' · IKEv2: '+(s.ikev2Connected?'متصل':'قطع');$('#refreshRates').innerHTML='';(s.refreshRates||[]).forEach(rate=>{const b=document.createElement('button');b.textContent=rate+' Hz';b.disabled=!s.rootGranted;b.classList.toggle('active',rate===s.currentRefreshRate);b.onclick=()=>nativeAction('applyRefreshRate',rate);$('#refreshRates').appendChild(b)});if(!s.refreshRates||!s.refreshRates.length)$('#refreshRates').textContent='نرخ‌های قابل پشتیبانی گزارش نشد.';historyDown.push(Math.max(0,Math.min(85,(s.downloadMbps||0)/2)));historyUp.push(Math.max(0,Math.min(85,(s.uploadMbps||0)/2)));if(historyDown.length>20){historyDown.shift();historyUp.shift()}drawLiveChart('downPath',historyDown);drawLiveChart('upPath',historyUp);drawLiveChart('analyticsDown',historyDown);drawLiveChart('analyticsUp',historyUp);trackGameSession(s)}
+function drawLiveChart(id,a){if(a.length<2)return;const points=a.map((v,i)=>{const x=i*720/(a.length-1),y=180-v*1.7;return (i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1)}).join(' ');$('#'+id).setAttribute('d',points)}
+function renderGamingState(s){const button=$('#gameModeButton');if(button){button.textContent=s.gameOnlyEnabled?'فعال':'خاموش';button.classList.toggle('primary',!!s.gameOnlyEnabled)}const count=$('#selectedGameCount');if(count)count.textContent=(s.selectedGameCount||0)+' برنامه انتخاب‌شده';const hint=$('#gameModeHint');if(hint)hint.textContent=s.gameOnlyEnabled?'Game-only روی WireGuard و sing-box اعمال می‌شود. برای تغییر انتخاب‌ها باید تونل را قطع و دوباره وصل کنی؛ مسیر اختصاصی هر بازی فقط در sing-box فعال است.':'بازی‌ها را انتخاب کن و برای هرکدام مسیر پیش‌فرض یا یک نود جداگانه تعیین کن. IKEv2 همیشه تمام‌دستگاه است.'}
+function renderGameDetectionState(s){const button=$('#gameDetectionButton');if(button){button.textContent=s.autoGameDetectionEnabled?'خاموش‌کردن تشخیص':(s.usageAccessGranted?'فعال‌کردن تشخیص':'دادن دسترسی تشخیص');button.classList.toggle('primary',!!s.autoGameDetectionEnabled)}const state=$('#gameDetectionState');if(state){state.textContent=!s.usageAccessGranted?'برای تشخیص خودکار، Usage Access را به‌صورت اختیاری در تنظیمات Android فعال کن.':s.autoGameDetectionEnabled?'تشخیص پیش‌زمینه فعال است؛ اطلاعات فقط محلی پردازش می‌شود.':'دسترسی داده شده، اما تشخیص خودکار خاموش است.'}const active=$('#activeGameState');if(active){active.textContent=s.activeGameLabel?(s.activeGameLabel+(s.activeGameSelected?' · انتخاب‌شده در Game-only':' · در فهرست Game-only نیست')):'بازی پیش‌زمینه شناسایی نشده است.'}const traffic=$('#activeGameTraffic');if(traffic){const down=s.activeGameDownloadMbps,up=s.activeGameUploadMbps;traffic.textContent=s.activeGameLabel?'ترافیک UID بازی · دانلود '+(down===null||down===undefined?'—':Number(down).toFixed(2))+' · آپلود '+(up===null||up===undefined?'—':Number(up).toFixed(2))+' Mbps':'نرخ ترافیک بازی فعال: دانلود — · آپلود — Mbps'}}
+let publicVpnServers=[];
+let publicVpnRequestId=0;
+let publicVpnRequestTimer=null;
+let publicVpnLoading=false;
+
+function clearVpnNode(node){if(!node)return;while(node.firstChild)node.removeChild(node.firstChild);}
+function setPublicVpnStatus(message,kind){
+ const bar=$('#publicVpnStatus'),text=$('#publicVpnStatusText');
+ if(!bar||!text)return;
+ bar.className='vpn-public-status'+(kind?' '+kind:'');
+ text.textContent=message||'';
+}
+function updatePublicVpnSummary(){
+ const count=$('#publicVpnCount'),countries=$('#publicVpnCountries'),checked=$('#publicVpnChecked');
+ if(count)count.textContent=String(publicVpnServers.length);
+ if(countries) countries.textContent=String(new Set(publicVpnServers.map(x=>x.countryCode||x.country).filter(Boolean)).size);
+ if(checked)checked.textContent=String(publicVpnDiagnostics?publicVpnDiagnostics.profilesChecked||0:0);
+}
+let publicVpnDiagnostics=null;
+
+function loadPublicVpnServers(){
+ if(publicVpnLoading)return;
+ const button=$('#publicVpnRefresh');
+ if(!button)return;
+ publicVpnLoading=true;
+ button.disabled=true;
+ button.innerHTML='<span>◌</span> در حال دریافت…';
+ setPublicVpnStatus('در حال دریافت فهرست رسمی و بررسی محلی پروفایل‌ها…','loading');
+ const requestId=++publicVpnRequestId;
+ if(publicVpnRequestTimer)clearTimeout(publicVpnRequestTimer);
+ publicVpnRequestTimer=setTimeout(()=>{
+  if(requestId!==publicVpnRequestId)return;
+  publicVpnLoading=false;
+  button.disabled=false;
+  button.textContent='↻ تلاش دوباره';
+  setPublicVpnStatus('پاسخی دریافت نشد. اتصال اینترنت را بررسی کن و دوباره تلاش کن.','error');
+ },30000);
+ try{
+  nativeAction('loadPublicVpnServers',JSON.stringify({requestId}));
+ }catch(error){
+  if(publicVpnRequestTimer)clearTimeout(publicVpnRequestTimer);
+  publicVpnLoading=false;button.disabled=false;button.textContent='↻ تلاش دوباره';
+  setPublicVpnStatus('شروع دریافت ناموفق بود. دوباره تلاش کن.','error');
+ }
+}
+
+function connectPublicVpnServer(id){
+ const server=publicVpnServers.find(x=>x.id===id);
+ if(!server)return;
+ setPublicVpnStatus('در حال آماده‌سازی پروفایل '+server.hostName+'…','loading');
+ nativeAction('connectPublicVpnServer',JSON.stringify({id:server.id}));
+}
+function connectRecommendedPublicVpnServer(){
+ if(!publicVpnServers.length){toast('ابتدا فهرست سرورهای عمومی را دریافت کن.');return;}
+ connectPublicVpnServer(publicVpnServers[0].id);
+}
+function showVpnEmpty(title,detail){
+ const list=$('#publicVpnList');if(!list)return;
+ clearVpnNode(list);
+ const box=document.createElement('div');box.className='vpn-empty';
+ const icon=document.createElement('div');icon.className='vpn-empty-icon';icon.textContent='⌁';
+ const heading=document.createElement('b');heading.textContent=title;
+ const paragraph=document.createElement('p');paragraph.textContent=detail||'';
+ box.append(icon,heading,paragraph);list.appendChild(box);
+}
+function renderVpnGateList(){
+ const list=$('#publicVpnList');if(!list)return;
+ const query=($('#publicVpnSearch')?.value||'').trim().toLocaleLowerCase();
+ const selectedCountry=$('#publicVpnCountry')?.value||'';
+ const visible=publicVpnServers.filter(server=>{
+  const country=server.country||server.countryCode||'';
+  const haystack=(country+' '+(server.countryCode||'')+' '+server.hostName+' '+server.ipAddress).toLocaleLowerCase();
+  return (!selectedCountry||(server.countryCode||server.country)===selectedCountry)&&(!query||haystack.includes(query));
+ });
+ clearVpnNode(list);
+ const quick=$('#publicVpnQuickConnect');if(quick)quick.disabled=!publicVpnServers.length;
+ if(!publicVpnServers.length){
+  const diagnostics=publicVpnDiagnostics||{};
+  let detail='فهرست دریافت شد اما پروفایل سازگار پیدا نشد.';
+  if(diagnostics.rowsSeen!==undefined){
+   detail+=' '+diagnostics.rowsSeen+' ردیف دریافت شد؛ '+(diagnostics.rowsWithMetadata||0)+' ردیف اطلاعات پایه داشت و '+(diagnostics.profilesChecked||0)+' پروفایل بررسی شد.';
+   const rejected=diagnostics.rejected||{};
+   const top=Object.entries(rejected).sort((a,b)=>b[1]-a[1]).slice(0,2);
+   if(top.length)detail+=' موارد پرتکرار: '+top.map(x=>x[0]+' ('+x[1]+')').join('، ')+'.';
+   const example=(diagnostics.examples||[])[0];if(example)detail+=' نمونه: '+example;
+  }
+  showVpnEmpty('فعلاً رله قابل‌استفاده پیدا نشد',detail);
+  return;
+ }
+ if(!visible.length){
+  showVpnEmpty('نتیجه‌ای برای این فیلتر پیدا نشد','عبارت جست‌وجو یا کشور را تغییر بده.');
+  return;
+ }
+ const fragment=document.createDocumentFragment();
+ visible.forEach((server)=>{
+  const card=document.createElement('article');card.className='vpn-node-card';
+  const top=document.createElement('div');top.className='vpn-node-top';
+  const country=document.createElement('b');country.className='vpn-node-country';
+  country.textContent=(server.country||server.countryCode||'کشور نامشخص')+' · '+(server.countryCode||'—');
+  const rank=document.createElement('span');rank.className='vpn-node-rank';
+  rank.textContent=server===publicVpnServers[0]?'کمترین Ping گزارش‌شده':'رله عمومی';
+  top.append(country,rank);
+  const host=document.createElement('div');host.className='vpn-node-host';host.textContent=server.hostName+' · '+server.ipAddress;
+  const metrics=document.createElement('div');metrics.className='vpn-node-metrics';
+  const values=[
+   ['Ping',server.reportedPingMs===null||server.reportedPingMs===undefined?'—':Math.round(server.reportedPingMs)+' ms'],
+   ['سرعت گزارش‌شده',server.reportedSpeedMbps===null||server.reportedSpeedMbps===undefined?'—':(Math.round(server.reportedSpeedMbps*10)/10)+' Mbps'],
+   ['اتصال‌های فعال',String(server.sessions??'—')]
+  ];
+  values.forEach(([label,value])=>{
+   const cell=document.createElement('div');cell.className='vpn-node-metric';
+   const small=document.createElement('small');small.textContent=label;
+   const strong=document.createElement('b');strong.textContent=value;
+   cell.append(small,strong);metrics.appendChild(cell);
+  });
+  const footer=document.createElement('div');footer.className='vpn-node-footer';
+  const note=document.createElement('small');note.textContent='OpenVPN · رله داوطلبانه';
+  const button=document.createElement('button');button.type='button';button.className='btn primary';
+  button.textContent='اتصال به این رله';button.addEventListener('click',()=>connectPublicVpnServer(server.id));
+  footer.append(note,button);card.append(top,host,metrics,footer);fragment.appendChild(card);
+ });
+ list.appendChild(fragment);
+ const count=$('#publicVpnCount');
+ if(count)count.textContent=visible.length===publicVpnServers.length?String(publicVpnServers.length):(visible.length+' / '+publicVpnServers.length);
+}
+
+function netPulseVpnGateServerList(result){
+ if(!result||Number(result.requestId)!==publicVpnRequestId)return;
+ if(publicVpnRequestTimer){clearTimeout(publicVpnRequestTimer);publicVpnRequestTimer=null;}
+ publicVpnLoading=false;
+ const refresh=$('#publicVpnRefresh');if(refresh){refresh.disabled=false;refresh.textContent='↻ بروزرسانی فهرست';}
+ if(!result.ok){
+  const stage=result.stage?' · مرحله فنی: '+result.stage:'';
+  const detail=(result.message||'دریافت فهرست ناموفق بود.')+(result.cached?' · فهرست قبلی در حافظه باقی مانده است.':'')+stage;
+  setPublicVpnStatus(detail,'error');
+  if(!publicVpnServers.length)showVpnEmpty('دریافت فهرست ناموفق بود',detail);
+  return;
+ }
+ publicVpnServers=Array.isArray(result.servers)?result.servers:[];
+ publicVpnDiagnostics=result.diagnostics||null;
+ const countries=[...new Set(publicVpnServers.map(x=>({value:x.countryCode||x.country,label:x.country||x.countryCode||'نامشخص'})).filter(x=>x.value).map(x=>JSON.stringify(x)))].map(x=>JSON.parse(x));
+ const countrySelect=$('#publicVpnCountry');
+ if(countrySelect){
+  const previous=countrySelect.value;clearVpnNode(countrySelect);
+  const all=document.createElement('option');all.value='';all.textContent='همه کشورها';countrySelect.appendChild(all);
+  countries.forEach(country=>{const option=document.createElement('option');option.value=country.value;option.textContent=country.label;countrySelect.appendChild(option)});
+  countrySelect.value=countries.some(x=>x.value===previous)?previous:'';
+ }
+ updatePublicVpnSummary();
+ const checked=publicVpnDiagnostics?publicVpnDiagnostics.profilesChecked:0;
+ setPublicVpnStatus(
+  publicVpnServers.length+' رله سازگار از '+(publicVpnDiagnostics?publicVpnDiagnostics.rowsSeen:0)+' ردیف فهرست دریافت شد. معیار مرتب‌سازی Ping گزارش‌شده است، نه تست گوشی.',
+  publicVpnServers.length?'success':'error'
+ );
+ renderVpnGateList();
+ if(!publicVpnServers.length)renderVpnGateList();
+}
+function loadServers(){const list=$('#serverCatalog');if(!list)return;if(!window.NetPulse){list.textContent='رابط native در دسترس نیست.';return;}try{const entries=JSON.parse(window.NetPulse.getServerCatalog()||'[]');let state={};try{state=JSON.parse(window.NetPulse.getState()||'{}')}catch(error){}list.replaceChildren();$('#serverCatalogCount').textContent=entries.length+' نود';if(!entries.length){const empty=document.createElement('div');empty.className='engine-message';empty.textContent='در پروفایل فعلی نود قابل انتخابی پیدا نشد. ابتدا یک پروفایل sing-box معتبر وارد کن.';list.appendChild(empty);$('#serverCatalogHint').textContent='پروفایل باید حداقل یک outbound سروری یا یک گروه selector/urltest داشته باشد.';return;}entries.forEach(entry=>{const row=document.createElement('div');row.className='server-row';const main=document.createElement('div');main.className='server-row-main';const title=document.createElement('b');title.textContent=entry.tag;const endpoint=document.createElement('small');endpoint.textContent=(entry.type||'unknown').toUpperCase()+' · '+(entry.group?('گروه با '+(entry.memberCount||0)+' عضو'):((entry.server||'میزبان نامشخص')+(entry.port?':'+entry.port:'')));main.append(title,endpoint);const actions=document.createElement('div');actions.className='server-row-actions';const badge=document.createElement('span');badge.className='tag'+(entry.selected?' active-node':'');badge.textContent=entry.selected?'مسیر پیش‌فرض':'آماده انتخاب';const button=document.createElement('button');button.type='button';button.className='btn'+(entry.selected?'':' primary');button.textContent=entry.selected?'انتخاب‌شده':'انتخاب مسیر';button.disabled=!!state.singboxConnected||!!entry.selected;button.addEventListener('click',()=>nativeAction('selectServer',entry.tag));actions.append(badge,button);row.append(main,actions);list.appendChild(row)});$('#serverCatalogHint').textContent=state.singboxConnected?'برای تغییر مسیر ابتدا sing-box را قطع کن. انتخاب جدید پس از اتصال دوباره اعمال می‌شود.':'تغییر مسیر، route.final پروفایل را عوض می‌کند و قوانین خاص route حفظ می‌شوند. برای فعال شدن، sing-box را وصل کن.';}catch(error){list.textContent='خواندن فهرست سرورها ناموفق بود.';$('#serverCatalogCount').textContent='نامشخص';}}
+function loadGamingApps(){
+ const list=$('#gamingAppList');
+ if(!window.NetPulse||!list){toast('رابط native در دسترس نیست.');return;}
+ try{
+  const apps=JSON.parse(window.NetPulse.getGamingAppCatalog()||'[]');
+  const servers=JSON.parse(window.NetPulse.getServerCatalog()||'[]');
+  list.replaceChildren();
+  if(!apps.length){const empty=document.createElement('p');empty.className='engine-message';empty.textContent='برنامه قابل‌نمایشی پیدا نشد.';list.appendChild(empty);return;}
+  apps.forEach(app=>{
+   const row=document.createElement('div');row.className='game-app-row';
+   const check=document.createElement('input');check.type='checkbox';check.checked=!!app.selected;check.dataset.package=app.packageName;
+   const copy=document.createElement('div');copy.className='game-app-copy';
+   const name=document.createElement('b');name.textContent=app.label||app.packageName;
+   const meta=document.createElement('small');meta.textContent=app.packageName+' · '+(app.isGame?'Android game':'app');
+   copy.append(name,meta);
+   const route=document.createElement('select');route.className='game-app-route';route.dataset.routePackage=app.packageName;
+   const defaultOption=document.createElement('option');defaultOption.value='';defaultOption.textContent='مسیر پیش‌فرض';route.appendChild(defaultOption);
+   servers.forEach(server=>{
+    const option=document.createElement('option');option.value=server.tag;
+    option.textContent=(server.group?'گروه · ':'نود · ')+server.tag;
+    route.appendChild(option);
+   });
+   route.value=app.routeTag||'';
+   route.disabled=!app.selected||servers.length===0;
+   check.addEventListener('change',()=>{route.disabled=!check.checked||servers.length===0;});
+   const usage=document.createElement('span');usage.className='game-app-usage';
+   usage.textContent='↓ '+(app.rxFormatted||'—')+' / ↑ '+(app.txFormatted||'—');
+   row.append(check,copy,route,usage);list.appendChild(row);
+  });
+  toast(apps.length+' برنامه بارگذاری شد. برای هرکدام می‌توانی مسیر جداگانه تعیین کنی.');
+ }catch(error){toast('خواندن فهرست برنامه‌ها ناموفق بود.');}
+}
+function saveGamingApps(){
+ const list=$('#gamingAppList');
+ if(!list||!window.NetPulse){toast('ابتدا فهرست برنامه‌ها را بارگذاری کن.');return;}
+ const selected=[...list.querySelectorAll('input[data-package]:checked')].map(input=>input.dataset.package);
+ const routes={};
+ list.querySelectorAll('select[data-route-package]').forEach(select=>{
+  if(select.value&&selected.includes(select.dataset.routePackage))routes[select.dataset.routePackage]=select.value;
+ });
+ nativeAction('saveGameRoutes',JSON.stringify({packages:selected,routes}));
+}
+function toggleGamingMode(){if(!window.NetPulse)return;try{const state=JSON.parse(window.NetPulse.getState());nativeAction('toggleGamingMode',state.gameOnlyEnabled?'false':'true')}catch(error){toast('وضعیت Gaming Mode خوانده نشد.');}}
+function pullState(){try{if(window.NetPulse)applyState(JSON.parse(window.NetPulse.getState()))}catch(e){}}
+function onNetPulseMessage(message){toast(message);const failed=/ناموفق|خطا|معتبر نیست|پیدا نشد|failed|rejected/i.test(String(message));logEvent('Native',message,failed?'ناموفق':'انجام شد');pullState();if($('#view-servers')&&$('#view-servers').classList.contains('active'))loadServers()}
+function onNetPulseLatencyStats(stats){const fmt=v=>v===null||v===undefined?'—':(Math.round(v*10)/10)+' ms';const ok=stats.successful>0;const median=stats.medianMs;$('#speedDial').textContent=ok?Math.round(median):'—';$('#serverLatency').textContent=ok?fmt(median):'ناموفق';$('#probeMin').textContent=fmt(stats.minMs);$('#probeMedian').textContent=fmt(stats.medianMs);$('#probeMax').textContent=fmt(stats.maxMs);$('#probeVariation').textContent=fmt(stats.variationMs);$('#probeFailures').textContent=Math.round(stats.failurePercent)+'%';const message='TCP probe: '+stats.successful+'/'+stats.attempts+' موفق · میانه '+fmt(stats.medianMs)+' · نوسان '+fmt(stats.variationMs)+' · خطا '+Math.round(stats.failurePercent)+'%';$('#latencyDetail').textContent=message;$('#speedStatus').textContent=ok?'نمونه‌برداری TCP کامل شد':'اتصال TCP برقرار نشد';const result=$('#speedResult');result.replaceChildren();const event=document.createElement('div');event.className='event';const icon=document.createElement('div');icon.className='event-icon '+(ok?'':'amber');icon.textContent='◎';const copy=document.createElement('div');copy.className='event-copy';const title=document.createElement('b');title.textContent=ok?'میانه '+fmt(median):'همه تلاش‌ها ناموفق بود';const detail=document.createElement('p');detail.textContent=message;copy.append(title,detail);event.append(icon,copy);result.appendChild(event);$('#startSpeed').disabled=false;$('#startSpeed').textContent='↻ اجرای مجدد بررسی';logEvent('TCP probes',message,ok?'انجام شد':'ناموفق')}
+function runEndpointTest(){const host=$('#endpointHost').value.trim(),port=Number($('#endpointPort').value);if(!host||!Number.isInteger(port)||port<1||port>65535){toast('میزبان یا پورت معتبر نیست.');return;}const button=$('#endpointTest');button.disabled=true;button.textContent='◌ در حال آزمایش';$('#endpointResult').textContent='در حال اتصال TCP به '+host+':'+port+'…';nativeAction('testGameServer',JSON.stringify({host,port}));}
+function onNetPulseEndpointStats(stats){const button=$('#endpointTest');button.disabled=false;button.textContent='آزمایش دوباره';if(!stats||!stats.ok){const message=(stats&&stats.message)||'مقایسه مقصد انجام نشد';$('#endpointResult').textContent=message;logEvent('TCP endpoint',message,'ناموفق');return;}const fmt=v=>v===null||v===undefined?'—':(Math.round(v*10)/10)+' ms';const d=stats.direct||{},v=stats.vpn||{};const summary='مستقیم: '+(d.successful??0)+'/'+(d.attempts??0)+' · میانه '+fmt(d.medianMs)+' · VPN: '+(v.successful??0)+'/'+(v.attempts??0)+' · میانه '+fmt(v.medianMs)+' · نوسان '+fmt(v.variationMs);$('#endpointResult').textContent=stats.host+' ('+stats.address+'): '+stats.port+' — '+summary;logEvent('TCP endpoint compare',summary,'انجام شد')}
+function runLatency(){$('#startSpeed').disabled=true;$('#startSpeed').textContent='◌ در حال بررسی…';$('#speedStatus').textContent='در حال برقراری اتصال TCP…';$('#serverLatency').textContent='…';nativeAction('testLatency')}
+function loadUdpGameTargets(){
+ const select=$('#gameUdpPackage');if(!select||!window.NetPulse)return;
+ const previous=select.value;
+ try{
+  const apps=JSON.parse(window.NetPulse.getGamingAppCatalog()||'[]').filter(app=>app.selected);
+  select.replaceChildren();
+  if(!apps.length){const option=document.createElement('option');option.value='';option.textContent='ابتدا یک بازی را در Game-only انتخاب کن';select.appendChild(option);return;}
+  apps.forEach(app=>{const option=document.createElement('option');option.value=app.packageName;option.textContent=(app.label||app.packageName)+' · '+app.packageName;select.appendChild(option)});
+  const state=JSON.parse(window.NetPulse.getState()||'{}');
+  select.value=apps.some(app=>app.packageName===previous)?previous:
+    (apps.some(app=>app.packageName===state.activeGamePackage)?state.activeGamePackage:apps[0].packageName);
+  restoreGameUdpTarget();
+ }catch(error){select.replaceChildren();const option=document.createElement('option');option.value='';option.textContent='فهرست بازی‌ها خوانده نشد';select.appendChild(option);}
+}
+function restoreGameUdpTarget(){
+ const pkg=$('#gameUdpPackage').value;
+ $('#gameUdpHost').value='';
+ $('#gameUdpPort').value='7';
+ $('#gameUdpPayload').value='4e50554c5345';
+ if(!pkg)return;
+ try{
+  const saved=JSON.parse(readPref('np-game-udp-'+pkg)||'{}');
+  if(saved.host)$('#gameUdpHost').value=saved.host;
+  if(saved.port)$('#gameUdpPort').value=saved.port;
+  if(saved.payloadHex)$('#gameUdpPayload').value=saved.payloadHex;
+ }catch(error){}
+}
+function runUdpEchoComparison(){
+ const packageName=$('#gameUdpPackage').value,host=$('#gameUdpHost').value.trim(),port=Number($('#gameUdpPort').value),payloadHex=$('#gameUdpPayload').value.trim();
+ if(!packageName){toast('ابتدا یک بازی را انتخاب و در Game-only فعال کن.');return;}
+ if(!host||!Number.isInteger(port)||port<1||port>65535){toast('میزبان یا پورت UDP معتبر نیست.');return;}
+ if(!/^(?:[0-9a-fA-F]{2}){0,48}$/.test(payloadHex)){toast('Payload باید Hex معتبر و حداکثر ۴۸ بایت باشد.');return;}
+ writePref('np-game-udp-'+packageName,JSON.stringify({host,port,payloadHex}));
+ const button=$('#gameUdpProbeButton');button.disabled=true;button.textContent='◌ در حال آزمایش…';
+ $('#gameUdpProbeStatus').textContent='در حال مقایسه پنج پاسخ UDP echo از مسیر مستقیم و VPN…';
+ nativeAction('testGameUdpEcho',JSON.stringify({packageName,host,port,payloadHex}));
+}
+function onNetPulseGameUdpEchoComparison(result){
+ const button=$('#gameUdpProbeButton');button.disabled=false;button.textContent='↔ مقایسه دوباره';
+ if(!result||!result.ok){const message=(result&&result.message)||'UDP echo probe انجام نشد.';$('#gameUdpProbeStatus').textContent=message;logEvent('Game UDP echo',message,'ناموفق');return;}
+ const d=result.direct||{},v=result.vpn||{},fmt=n=>n===null||n===undefined?'—':(Math.round(n*10)/10)+' ms';
+ const delta=d.medianMs===null||v.medianMs===null?null:v.medianMs-d.medianMs;
+ $('#gameUdpDirectMedian').textContent=fmt(d.medianMs);$('#gameUdpVpnMedian').textContent=fmt(v.medianMs);
+ $('#gameUdpDelta').textContent=delta===null?'—':((delta>0?'+':'')+fmt(delta));
+ $('#gameUdpDirectJitter').textContent=fmt(d.jitterMs);$('#gameUdpVpnJitter').textContent=fmt(v.jitterMs);
+ $('#gameUdpDirectTimeout').textContent=Math.round(d.failurePercent||0)+'%';$('#gameUdpVpnTimeout').textContent=Math.round(v.failurePercent||0)+'%';
+ const title=$('#gameUdpPackage').selectedOptions[0]?.textContent||result.packageName;
+ const summary=title+' · '+result.host+':'+result.port+' · مستقیم '+(d.successful||0)+'/'+(d.attempts||0)+' · VPN '+(v.successful||0)+'/'+(v.attempts||0);
+ $('#gameUdpProbeStatus').textContent=summary+(delta===null?'':' · اختلاف میانه '+(delta>0?'+':'')+fmt(delta));
+ $('#gameUdpProbeDetail').textContent='پاسخ‌ها باید payload آزمایشی را عیناً بازگردانند. این نتیجه فقط کیفیت مسیر تا UDP echo endpoint را نشان می‌دهد؛ پینگ واقعی یا packet loss مسابقه نیست.';
+ logEvent('Game UDP echo',summary,'انجام شد');
+}
+function runUdpComparison(){const button=$('#startUdpCompare');button.disabled=true;button.textContent='◌ در حال نمونه‌برداری…';$('#udpComparisonStatus').textContent='در حال ارسال درخواست‌های UDP مستقیم و VPN…';nativeAction('testUdpRoutes')}
+function onNetPulseUdpComparison(result){const button=$('#startUdpCompare');button.disabled=false;button.textContent='↔ اجرای دوباره مقایسه';if(!result||!result.ok){const message=(result&&result.message)||'UDP route comparison failed';$('#udpComparisonStatus').textContent='مقایسه انجام نشد: '+message;$('#udpComparisonDetail').textContent='اتصال sing-box و حالت Game-only را بررسی کن. اگر خطا باقی ماند، ممکن است شبکه یا STUN endpoint ترافیک UDP را مسدود کرده باشد.';logEvent('UDP compare',message,'ناموفق');return;}const direct=result.direct,vpn=result.vpn;const fmt=v=>v===null||v===undefined?'—':(Math.round(v*10)/10)+' ms';const directMedian=direct.medianMs,vpnMedian=vpn.medianMs;const delta=(directMedian===null||vpnMedian===null)?null:vpnMedian-directMedian;$('#udpDirectMedian').textContent=fmt(directMedian);$('#udpVpnMedian').textContent=fmt(vpnMedian);$('#udpDelta').textContent=delta===null?'—':((delta>0?'+':'')+(Math.round(delta*10)/10)+' ms');$('#udpDirectLoss').textContent=Math.round(direct.failurePercent)+'%';$('#udpVpnLoss').textContent=Math.round(vpn.failurePercent)+'%';$('#udpDirectJitter').textContent=fmt(direct.jitterMs);$('#udpVpnJitter').textContent=fmt(vpn.jitterMs);const summary='مستقیم: '+direct.successful+'/'+direct.attempts+' پاسخ · VPN: '+vpn.successful+'/'+vpn.attempts+' پاسخ';$('#udpComparisonStatus').textContent=summary+(delta===null?'':' · اختلاف میانه VPN نسبت به مستقیم: '+(delta>0?'+':'')+(Math.round(delta*10)/10)+' ms');$('#udpComparisonDetail').textContent='مقصد '+result.host+':'+result.port+' · Jitter مستقیم '+fmt(direct.jitterMs)+' · Jitter VPN '+fmt(vpn.jitterMs)+' · عدم پاسخ‌ها فقط timeout پروب STUN هستند، نه packet loss سرور بازی. این نتیجه نماینده مسیر بازی نیست.';logEvent('UDP compare',summary+(delta===null?'':' · Δ '+delta.toFixed(1)+' ms'),'انجام شد')}
+const LOG_STORAGE_KEY='np-event-logs';const MAX_LOG_EVENTS=200;
+function getLogHistory(){try{const value=JSON.parse(readPref(LOG_STORAGE_KEY)||'[]');return Array.isArray(value)?value.filter(x=>x&&typeof x==='object').slice(0,MAX_LOG_EVENTS):[]}catch(error){return []}}
+function renderLogs(events=getLogHistory()){const body=$('#logRows');if(!body)return;body.replaceChildren();if(!events.length){const row=document.createElement('tr');const cell=document.createElement('td');cell.colSpan=4;cell.textContent='هنوز رویدادی ثبت نشده است.';row.appendChild(cell);body.appendChild(row);return;}events.forEach(event=>{const row=document.createElement('tr');const time=document.createElement('td');const type=document.createElement('td');const message=document.createElement('td');const status=document.createElement('td');const date=Number(event.at)||Date.now();time.textContent=new Date(date).toLocaleString('fa-IR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});type.textContent=String(event.type||'System');message.textContent=String(event.message||'');status.textContent=String(event.result||'ثبت شد');status.className=event.result==='ناموفق'?'bad':'good';row.append(time,type,message,status);body.appendChild(row)});filterLogs()}
+function logEvent(type,message,result){const events=getLogHistory();events.unshift({at:Date.now(),type:String(type),message:String(message),result:String(result)});const bounded=events.slice(0,MAX_LOG_EVENTS);writePref(LOG_STORAGE_KEY,JSON.stringify(bounded));renderLogs(bounded)}
+function clearLogs(){writePref(LOG_STORAGE_KEY,'[]');renderLogs([]);toast('گزارش‌های ذخیره‌شده پاک شدند.')}
+function filterLogs(){const input=$('#logSearch');if(!input)return;const q=input.value.toLocaleLowerCase();Array.from(document.querySelectorAll('#logRows tr')).forEach(row=>row.style.display=row.textContent.toLocaleLowerCase().includes(q)?'':'none')}
+Array.from(document.querySelectorAll('[data-settings]')).forEach(b=>b.addEventListener('click',()=>{Array.from(document.querySelectorAll('[data-settings]')).forEach(x=>x.classList.toggle('active',x===b));['general','monitor','alerts','engines','security'].forEach(k=>$('#settings-'+k).hidden=k!==b.dataset.settings)}));
+const memoryPrefs=Object.create(null);
+function readPref(key){try{return window.localStorage.getItem(key)}catch(error){return memoryPrefs[key]??null}}
+function writePref(key,value){memoryPrefs[key]=value;try{window.localStorage.setItem(key,value)}catch(error){}}
+const GAME_SESSION_HISTORY_KEY='np-game-sessions-v1';
+const GAME_SESSION_ACTIVE_KEY='np-game-session-active-v1';
+const GAME_SESSION_LIMIT=40;
+function readStoredJson(key,fallback){try{const raw=readPref(key);return raw?JSON.parse(raw):fallback}catch(error){return fallback}}
+let gameSessionHistory=readStoredJson(GAME_SESSION_HISTORY_KEY,[]);
+if(!Array.isArray(gameSessionHistory))gameSessionHistory=[];
+gameSessionHistory=gameSessionHistory.filter(x=>x&&typeof x==='object').slice(0,GAME_SESSION_LIMIT);
+let activeGameSession=readStoredJson(GAME_SESSION_ACTIVE_KEY,null);
+if(!activeGameSession||typeof activeGameSession!=='object')activeGameSession=null;
+function saveGameSessionState(){writePref(GAME_SESSION_HISTORY_KEY,JSON.stringify(gameSessionHistory.slice(0,GAME_SESSION_LIMIT)));writePref(GAME_SESSION_ACTIVE_KEY,activeGameSession?JSON.stringify(activeGameSession):'')}
+function formatSessionDuration(ms){const seconds=Math.max(0,Math.floor(ms/1000)),hours=Math.floor(seconds/3600),minutes=Math.floor(seconds%3600/60),rest=seconds%60;return hours?hours+' ساعت '+minutes+' دقیقه':minutes?minutes+' دقیقه '+rest+' ثانیه':rest+' ثانیه'}
+function renderGameSessionHistory(){
+ const list=$('#gameSessionHistory');if(!list)return;list.replaceChildren();
+ const now=Date.now();
+ const totalMs=gameSessionHistory.reduce((sum,item)=>sum+Math.max(0,(item.endedAt||item.startedAt)-item.startedAt),0)+(activeGameSession?Math.max(0,now-activeGameSession.startedAt):0);
+ $('#gameSessionCount').textContent=(gameSessionHistory.length+(activeGameSession?1:0))+' جلسه';
+ $('#gameSessionTotal').textContent=formatSessionDuration(totalMs);
+ $('#gameSessionActive').textContent=activeGameSession?(activeGameSession.label||activeGameSession.packageName):'—';
+ $('#gameSessionAverage').textContent=activeGameSession&&activeGameSession.sampleCount?((activeGameSession.downloadMbpsSum/activeGameSession.sampleCount).toFixed(2)+' Mbps'):'—';
+ if(activeGameSession){
+  const current=document.createElement('div');current.className='event';
+  const icon=document.createElement('div');icon.className='event-icon';icon.textContent='▶';
+  const copy=document.createElement('div');copy.className='event-copy';
+  const title=document.createElement('b');title.textContent='در حال ثبت · '+(activeGameSession.label||activeGameSession.packageName);
+  const detail=document.createElement('p');detail.textContent='مدت '+formatSessionDuration(now-activeGameSession.startedAt)+' · میانگین دانلود '+(activeGameSession.sampleCount?(activeGameSession.downloadMbpsSum/activeGameSession.sampleCount).toFixed(2):'—')+' Mbps · اوج دانلود '+(activeGameSession.peakDownloadMbps||0).toFixed(2)+' Mbps';
+  copy.append(title,detail);current.append(icon,copy);list.appendChild(current);
+ }
+ if(!gameSessionHistory.length&&!activeGameSession){const empty=document.createElement('p');empty.className='engine-message';empty.textContent='هنوز جلسه‌ای ثبت نشده است. تشخیص خودکار بازی را فعال نگه دار و NetPulse را باز بگذار.';list.appendChild(empty);return;}
+ gameSessionHistory.slice(0,12).forEach(item=>{
+  const row=document.createElement('div');row.className='event';
+  const icon=document.createElement('div');icon.className='event-icon';icon.textContent='◷';
+  const copy=document.createElement('div');copy.className='event-copy';
+  const title=document.createElement('b');title.textContent=(item.label||item.packageName)+' · '+formatSessionDuration(item.durationMs||0);
+  const detail=document.createElement('p');detail.textContent=new Date(item.startedAt).toLocaleString('fa-IR')+' · میانگین دانلود '+(item.sampleCount?(item.downloadMbpsSum/item.sampleCount).toFixed(2):'—')+' Mbps · آپلود '+(item.sampleCount?(item.uploadMbpsSum/item.sampleCount).toFixed(2):'—')+' Mbps · '+(item.sampleCount||0)+' نمونه';
+  copy.append(title,detail);row.append(icon,copy);list.appendChild(row);
+ });
+}
+function closeGameSession(reason,endedAtOverride){
+ if(!activeGameSession)return;
+ const endedAt=Math.max(activeGameSession.startedAt,Math.min(Date.now(),Number(endedAtOverride)||Date.now()));
+ const item={...activeGameSession,endedAt,durationMs:endedAt-activeGameSession.startedAt,endReason:reason||'game-ended'};
+ if(item.durationMs>=3000&&item.sampleCount>0){gameSessionHistory.unshift(item);gameSessionHistory=gameSessionHistory.slice(0,GAME_SESSION_LIMIT);}
+ activeGameSession=null;saveGameSessionState();renderGameSessionHistory();
+}
+function trackGameSession(state){
+ const now=Date.now();
+ const enabled=!!(state.autoGameDetectionEnabled&&state.usageAccessGranted);
+ const packageName=enabled&&typeof state.activeGamePackage==='string'?state.activeGamePackage:'';
+ const staleSession=activeGameSession&&now-activeGameSession.lastSampleAt>12000;
+ if(!packageName){
+  closeGameSession(enabled?'no-active-game':'monitoring-unavailable',staleSession?activeGameSession.lastSampleAt:now);
+  renderGameSessionHistory();return;
+ }
+ if(activeGameSession&&activeGameSession.packageName!==packageName){
+  closeGameSession('game-changed',staleSession?activeGameSession.lastSampleAt:now);
+ }
+ if(activeGameSession&&now-activeGameSession.lastSampleAt>12000){
+  closeGameSession('sampling-gap',activeGameSession.lastSampleAt);
+ }
+ if(!activeGameSession){
+  activeGameSession={packageName,label:state.activeGameLabel||packageName,startedAt:now,lastSampleAt:now,sampleCount:0,downloadMbpsSum:0,uploadMbpsSum:0,peakDownloadMbps:0,peakUploadMbps:0,estimatedDownloadBytes:0,estimatedUploadBytes:0};
+  saveGameSessionState();
+ }
+ const elapsed=now-activeGameSession.lastSampleAt;
+ if(elapsed>=500){
+  const hasRates=state.activeGameDownloadMbps!==null&&state.activeGameDownloadMbps!==undefined&&state.activeGameUploadMbps!==null&&state.activeGameUploadMbps!==undefined;
+  const down=hasRates?Number(state.activeGameDownloadMbps):NaN;
+  const up=hasRates?Number(state.activeGameUploadMbps):NaN;
+  if(Number.isFinite(down)&&Number.isFinite(up)&&down>=0&&up>=0){
+   activeGameSession.sampleCount++;
+   activeGameSession.downloadMbpsSum+=down;
+   activeGameSession.uploadMbpsSum+=up;
+   activeGameSession.peakDownloadMbps=Math.max(activeGameSession.peakDownloadMbps,down);
+   activeGameSession.peakUploadMbps=Math.max(activeGameSession.peakUploadMbps,up);
+   activeGameSession.estimatedDownloadBytes+=(down*1000000/8)*(elapsed/1000);
+   activeGameSession.estimatedUploadBytes+=(up*1000000/8)*(elapsed/1000);
+  }
+  activeGameSession.lastSampleAt=now;
+ }
+ saveGameSessionState();renderGameSessionHistory();
+}
+function exportGameSessions(){
+ const data={exportedAt:new Date().toISOString(),scope:'NetPulse process-lifetime Usage Access sampling; Android may reclaim the background process',sessions:gameSessionHistory,activeSession:activeGameSession};
+ const payload=JSON.stringify(data,null,2);
+ if(!window.NetPulse){toast('رابط ذخیره فایل در دسترس نیست.');return;}
+ if(new Blob([payload]).size>524288){toast('حجم خروجی از ۵۱۲ کیلوبایت بیشتر است.');return;}
+ nativeAction('exportGameSessions',payload);
+}
+function clearGameSessions(){
+ if(!confirm('تاریخچه محلی جلسات بازی پاک شود؟'))return;
+ gameSessionHistory=[];activeGameSession=null;saveGameSessionState();renderGameSessionHistory();toast('تاریخچه جلسات بازی پاک شد.');
+}
+function applyUiPreferences(){
+ document.documentElement.classList.toggle('no-motion',readPref('np-pref-motion')==='false');
+ nativeAction('setLiveRefresh',readPref('np-pref-live')!=='false');
+}
+Array.from(document.querySelectorAll('.switch')).forEach(button=>{
+ const key='np-pref-'+(button.dataset.pref||'generic');
+ button.classList.toggle('on',readPref(key)!=='false');
+ button.addEventListener('click',()=>{
+  button.classList.toggle('on');
+  writePref(key,button.classList.contains('on')?'true':'false');
+  if(button.dataset.pref==='motion')applyUiPreferences();
+  if(button.dataset.pref==='live')nativeAction('setLiveRefresh',button.classList.contains('on'));
+ });
+});
+applyUiPreferences();
+function runGameServerComparison(){const host=$('#gameServerHost').value.trim();const port=Number($('#gameServerPort').value);if(!host||!Number.isInteger(port)||port<1||port>65535){toast('میزبان و پورت TCP معتبر وارد کن.');return;}$('#gameServerProbeButton').disabled=true;$('#gameServerProbeButton').textContent='◌ در حال مقایسه…';$('#gameServerProbeStatus').textContent='در حال سنجش مسیر مستقیم و VPN…';nativeAction('testGameServer',JSON.stringify({host,port}))}
+function onNetPulseGameServerComparison(result){const button=$('#gameServerProbeButton');button.disabled=false;button.textContent='↔ مقایسه مستقیم و VPN';if(!result||!result.ok){$('#gameServerProbeStatus').textContent='مقایسه انجام نشد: '+(result&&result.message||'خطای نامشخص');logEvent('Game target TCP','مقایسه ناموفق','ناموفق');return;}const fmt=v=>v===null||v===undefined?'—':(Math.round(v*10)/10)+' ms';const d=result.direct,v=result.vpn;const delta=d.medianMs===null||v.medianMs===null?null:v.medianMs-d.medianMs;$('#gameDirectMedian').textContent=fmt(d.medianMs);$('#gameVpnMedian').textContent=fmt(v.medianMs);$('#gameVpnDelta').textContent=delta===null?'—':((delta>0?'+':'')+fmt(delta));$('#gameDirectJitter').textContent=fmt(d.variationMs);$('#gameVpnJitter').textContent=fmt(v.variationMs);$('#gameDirectFailures').textContent=Math.round(d.failurePercent)+'%';$('#gameVpnFailures').textContent=Math.round(v.failurePercent)+'%';const message=result.host+':'+result.port+' · IP '+result.address+' · مستقیم '+d.successful+'/'+d.attempts+' · VPN '+v.successful+'/'+v.attempts;$('#gameServerProbeStatus').textContent=message;$('#gameServerProbeDetail').textContent='میانه TCP مستقیم '+fmt(d.medianMs)+' · میانه VPN '+fmt(v.medianMs)+' · اختلاف '+(delta===null?'—':fmt(delta))+' · نوسان مستقیم '+fmt(d.variationMs)+' · نوسان VPN '+fmt(v.variationMs)+'. خطای اتصال TCP فقط شکست handshake است و packet loss بازی محسوب نمی‌شود.';logEvent('Game target TCP',message,'انجام شد')}
+window.netPulseApplyState=applyState;window.netPulseMessage=onNetPulseMessage;window.netPulseLatencyStats=onNetPulseLatencyStats;window.netPulseUdpComparison=onNetPulseUdpComparison;window.netPulseGameServerComparison=onNetPulseGameServerComparison;window.netPulseGameServerComparison=onNetPulseEndpointStats;
+document.addEventListener('DOMContentLoaded',()=>{renderLogs();renderGameSessionHistory();pullState();setInterval(()=>{if(readPref('np-pref-live')!=='false')pullState();if(activeGameSession)renderGameSessionHistory()},1000)});
+</script>
+</body></html>
