@@ -168,8 +168,16 @@ class VpnGateCatalogTest {
         val header = "#HostName,IP,Score,Ping,Speed,CountryLong,CountryShort,NumVpnSessions,Uptime,TotalUsers,TotalTraffic,LogType,Operator,Message,OpenVPN_ConfigData_Base64"
         val parsed = VpnGateCatalog.parse("*vpn_servers\n" + header + "\n" + rows + "\n*end")
         assertTrue(parsed.isNotEmpty())
-        assertTrue(VpnGateCatalog.lastDiagnostics.profilesChecked <= 400)
-        assertTrue(parsed.size <= 60)
+        assertTrue(VpnGateCatalog.lastDiagnostics.profilesChecked <= 160)
+        assertTrue(parsed.size <= 40)
+    }
+
+    @Test
+    fun recordsCompletedParsingStageAndKeepsWorkBounded() {
+        val parsed = VpnGateCatalog.parse(csv())
+        assertEquals(1, parsed.size)
+        assertTrue(VpnGateCatalog.lastDiagnostics.profilesChecked <= 160)
+        assertTrue(VpnGateCatalog.lastDiagnostics.profilesAccepted <= 40)
     }
 
     @Test
