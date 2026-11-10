@@ -75,3 +75,8 @@ The service is not operated by NetPulse. Relays are volunteer-run, may be unreli
 ## Public relay dashboard changes in 0.6.4
 
 The VPN Gate panel is now placed near the top of the Servers screen and uses responsive server cards with search, country filtering, source-reported ping/speed/session metadata, explicit loading/error/empty states, and a collapsible privacy explanation. Directory-reported Ping and Speed are not device-measured gameplay quality.
+
+
+## 0.6.5 reliability
+
+The VPN Gate catalogue now streams CSV records rather than holding the full response and a second array of row strings in memory. Work is capped to the best 160 candidates and 40 importable profiles. Parsing stages are included in the UI's failure diagnostics. A small local crash report can be copied after the next launch if a Java/Kotlin exception terminates the app.
