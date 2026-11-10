@@ -1,9 +1,15 @@
 package com.rmgb.netpulse
 
+import java.io.BufferedReader
+import java.io.FilterInputStream
+import java.io.InputStream
+import java.io.InputStreamReader
+import java.io.StringReader
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Base64
 import java.util.Locale
+import java.util.PriorityQueue
 
 data class VpnGateServer(
     val hostName: String,
@@ -31,15 +37,19 @@ data class VpnGateCatalogDiagnostics(
 
 object VpnGateCatalog {
     const val API_URL = "https://www.vpngate.net/api/iphone/"
-    const val MAX_RESPONSE_BYTES = 16 * 1024 * 1024
-    private const val MAX_CONFIG_BYTES = 512 * 1024
-    private const val MAX_CANDIDATES_TO_VALIDATE = 400
-    private const val MAX_RESULTS = 60
+    const val MAX_RESPONSE_BYTES = 8 * 1024 * 1024
+    private const val MAX_CONFIG_BYTES = 256 * 1024
+    private const val MAX_CANDIDATES_TO_VALIDATE = 160
+    private const val MAX_RESULTS = 40
     private const val CONNECT_TIMEOUT_MS = 9000
-    private const val READ_TIMEOUT_MS = 15000
+    private const val READ_TIMEOUT_MS = 12000
 
     @Volatile
     var lastDiagnostics: VpnGateCatalogDiagnostics = VpnGateCatalogDiagnostics()
+        private set
+
+    @Volatile
+    var lastStage: String = "idle"
         private set
 
     private data class Candidate(
@@ -59,7 +69,33 @@ object VpnGateCatalog {
             .thenByDescending { it.speedMbps ?: 0.0 }
             .thenBy { it.sessions }
 
+    private class BoundedInputStream(input: InputStream, private val limit: Int) :
+        FilterInputStream(input) {
+        private var count = 0
+
+        override fun read(): Int {
+            val value = super.read()
+            if (value >= 0) addCount(1)
+            return value
+        }
+
+        override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+            val read = super.read(buffer, offset, minOf(length, limit - count + 1))
+            if (read > 0) addCount(read)
+            return read
+        }
+
+        private fun addCount(amount: Int) {
+            count += amount
+            require(count <= limit) {
+                "VPN Gate response exceeded the 8 MiB safety limit."
+            }
+        }
+    }
+
+    @Synchronized
     fun fetch(): List<VpnGateServer> {
+        lastStage = "connecting"
         val connection = URL(API_URL).openConnection() as HttpURLConnection
         try {
             connection.requestMethod = "GET"
@@ -68,9 +104,10 @@ object VpnGateCatalog {
             connection.readTimeout = READ_TIMEOUT_MS
             connection.useCaches = false
             connection.setRequestProperty("Accept", "text/csv,text/plain")
-            connection.setRequestProperty("User-Agent", "NetPulse-Android/0.6.4")
+            connection.setRequestProperty("User-Agent", "NetPulse-Android/0.6.5")
             connection.setRequestProperty("Connection", "close")
 
+            lastStage = "checking-http"
             val status = connection.responseCode
             require(status == HttpURLConnection.HTTP_OK) {
                 "VPN Gate returned HTTP $status. Check the connection and try again."
@@ -79,23 +116,18 @@ object VpnGateCatalog {
                 "VPN Gate directory must be fetched over HTTPS."
             }
 
-            val bytes = connection.inputStream.use { input ->
-                val output = java.io.ByteArrayOutputStream(256 * 1024)
-                val buffer = ByteArray(8192)
-                var total = 0
-                while (true) {
-                    val count = input.read(buffer)
-                    if (count < 0) break
-                    total += count
-                    require(total <= MAX_RESPONSE_BYTES) {
-                        "The VPN Gate list is larger than the safe 16 MiB limit."
-                    }
-                    output.write(buffer, 0, count)
+            lastStage = "streaming-csv"
+            val result = connection.inputStream.use { raw ->
+                val bounded = BoundedInputStream(raw, MAX_RESPONSE_BYTES)
+                BufferedReader(InputStreamReader(bounded, Charsets.UTF_8), 16 * 1024).use { reader ->
+                    parseReader(reader)
                 }
-                output.toByteArray()
             }
-            require(bytes.isNotEmpty()) { "VPN Gate returned an empty response." }
-            return parse(bytes.toString(Charsets.UTF_8))
+            lastStage = "complete"
+            return result
+        } catch (error: Exception) {
+            lastStage = "failed"
+            throw error
         } finally {
             connection.disconnect()
         }
@@ -103,18 +135,27 @@ object VpnGateCatalog {
 
     fun parse(csv: String): List<VpnGateServer> {
         require(csv.toByteArray(Charsets.UTF_8).size <= MAX_RESPONSE_BYTES) {
-            "VPN Gate CSV exceeds the 16 MiB limit."
+            "VPN Gate CSV exceeds the 8 MiB limit."
         }
+        return BufferedReader(StringReader(csv)).use { parseReader(it) }
+    }
 
-        val lines = csv.replace("\r\n", "\n").replace('\r', '\n').lines()
-        val headerLineIndex = lines.indexOfFirst {
-            it.trimStart().removePrefix("#").trimStart().startsWith("HostName,", ignoreCase = true)
+    private fun parseReader(reader: BufferedReader): List<VpnGateServer> {
+        lastStage = "reading-header"
+        var headerLine: String? = null
+        while (true) {
+            val line = reader.readLine() ?: break
+            val normalized = line.trimStart().removePrefix("#").trimStart()
+            if (normalized.startsWith("HostName,", ignoreCase = true)) {
+                headerLine = line
+                break
+            }
         }
-        require(headerLineIndex >= 0) {
+        require(headerLine != null) {
             "VPN Gate response did not contain the expected CSV header."
         }
 
-        val headers = parseCsvLine(lines[headerLineIndex].trim().removePrefix("#"))
+        val headers = parseCsvLine(headerLine!!.trim().removePrefix("#"))
             .map { it.trim().lowercase(Locale.ROOT) }
         val index = headers.withIndex().associate { it.value to it.index }
         val required = listOf(
@@ -123,7 +164,7 @@ object VpnGateCatalog {
         )
         val missingColumns = required.filterNot(index::containsKey)
         require(missingColumns.isEmpty()) {
-            "VPN Gate CSV is missing columns: ${missingColumns.joinToString()}"
+            "VPN Gate CSV is missing columns: ${missingColumns.joinToString()}."
         }
 
         val rejected = linkedMapOf<String, Int>()
@@ -137,11 +178,17 @@ object VpnGateCatalog {
 
         var rowsSeen = 0
         var rowsWithMetadata = 0
-        val candidates = ArrayList<Candidate>(MAX_CANDIDATES_TO_VALIDATE + 1)
+        val bestCandidates = PriorityQueue<Candidate>(
+            MAX_CANDIDATES_TO_VALIDATE + 1,
+            candidateOrder.reversed()
+        )
 
-        for (line in lines.drop(headerLineIndex + 1)) {
+        lastStage = "reading-rows"
+        while (true) {
+            val line = reader.readLine() ?: break
             if (line.isBlank() || line.trimStart().startsWith("*") || line.trimStart().startsWith("#")) continue
             rowsSeen++
+
             val fieldsResult = runCatching { parseCsvLine(line) }
             if (fieldsResult.isFailure) {
                 reject("csv", fieldsResult.exceptionOrNull()?.message)
@@ -159,7 +206,7 @@ object VpnGateCatalog {
             }
             rowsWithMetadata++
 
-            candidates += Candidate(
+            val candidate = Candidate(
                 host = host,
                 ip = ip,
                 country = field("countrylong").ifBlank { field("countryshort") },
@@ -170,17 +217,18 @@ object VpnGateCatalog {
                 uptimeMinutes = field("uptime").toLongOrNull()?.coerceAtLeast(0L) ?: 0L,
                 encodedProfile = encoded
             )
-            if (candidates.size > MAX_CANDIDATES_TO_VALIDATE) {
-                candidates.sortWith(candidateOrder)
-                candidates.removeAt(candidates.lastIndex)
+            bestCandidates.add(candidate)
+            if (bestCandidates.size > MAX_CANDIDATES_TO_VALIDATE) {
+                bestCandidates.poll()
             }
         }
 
-        candidates.sortWith(candidateOrder)
+        val candidates = bestCandidates.toList().sortedWith(candidateOrder)
         var profilesChecked = 0
         var profilesDecoded = 0
         val accepted = ArrayList<VpnGateServer>(MAX_RESULTS)
 
+        lastStage = "validating-profiles"
         for (candidate in candidates) {
             if (accepted.size >= MAX_RESULTS) break
             profilesChecked++
@@ -197,18 +245,17 @@ object VpnGateCatalog {
             }
             profilesDecoded++
 
-            val rawProfile = decoded.toString(Charsets.UTF_8)
-            val profile = ensureInAppUserPass(rawProfile)
+            val profile = ensureInAppUserPass(decoded.toString(Charsets.UTF_8))
             if (!isCompatibleOpenVpnProfile(profile, candidate.ip, candidate.host)) {
                 reject("unsupported-profile")
                 continue
             }
 
-            val importResult = runCatching {
+            val imported = runCatching {
                 OpenVpnProfileImporter.importProfile(profile, OpenVpnCredentials("vpn", "vpn"))
             }
-            if (importResult.isFailure) {
-                reject("importer", importResult.exceptionOrNull()?.message)
+            if (imported.isFailure) {
+                reject("importer", imported.exceptionOrNull()?.message)
                 continue
             }
 
