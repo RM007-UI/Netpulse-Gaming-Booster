@@ -19,6 +19,7 @@ const tcpEndpoint = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/TcpEndp
 const udpEchoProbe = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/UdpEchoProbe.kt", "utf8");
 const udpEchoCodec = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/UdpEchoPacketCodec.kt", "utf8");
 const vpnGateCatalog = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/VpnGateCatalog.kt", "utf8");
+const vpnConnectionPolicy = fs.readFileSync("app/src/main/java/com/rmgb/netpulse/VpnConnectionPolicy.kt", "utf8");
 const manifest = fs.readFileSync("app/src/main/AndroidManifest.xml", "utf8");
 const scripts = html.split("<script>").slice(1).map(part => part.split("</script>")[0]);
 assert.equal(scripts.length, 1, "Expected one bundled application script");
@@ -117,6 +118,16 @@ assert.match(vpnGateCatalog, /lastStage = "importing-profile"/);
 assert.match(activity, /OpenVpnCredentials\("vpn", "vpn"\)/);
 assert.match(activity, /connectAfterImport = true/);
 assert.match(activity, /publicVpnGateServers\.firstOrNull/);
+assert.match(activity, /private fun isForeignVpnNetworkActive\(\)/);
+assert.match(activity, /VpnConnectionPolicy\.isForeignVpnActive\(hasAnyActiveVpnNetwork\(\), ownVpnActive\)/);
+assert.match(activity, /public-relay:blocked-foreign-vpn/);
+assert.match(activity, /singbox:blocked-foreign-vpn/);
+assert.match(activity, /requestSingBoxConnection\(imported\.json\)/);
+assert.match(activity, /singbox:foreground-service-started/);
+assert.match(vpnConnectionPolicy, /hasAnyVpnNetwork && !netPulseOwnsVpn/);
+assert.match(application, /\.putString\(KEY_LAST_STAGE, stage\.take\(120\)\)[\s\S]*?\.commit\(\)/);
+assert.match(vpnService, /singbox-service:native-start-begin/);
+assert.match(vpnService, /singbox-service:native-start-returned/);
 assert.match(vpnGateCatalog, /https:\/\/www\.vpngate\.net\/api\/iphone\//);
 assert.match(vpnGateCatalog, /instanceFollowRedirects = false/);
 assert.match(vpnGateCatalog, /openvpn_configdata_base64/i);
@@ -247,7 +258,7 @@ assert.match(openVpnImporter, /openvpn-client/);
 assert.match(protocolCatalog, /openvpn_udp.*EngineState\.AVAILABLE/);
 assert.match(protocolCatalog, /ikev2_ipsec.*EngineState\.AVAILABLE/);
 
-assert.ok(html.includes("v0.6.6"), "Dashboard version badge must match 0.6.6");
+assert.ok(html.includes("v0.6.7"), "Dashboard version badge must match 0.6.7");
 console.log("PASS 3/5 — game routing, foreground detection, TCP/UDP probes, URLTest and VPN safety are wired");
 
 // PASS 4 — Android 15 system bars and cutout insets are applied to the WebView viewport.
@@ -270,7 +281,7 @@ assert.match(activity, /settings\.allowContentAccess = false/);
 assert.match(activity, /settings\.allowUniversalAccessFromFileURLs = false/);
 assert.match(activity, /settings\.blockNetworkLoads = true/);
 assert.match(activity, /file:\/\/\/android_asset\/netpulse\/index\.html/);
-assert.ok(html.includes("v0.6.6"), "Dashboard version badge must match 0.6.6");
+assert.ok(html.includes("v0.6.7"), "Dashboard version badge must match 0.6.7");
 console.log("PASS 5/5 — mobile navigation, local storage fallback and WebView isolation verified");
-assert.ok(html.includes("v0.6.6"), "Dashboard release badge must match version 0.6.6");
+assert.ok(html.includes("v0.6.7"), "Dashboard release badge must match version 0.6.7");
 console.log("NetPulse UI regression checks: 5/5 passed");
